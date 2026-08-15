@@ -4,6 +4,7 @@ import { communityLikes, communityPosts, communityReports, creditLedger, creditP
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
+import { shouldCreateArchivedAlbumReminder } from "./archivedAlbumReminderPolicy";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -428,15 +429,12 @@ export async function getScheduledJobByTaskUid(taskUid: string) {
 export async function runArchivedAlbumReminderSweep(now = new Date()) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
-  const threshold = new Date(now);
-  threshold.setUTCMonth(threshold.getUTCMonth() - 6);
   return db.transaction(async (tx) => {
     const archivedAlbums = await tx.select().from(photoAlbums).where(eq(photoAlbums.isArchived, true));
     let reminded = 0;
     for (const album of archivedAlbums) {
-      if (album.lastAccessedAt >= threshold || (album.lastInactivityReminderAt && album.lastInactivityReminderAt >= threshold)) continue;
       const preferences = await tx.select({ accountActivity: userNotificationPreferences.accountActivity }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, album.userId)).limit(1);
-      if (!(preferences[0]?.accountActivity ?? true)) continue;
+      if (!shouldCreateArchivedAlbumReminder(album, preferences[0]?.accountActivity ?? true, now)) continue;
       await tx.insert(userNotifications).values({ userId: album.userId, kind: "album_inactivity", title: "Album terarsip belum dibuka", content: `Album “${album.name}” belum dibuka selama lebih dari enam bulan. Frame di dalamnya tetap aman.`, relatedAlbumId: album.id });
       await tx.update(photoAlbums).set({ lastInactivityReminderAt: now }).where(eq(photoAlbums.id, album.id));
       reminded += 1;
