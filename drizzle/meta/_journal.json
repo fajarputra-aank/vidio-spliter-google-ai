@@ -15,6 +15,13 @@
       "when": 1786768263769,
       "tag": "0001_remarkable_texas_twister",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786768857560,
+      "tag": "0002_silky_hellcat",
+      "breakpoints": true
     }
   ]
 }

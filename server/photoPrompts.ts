@@ -4,9 +4,11 @@
  */
 export const recipeIds = ["headshot", "product", "food", "social"] as const;
 export const aspectRatioIds = ["1:1", "16:9", "9:16"] as const;
+export const styleIds = ["editorial", "realistic", "anime"] as const;
 
 export type RecipeId = (typeof recipeIds)[number];
 export type AspectRatioId = (typeof aspectRatioIds)[number];
+export type StyleId = (typeof styleIds)[number];
 
 export const photoRecipes: Record<RecipeId, { title: string; prompt: string }> = {
   headshot: {
@@ -33,6 +35,16 @@ const aspectDirections: Record<AspectRatioId, string> = {
   "9:16": "Compose the final image in a vertical 9:16 format for mobile social stories, keeping the important subject fully visible through the central safe area.",
 };
 
-export function buildTransformPrompt(recipeId: RecipeId, aspectRatio: AspectRatioId = "1:1") {
-  return `${photoRecipes[recipeId].prompt} ${aspectDirections[aspectRatio]}`;
+const styleDirections: Record<StyleId, string> = {
+  editorial: "Use a refined warm editorial-photo finish with controlled natural color and tactile film-like depth.",
+  realistic: "Use faithful photorealism with natural texture, physically plausible light, accurate material detail, and no illustrative simplification.",
+  anime: "Render as an original polished anime illustration with clean linework, expressive yet faithful proportions, cinematic cel shading, and an original visual language. Do not imitate a named artist or studio.",
+};
+
+export function buildTransformPrompt(
+  recipeId: RecipeId,
+  aspectRatio: AspectRatioId = "1:1",
+  style: StyleId = "editorial"
+) {
+  return `${photoRecipes[recipeId].prompt} ${styleDirections[style]} ${aspectDirections[aspectRatio]}`;
 }

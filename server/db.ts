@@ -96,3 +96,13 @@ export async function getDailyPhotoQuota(userId: number, now = new Date()) {
     .where(and(eq(photoTransforms.userId, userId), gte(photoTransforms.createdAt, start), lt(photoTransforms.createdAt, end)));
   return { ...dailyQuota(Number(result[0]?.used ?? 0)), resetsAt: end };
 }
+
+export async function getPhotoProfileSummary(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const [quota, totalResult] = await Promise.all([
+    getDailyPhotoQuota(userId),
+    db.select({ total: count() }).from(photoTransforms).where(eq(photoTransforms.userId, userId)),
+  ]);
+  return { quota, totalTransforms: Number(totalResult[0]?.total ?? 0) };
+}

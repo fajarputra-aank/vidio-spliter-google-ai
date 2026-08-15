@@ -6,12 +6,13 @@ import { generateImage } from "./_core/imageGeneration";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { systemRouter } from "./_core/systemRouter";
 import * as db from "./db";
-import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds } from "./photoPrompts";
+import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds, styleIds } from "./photoPrompts";
 import { storagePut } from "./storage";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
   aspectRatio: z.enum(aspectRatioIds),
+  style: z.enum(styleIds),
   fileName: z.string().min(1).max(180),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
   sourceData: z.string().min(16).max(8_000_000),
@@ -34,6 +35,10 @@ export const appRouter = router({
   photo: router({
     list: protectedProcedure.query(({ ctx }) => db.listPhotoTransforms(ctx.user.id)),
     quota: protectedProcedure.query(({ ctx }) => db.getDailyPhotoQuota(ctx.user.id)),
+    profile: protectedProcedure.query(async ({ ctx }) => ({
+      user: { name: ctx.user.name, email: ctx.user.email, createdAt: ctx.user.createdAt },
+      ...(await db.getPhotoProfileSummary(ctx.user.id)),
+    })),
     transform: protectedProcedure.input(imageInput).mutation(async ({ ctx, input }) => {
       const quota = await db.getDailyPhotoQuota(ctx.user.id);
       if (quota.exhausted) {
@@ -53,6 +58,7 @@ export const appRouter = router({
         userId: ctx.user.id,
         recipe: input.recipe,
         aspectRatio: input.aspectRatio,
+        style: input.style,
         title: photoRecipes[input.recipe].title,
         sourceKey: source.key,
         sourceUrl: source.url,
@@ -61,7 +67,7 @@ export const appRouter = router({
 
       try {
         const result = await generateImage({
-          prompt: buildTransformPrompt(input.recipe, input.aspectRatio),
+          prompt: buildTransformPrompt(input.recipe, input.aspectRatio, input.style),
           originalImages: [{ b64Json: input.sourceData, mimeType: input.mimeType }],
           quality: "medium",
         });

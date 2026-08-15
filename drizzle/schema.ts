@@ -21,6 +21,7 @@ export const photoTransforms = mysqlTable(
     userId: int("userId").notNull(),
     recipe: varchar("recipe", { length: 40 }).notNull(),
     aspectRatio: varchar("aspectRatio", { length: 8 }).notNull().default("1:1"),
+    style: varchar("style", { length: 24 }).notNull().default("editorial"),
     title: varchar("title", { length: 120 }).notNull(),
     sourceKey: varchar("sourceKey", { length: 512 }).notNull(),
     sourceUrl: text("sourceUrl").notNull(),

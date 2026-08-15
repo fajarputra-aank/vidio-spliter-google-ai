@@ -1,0 +1,1 @@
+ALTER TABLE `photoTransforms` ADD `style` varchar(24) DEFAULT 'editorial' NOT NULL;

@@ -17,4 +17,14 @@
 - [x] Tambahkan tombol bagikan hasil dengan Web Share API dan salin tautan sebagai fallback.
 - [x] Uji aturan kuota, prompt rasio, perilaku berbagi, dan responsivitas; lalu simpan checkpoint versi terbaru.
 - [x] Tambahkan pengujian terisolasi untuk berbagi melalui lembar perangkat dan fallback salin tautan.
-- [ ] Simpan serta serahkan checkpoint baru yang mencakup rasio, kuota, dan berbagi.
+- [x] Simpan serta serahkan checkpoint baru yang mencakup rasio, kuota, dan berbagi.
+- [x] Inisialisasi dan tulis skill reusable untuk membangun studio transformasi foto AI full-stack.
+- [x] Validasi skill reusable dan siapkan paket skill untuk pengguna.
+- [x] Rancang metadata gaya AI untuk anime dan realistis serta teruskan ke prompt transformasi.
+- [x] Tambahkan slider interaktif untuk membandingkan foto sumber dan hasil transformasi.
+- [x] Tambahkan halaman profil khusus berisi identitas, kuota harian, dan riwayat foto pengguna.
+- [x] Tambahkan rute serta navigasi profil yang aman dan responsif.
+- [x] Uji gaya AI, slider, profil, kuota, dan tampilan responsif; lalu simpan checkpoint baru.
+- [x] Tambahkan pengujian render untuk slider sebelum–sesudah dan verifikasi profil terautentikasi pada preview.
+- [x] Tambahkan pengujian prosedur profil terproteksi dengan konteks pengguna terautentikasi.
+- [ ] Simpan checkpoint baru untuk gaya AI, slider, dan profil; lalu serahkan checkpoint serta paket skill tervalidasi.
