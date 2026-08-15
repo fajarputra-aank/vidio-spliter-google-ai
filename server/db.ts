@@ -141,6 +141,19 @@ export async function refundPurchasedCredit(userId: number) {
   await db.insert(creditLedger).values({ userId, credits: 1, reason: "refund" });
 }
 
+export async function consumeHdExportCredit(userId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.transaction(async (tx) => {
+    const transform = await tx.select({ resultUrl: photoTransforms.resultUrl, status: photoTransforms.status }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId))).limit(1);
+    if (!transform[0]?.resultUrl || transform[0].status !== "completed") return { ok: false as const, reason: "not_ready" as const };
+    const balance = await tx.select({ value: sql<number>`coalesce(sum(${creditLedger.credits}), 0)` }).from(creditLedger).where(eq(creditLedger.userId, userId));
+    if (Number(balance[0]?.value ?? 0) < 1) return { ok: false as const, reason: "no_credit" as const };
+    await tx.insert(creditLedger).values({ userId, credits: -1, reason: "hd_export" });
+    return { ok: true as const, resultUrl: transform[0].resultUrl };
+  });
+}
+
 export async function fulfillCreditPurchase(input: { userId: number; pack: { id: CreditPackId; credits: number }; stripeCheckoutSessionId: string; stripeEventId: string }) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
@@ -188,6 +201,18 @@ export async function deleteCommunityPost(userId: number, postId: number) {
   if (!db) throw new Error("Basis data belum tersedia.");
   return db.transaction(async (tx) => {
     const post = await tx.select({ id: communityPosts.id }).from(communityPosts).where(and(eq(communityPosts.id, postId), eq(communityPosts.userId, userId))).limit(1);
+    if (!post[0]) return { success: false };
+    await tx.delete(communityLikes).where(eq(communityLikes.postId, postId));
+    await tx.delete(communityPosts).where(eq(communityPosts.id, postId));
+    return { success: true };
+  });
+}
+
+export async function moderateDeleteCommunityPost(postId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.transaction(async (tx) => {
+    const post = await tx.select({ id: communityPosts.id }).from(communityPosts).where(and(eq(communityPosts.id, postId), eq(communityPosts.isPublished, true))).limit(1);
     if (!post[0]) return { success: false };
     await tx.delete(communityLikes).where(eq(communityLikes.postId, postId));
     await tx.delete(communityPosts).where(eq(communityPosts.id, postId));

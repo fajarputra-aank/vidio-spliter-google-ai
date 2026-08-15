@@ -43,6 +43,17 @@ export const appRouter = router({
       user: { name: ctx.user.name, email: ctx.user.email, role: ctx.user.role, createdAt: ctx.user.createdAt },
       ...(await db.getPhotoProfileSummary(ctx.user.id)),
     })),
+    hdExport: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      if (hasUnlimitedTransforms(ctx.user.role)) {
+        const records = await db.listPhotoTransforms(ctx.user.id, true);
+        const record = records.find((item) => item.id === input.transformId && item.status === "completed" && item.resultUrl);
+        if (!record?.resultUrl) throw new TRPCError({ code: "NOT_FOUND", message: "Hasil HD belum tersedia." });
+        return { resultUrl: record.resultUrl, charged: false };
+      }
+      const result = await db.consumeHdExportCredit(ctx.user.id, input.transformId);
+      if (!result.ok) throw new TRPCError({ code: result.reason === "no_credit" ? "TOO_MANY_REQUESTS" : "NOT_FOUND", message: result.reason === "no_credit" ? "Kredit tidak cukup untuk unduhan HD." : "Hasil HD belum tersedia." });
+      return { resultUrl: result.resultUrl, charged: true };
+    }),
     transform: protectedProcedure.input(imageInput).mutation(async ({ ctx, input }) => {
       const sourceBuffer = Buffer.from(input.sourceData, "base64");
       if (!sourceBuffer.length || sourceBuffer.length > 5_500_000) {
@@ -105,6 +116,8 @@ export const appRouter = router({
   }),
   admin: router({
     dashboard: adminProcedure.query(() => db.getAdminDashboard()),
+    moderationList: adminProcedure.query(() => db.listCommunityPosts()),
+    moderateDeletePost: adminProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ input }) => db.moderateDeleteCommunityPost(input.postId)),
   }),
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE `creditLedger` MODIFY COLUMN `reason` enum('purchase','usage','refund','hd_export') NOT NULL;

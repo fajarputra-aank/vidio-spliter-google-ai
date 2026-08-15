@@ -42,7 +42,7 @@ export const creditLedger = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
     credits: int("credits").notNull(),
-    reason: mysqlEnum("reason", ["purchase", "usage", "refund"]).notNull(),
+    reason: mysqlEnum("reason", ["purchase", "usage", "refund", "hd_export"]).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   (table) => [index("creditLedger_user_created_idx").on(table.userId, table.createdAt)]

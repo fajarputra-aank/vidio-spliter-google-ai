@@ -49,4 +49,12 @@
 - [x] Tambahkan pilihan font, warna, dan drag-and-drop watermark pada editor hasil.
 - [x] Bangun halaman dashboard admin yang dilindungi peran serta kontrol privasi pada profil pengguna.
 - [x] Uji otorisasi, metrik, editor, privasi, dan responsivitas; lalu simpan checkpoint pembaruan.
-- [ ] Simpan checkpoint baru setelah perubahan dashboard admin, kontrol privasi karya, dan editor watermark lanjutan selesai diverifikasi.
+- [x] Simpan checkpoint baru setelah perubahan dashboard admin, kontrol privasi karya, dan editor watermark lanjutan selesai diverifikasi.
+- [x] Perbarui skill reusable agar mencakup moderasi publik dan ekspor HD berbasis kredit.
+- [x] Validasi skill reusable yang diperbarui dan siapkan paket untuk pengguna.
+- [x] Rancang biaya kredit ekspor HD dan audit pemakaian kredit yang dapat ditelusuri.
+- [x] Tambahkan tindakan moderator administrator untuk menghapus karya publik dan suka terkait secara aman.
+- [x] Tambahkan unduhan HD hasil berlapis teks/watermark yang mengonsumsi kredit secara aman.
+- [x] Uji moderasi admin, penggunaan kredit HD, ekspor hasil, serta responsivitas; lalu simpan checkpoint pembaruan.
+- [ ] Simpan checkpoint baru setelah fitur moderasi admin dan unduhan HD berbasis kredit selesai diverifikasi.
+- [ ] Serahkan paket skill ai-photo-studio-fullstack terbaru yang mencakup moderasi dan ekspor HD.
