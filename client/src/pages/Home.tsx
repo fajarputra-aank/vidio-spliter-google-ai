@@ -26,20 +26,26 @@ const assets = {
   food: "/manus-storage/lensa-saku-food_bf21e58e.jpg",
 };
 
-type Recipe = { id: "headshot" | "product" | "food" | "social" | "fashion" | "interior" | "restore" | "night"; name: string; category: string; label: string; description: string; image: string; prompt: string };
+type Recipe = { id: "headshot" | "beauty" | "background" | "product" | "food" | "social" | "fashion" | "interior" | "light" | "restore" | "detail" | "travel" | "night" | "sketch"; name: string; category: string; label: string; description: string; image: string; prompt: string };
 type UploadPayload = { base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; fileName: string };
 type OutputAspect = "1:1" | "16:9" | "9:16";
-type AiStyle = "editorial" | "realistic" | "anime" | "cinematic" | "vintage" | "pastel" | "minimal";
+type AiStyle = "editorial" | "realistic" | "anime" | "cinematic" | "vintage" | "pastel" | "minimal" | "monochrome" | "neon" | "watercolor";
 
 const recipes: Recipe[] = [
   { id: "headshot", name: "Headshot rapi", category: "Potret", label: "Paling dipilih", description: "Cahaya studio bersih untuk profil kerja dan CV.", image: assets.headshot, prompt: "cahaya studio lembut" },
+  { id: "beauty", name: "Retouch natural", category: "Potret", label: "Halus", description: "Rapikan cahaya dan detail kulit tanpa mengubah dirimu.", image: assets.headshot, prompt: "retouch jujur" },
+  { id: "background", name: "Latar studio bersih", category: "Produk", label: "Praktis", description: "Ganti gangguan di belakang dengan latar studio yang rapi.", image: assets.product, prompt: "latar studio netral" },
   { id: "product", name: "Produk katalog", category: "Produk", label: "Untuk jualan", description: "Rapi, terang, dan berfokus pada detail produk.", image: assets.product, prompt: "latar katalog hangat" },
   { id: "food", name: "Menu menggoda", category: "Makanan", label: "Baru", description: "Warna makanan diperkuat tanpa mengubah rasa alami.", image: assets.food, prompt: "nuansa menu editorial" },
   { id: "social", name: "Konten sosial", category: "Sosial", label: "Cepat pakai", description: "Kontras ringan untuk feed yang terasa lebih hidup.", image: assets.headshot, prompt: "warna editorial hangat" },
   { id: "fashion", name: "Kampanye fashion", category: "Fashion", label: "Editorial", description: "Rasa kampanye yang menonjolkan detail pakaian.", image: assets.headshot, prompt: "arah fashion campaign" },
   { id: "interior", name: "Ruang & properti", category: "Ruang", label: "Lebih terang", description: "Perspektif dan tekstur ruang terasa lebih rapi.", image: assets.product, prompt: "arsitektur editorial" },
+  { id: "light", name: "Cahaya seimbang", category: "Ruang", label: "Perbaikan", description: "Seimbangkan eksposur, bayangan, dan warna tanpa mengubah isi foto.", image: assets.product, prompt: "cahaya natural seimbang" },
   { id: "restore", name: "Pulihkan foto", category: "Restorasi", label: "Perbaikan", description: "Bersihkan kabut dan gores tanpa mengubah cerita.", image: assets.food, prompt: "restorasi natural" },
+  { id: "detail", name: "Detail lebih tajam", category: "Restorasi", label: "Jernih", description: "Kurangi noise dan lembutnya foto dengan detail yang tetap masuk akal.", image: assets.food, prompt: "detail natural" },
+  { id: "travel", name: "Perjalanan berkesan", category: "Kreatif", label: "Destinasi", description: "Perjelas atmosfer perjalanan tanpa mengubah lokasi atau momenmu.", image: assets.product, prompt: "travel editorial" },
   { id: "night", name: "Malam sinematik", category: "Kreatif", label: "Atmosfer", description: "Kontras malam dengan cahaya praktis yang realistis.", image: assets.product, prompt: "grade malam sinematik" },
+  { id: "sketch", name: "Sketsa editorial", category: "Kreatif", label: "Ilustrasi", description: "Ubah momen menjadi sketsa orisinal yang tetap setia pada subjek.", image: assets.headshot, prompt: "sketsa kontemporer" },
 ];
 
 const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }, { name: "Fashion", icon: Palette }, { name: "Ruang", icon: Camera }, { name: "Restorasi", icon: WandSparkles }, { name: "Kreatif", icon: Aperture }];
@@ -57,6 +63,9 @@ const styleOptions: Array<{ value: AiStyle; title: string; note: string }> = [
   { value: "vintage", title: "Vintage", note: "cetak analog" },
   { value: "pastel", title: "Pastel", note: "lembut & lapang" },
   { value: "minimal", title: "Minimal", note: "ruang negatif" },
+  { value: "monochrome", title: "Monokrom", note: "kontras hitam-putih" },
+  { value: "neon", title: "Neon", note: "cahaya malam modern" },
+  { value: "watercolor", title: "Cat air", note: "ilustrasi transparan" },
 ];
 
 function downloadImage(url: string, recipe: string) {

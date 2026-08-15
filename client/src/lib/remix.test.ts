@@ -4,6 +4,7 @@ import { readRemixPreset } from "./remix";
 describe("readRemixPreset", () => {
   it("copies only valid recipe, style, and aspect metadata", () => {
     expect(readRemixPreset("?remixRecipe=fashion&remixStyle=cinematic&remixAspect=9%3A16")).toEqual({ recipe: "fashion", style: "cinematic", aspect: "9:16" });
+    expect(readRemixPreset("?remixRecipe=sketch&remixStyle=watercolor&remixAspect=1%3A1")).toEqual({ recipe: "sketch", style: "watercolor", aspect: "1:1" });
   });
 
   it("rejects incomplete or unknown metadata, including any source-image field", () => {

@@ -1,5 +1,5 @@
-export const remixRecipeIds = ["headshot", "product", "food", "social", "fashion", "interior", "restore", "night"] as const;
-export const remixStyleIds = ["editorial", "realistic", "anime", "cinematic", "vintage", "pastel", "minimal"] as const;
+export const remixRecipeIds = ["headshot", "beauty", "background", "product", "food", "social", "fashion", "interior", "light", "restore", "detail", "travel", "night", "sketch"] as const;
+export const remixStyleIds = ["editorial", "realistic", "anime", "cinematic", "vintage", "pastel", "minimal", "monochrome", "neon", "watercolor"] as const;
 export const remixAspectIds = ["1:1", "16:9", "9:16"] as const;
 
 export type RemixRecipeId = (typeof remixRecipeIds)[number];

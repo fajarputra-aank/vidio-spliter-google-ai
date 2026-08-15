@@ -15,6 +15,10 @@ describe("photo transform prompts", () => {
     expect(buildTransformPrompt("product")).toContain("product catalog");
     expect(buildTransformPrompt("food")).toContain("restaurant");
     expect(buildTransformPrompt("social")).toContain("social media");
+    expect(buildTransformPrompt("beauty")).toContain("natural editorial retouch");
+    expect(buildTransformPrompt("background")).toContain("studio-background");
+    expect(buildTransformPrompt("detail")).toContain("improved clarity");
+    expect(buildTransformPrompt("travel")).toContain("destination editorial");
   });
 
   it("adds a clear compositional direction for every supported output ratio", () => {
@@ -27,5 +31,7 @@ describe("photo transform prompts", () => {
     styleIds.forEach((style) => expect(buildTransformPrompt("headshot", "1:1", style)).toContain("Use"));
     expect(buildTransformPrompt("headshot", "1:1", "realistic")).toContain("faithful photorealism");
     expect(buildTransformPrompt("headshot", "1:1", "anime")).toContain("original polished anime illustration");
+    expect(buildTransformPrompt("headshot", "1:1", "monochrome")).toContain("black-and-white editorial");
+    expect(buildTransformPrompt("headshot", "1:1", "watercolor")).toContain("original contemporary watercolor");
   });
 });

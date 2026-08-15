@@ -104,3 +104,8 @@
 - [x] Uji halaman album terarsip, ekspor CSV, pengingat enam bulan, serta responsivitas; lalu simpan checkpoint pembaruan.
 - [x] Uji sweep pengingat album untuk ambang enam bulan, preferensi notifikasi, dan idempotensi tanpa reminder ganda.
 - [x] Deploy endpoint pengingat terbaru dan jalankan verifikasi callback terdaftar sebelum menutup rilis otomatis.
+- [x] Tambahkan kategori transformasi AI yang lebih beragam untuk retouch, latar, pencahayaan, restorasi, dan gaya kreatif.
+- [x] Perluas prompt dan validasi resep agar perubahan foto baru tetap terarah serta menghormati foto sumber pengguna.
+- [x] Perbarui pemilih transformasi studio dengan pengelompokan dan deskripsi manfaat yang mudah dipahami.
+- [x] Perbarui dan validasi skill reusable untuk koleksi transformasi AI yang diperluas.
+- [x] Uji resep baru, alur pemilihan, responsivitas, dan simpan checkpoint pembaruan.
