@@ -69,6 +69,10 @@ Logo berupa **aperture empat daun** dengan satu irisan amber yang menyerupai kil
 
 **Amber Kilat — `#EF8F2F`**. Warna ini hanya untuk aksi utama, indikator progres, dan cap status sehingga langsung dikenali sebagai tanda kerja yang bergerak maju.
 
+## Data & Interaction Decisions
+
+Setiap transformasi memiliki status **processing**, **completed**, atau **failed** serta menyimpan referensi aman ke foto sumber dan hasil di penyimpanan berkas. Koleksi ditampilkan per pengguna yang masuk, sehingga riwayat tidak dicampur antarakun. Saat AI merender, konsol proses menggunakan empat tahap yang mudah dibaca dan progres terestimasi; status tidak diklaim selesai hingga respons dari layanan gambar benar-benar diterima.
+
 ## Style Decisions
 
 - **Amber Kilat `#EF8F2F`** hanya digunakan pada aksi, status pilihan, indikator progres, dan cap proses; bidang dekoratif yang luas memakai kertas tulang, arang, atau fotografi.
