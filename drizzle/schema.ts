@@ -141,6 +141,22 @@ export const photoAlbumItems = mysqlTable(
   (table) => [uniqueIndex("photoAlbumItems_album_transform_unique").on(table.albumId, table.transformId), index("photoAlbumItems_album_idx").on(table.albumId)]
 );
 
+/** Private in-app events, including actions performed by community moderators. */
+export const userNotifications = mysqlTable(
+  "userNotifications",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    kind: mysqlEnum("kind", ["community_moderation"]).notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    content: varchar("content", { length: 360 }).notNull(),
+    relatedPostId: int("relatedPostId"),
+    isRead: boolean("isRead").notNull().default(false),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [index("userNotifications_user_read_created_idx").on(table.userId, table.isRead, table.createdAt)]
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type PhotoTransform = typeof photoTransforms.$inferSelect;

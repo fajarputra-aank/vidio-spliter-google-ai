@@ -69,3 +69,9 @@
 - [x] Tambahkan state memuat dan error yang jelas pada album privat profil.
 - [x] Simpan checkpoint rilis fitur laporan, remix, dan album.
 - [x] Siapkan paket skill ai-photo-studio-fullstack tervalidasi untuk penyerahan.
+- [x] Tambahkan notifikasi privat kepada pemilik saat moderator menindak karya komunitas.
+- [x] Tambahkan pengubahan nama dan penghapusan album yang hanya dapat dilakukan pemilik.
+- [x] Tambahkan pencarian dan filter untuk riwayat arsip serta album privat pada profil.
+- [x] Tambahkan pengujian otorisasi, notifikasi moderasi, manajemen album, dan filter profil; lalu simpan checkpoint pembaruan.
+- [x] Perbarui dan validasi skill reusable untuk pola notifikasi moderasi serta navigasi arsip profil.
+- [x] Simpan checkpoint rilis notifikasi moderasi, manajemen album, dan navigasi profil.

@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, users } from "../drizzle/schema";
+import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, userNotifications, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -212,10 +212,11 @@ export async function moderateDeleteCommunityPost(postId: number) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
   return db.transaction(async (tx) => {
-    const post = await tx.select({ id: communityPosts.id }).from(communityPosts).where(and(eq(communityPosts.id, postId), eq(communityPosts.isPublished, true))).limit(1);
+    const post = await tx.select({ id: communityPosts.id, userId: communityPosts.userId }).from(communityPosts).where(and(eq(communityPosts.id, postId), eq(communityPosts.isPublished, true))).limit(1);
     if (!post[0]) return { success: false };
     await tx.delete(communityLikes).where(eq(communityLikes.postId, postId));
     await tx.delete(communityPosts).where(eq(communityPosts.id, postId));
+    await tx.insert(userNotifications).values({ userId: post[0].userId, kind: "community_moderation", title: "Karya publik ditindak moderator", content: "Satu karya telah dihapus dari ruang komunitas setelah ditinjau moderator. Riwayat privatmu tetap tersimpan.", relatedPostId: postId });
     return { success: true };
   });
 }
@@ -256,9 +257,11 @@ export async function resolveCommunityReport(reportId: number, action: "dismiss"
     const report = await tx.select({ id: communityReports.id, postId: communityReports.postId }).from(communityReports).where(and(eq(communityReports.id, reportId), eq(communityReports.status, "open"))).limit(1);
     if (!report[0]) return { success: false };
     if (action === "remove_public") {
+      const post = await tx.select({ userId: communityPosts.userId }).from(communityPosts).where(eq(communityPosts.id, report[0].postId)).limit(1);
       await tx.delete(communityLikes).where(eq(communityLikes.postId, report[0].postId));
       await tx.delete(communityPosts).where(eq(communityPosts.id, report[0].postId));
       await tx.update(communityReports).set({ status: "actioned", reviewedAt: new Date() }).where(eq(communityReports.id, reportId));
+      if (post[0]) await tx.insert(userNotifications).values({ userId: post[0].userId, kind: "community_moderation", title: "Laporan komunitas ditindaklanjuti", content: "Satu karya telah dihapus dari ruang komunitas setelah laporan ditinjau. Riwayat privatmu tetap tersimpan.", relatedPostId: report[0].postId });
     } else {
       await tx.update(communityReports).set({ status: "dismissed", reviewedAt: new Date() }).where(eq(communityReports.id, reportId));
     }
@@ -288,6 +291,27 @@ export async function createPhotoAlbum(userId: number, name: string) {
   return records[0];
 }
 
+export async function renamePhotoAlbum(userId: number, albumId: number, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const album = await db.select({ id: photoAlbums.id }).from(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId))).limit(1);
+  if (!album[0]) return { success: false };
+  await db.update(photoAlbums).set({ name }).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId)));
+  return { success: true };
+}
+
+export async function deletePhotoAlbum(userId: number, albumId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.transaction(async (tx) => {
+    const album = await tx.select({ id: photoAlbums.id }).from(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId))).limit(1);
+    if (!album[0]) return { success: false };
+    await tx.delete(photoAlbumItems).where(eq(photoAlbumItems.albumId, albumId));
+    await tx.delete(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId)));
+    return { success: true };
+  });
+}
+
 export async function addTransformToAlbum(userId: number, albumId: number, transformId: number) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
@@ -307,6 +331,21 @@ export async function removeTransformFromAlbum(userId: number, albumId: number, 
   const album = await db.select({ id: photoAlbums.id }).from(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId))).limit(1);
   if (!album[0]) return { success: false };
   await db.delete(photoAlbumItems).where(and(eq(photoAlbumItems.albumId, albumId), eq(photoAlbumItems.transformId, transformId)));
+  return { success: true };
+}
+
+export async function listUserNotifications(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(userNotifications).where(eq(userNotifications.userId, userId)).orderBy(desc(userNotifications.createdAt)).limit(24);
+}
+
+export async function markUserNotificationRead(userId: number, notificationId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const notification = await db.select({ id: userNotifications.id }).from(userNotifications).where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId))).limit(1);
+  if (!notification[0]) return { success: false };
+  await db.update(userNotifications).set({ isRead: true }).where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId)));
   return { success: true };
 }
 

@@ -50,6 +50,13 @@
       "when": 1786776299837,
       "tag": "0006_furry_kabuki",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1786777068395,
+      "tag": "0007_jazzy_black_bolt",
+      "breakpoints": true
     }
   ]
 }
