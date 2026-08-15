@@ -41,4 +41,12 @@
 - [x] Uji akses admin serta pilihan transformasi baru, lalu simpan checkpoint pembaruan.
 - [x] Tambahkan pengujian prosedur transformasi yang membuktikan administrator melewati kuota habis tanpa memakai kredit.
 - [x] Simpan checkpoint baru setelah verifikasi akses administrator dan katalog transformasi terbaru.
-- [ ] Simpan checkpoint final yang mencakup pengujian checkout kredit dan pembaruan administrator.
+- [x] Simpan checkpoint final yang mencakup pengujian checkout kredit dan pembaruan administrator.
+- [x] Perbarui skill reusable agar mencakup dashboard operasional admin dan kontrol privasi karya.
+- [x] Validasi skill reusable yang diperbarui dan siapkan paket untuk pengguna.
+- [x] Rancang ringkasan metrik admin untuk aktivitas pengguna, transformasi harian, dan transaksi Stripe.
+- [x] Tambahkan penghapusan publikasi komunitas dan penyembunyian riwayat yang hanya berlaku bagi pemilik karya.
+- [x] Tambahkan pilihan font, warna, dan drag-and-drop watermark pada editor hasil.
+- [x] Bangun halaman dashboard admin yang dilindungi peran serta kontrol privasi pada profil pengguna.
+- [x] Uji otorisasi, metrik, editor, privasi, dan responsivitas; lalu simpan checkpoint pembaruan.
+- [ ] Simpan checkpoint baru setelah perubahan dashboard admin, kontrol privasi karya, dan editor watermark lanjutan selesai diverifikasi.

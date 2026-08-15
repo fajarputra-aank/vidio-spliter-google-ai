@@ -10,6 +10,9 @@ describe("ResultEditor", () => {
     expect(markup).toContain("https://example.test/result.jpg");
     expect(markup).toContain("Teks kustom");
     expect(markup).toContain("Watermark Lensa Saku");
+    expect(markup).toContain("Jenis font");
+    expect(markup).toContain("Warna teks");
+    expect(markup).toContain("Posisi teks dan watermark");
     expect(markup).toContain("Unduh versi berlapis");
   });
 });

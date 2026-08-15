@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import Credits from "./pages/Credits";
 import Community from "./pages/Community";
+import Admin from "./pages/Admin";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/profil" component={Profile} />
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />
+      <Route path="/admin" component={Admin} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

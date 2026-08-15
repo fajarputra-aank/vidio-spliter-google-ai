@@ -1,0 +1,2 @@
+ALTER TABLE `photoTransforms` ADD `isHidden` boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX `photoTransforms_user_hidden_created_idx` ON `photoTransforms` (`userId`,`isHidden`,`createdAt`);

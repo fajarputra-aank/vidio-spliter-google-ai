@@ -1,85 +1,31 @@
-import { Download, Stamp, Type } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import { Download, Move, Palette, Stamp, Type } from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type FontChoice = "manrope" | "serif" | "mono";
+type Placement = { x: number; y: number };
 
-const positionClass: Record<Position, string> = {
-  "top-left": "is-top-left",
-  "top-right": "is-top-right",
-  "bottom-left": "is-bottom-left",
-  "bottom-right": "is-bottom-right",
+const fontOptions: Record<FontChoice, { label: string; css: string; canvas: string }> = {
+  manrope: { label: "Manrope", css: "Manrope, Arial, sans-serif", canvas: "Manrope, Arial, sans-serif" },
+  serif: { label: "Editorial Serif", css: "DM Serif Display, Georgia, serif", canvas: "Georgia, serif" },
+  mono: { label: "Monospace", css: "ui-monospace, SFMono-Regular, Menlo, monospace", canvas: "monospace" },
 };
 
 function loadImage(url: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = url;
-  });
+  return new Promise<HTMLImageElement>((resolve, reject) => { const image = new Image(); image.crossOrigin = "anonymous"; image.onload = () => resolve(image); image.onerror = reject; image.src = url; });
 }
 
 export function ResultEditor({ imageUrl, title }: { imageUrl: string; title: string }) {
   const [customText, setCustomText] = useState("");
   const [watermark, setWatermark] = useState(false);
-  const [position, setPosition] = useState<Position>("bottom-right");
   const [opacity, setOpacity] = useState(68);
+  const [font, setFont] = useState<FontChoice>("manrope");
+  const [textColor, setTextColor] = useState("#fffdf8");
+  const [placement, setPlacement] = useState<Placement>({ x: 82, y: 84 });
+  const previewRef = useRef<HTMLDivElement>(null);
   const layers = useMemo(() => [customText.trim(), watermark ? "Lensa Saku" : ""].filter(Boolean), [customText, watermark]);
-
-  async function exportEditedImage() {
-    if (!layers.length) return toast.message("Tambahkan teks atau aktifkan watermark terlebih dahulu.");
-    try {
-      const image = await loadImage(imageUrl);
-      const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Canvas tidak tersedia.");
-      context.drawImage(image, 0, 0);
-      context.globalAlpha = opacity / 100;
-      context.fillStyle = "#fffdf8";
-      context.strokeStyle = "rgba(27,27,24,.78)";
-      context.lineWidth = Math.max(2, Math.round(canvas.width / 360));
-      context.font = `700 ${Math.max(20, Math.round(canvas.width / 26))}px Manrope, Arial, sans-serif`;
-      context.textBaseline = "middle";
-      const padding = Math.max(28, Math.round(canvas.width / 25));
-      const lineHeight = Math.max(28, Math.round(canvas.width / 20));
-      const maxWidth = canvas.width - padding * 2;
-      const estimatedCharacters = Math.max(10, Math.floor(maxWidth / (canvas.width / 35)));
-      const textLines = layers.flatMap((layer) => {
-        const matches = layer.match(new RegExp(`.{1,${estimatedCharacters}}(?:\\s|$)|\\S+?(?:\\s|$)`, "g"));
-        return matches ?? [layer];
-      });
-      const alignRight = position.endsWith("right");
-      const alignBottom = position.startsWith("bottom");
-      context.textAlign = alignRight ? "right" : "left";
-      let y = alignBottom ? canvas.height - padding - lineHeight * (textLines.length - 1) : padding;
-      textLines.forEach((line) => {
-        const x = alignRight ? canvas.width - padding : padding;
-        context.strokeText(line.trim(), x, y);
-        context.fillText(line.trim(), x, y);
-        y += lineHeight;
-      });
-      const link = document.createElement("a");
-      link.download = `lensa-saku-edited-${title.toLowerCase().replace(/\s+/g, "-")}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-      toast.success("Versi teks/watermark siap diunduh.");
-    } catch {
-      toast.error("Gambar tidak dapat dirender untuk ekspor. Coba gunakan tombol unduh asli.");
-    }
-  }
-
-  return (
-    <section className="result-editor" aria-label="Editor hasil ringan">
-      <div className="editor-heading"><span><Type size={14} /> EDITOR HASIL</span><small>non-destruktif</small></div>
-      <div className="editor-preview"><img src={imageUrl} alt="Pratinjau hasil dengan lapisan teks" />{layers.map((layer, index) => <span className={`editor-layer ${positionClass[position]}`} style={{ opacity: opacity / 100, transform: `translateY(${index * 1.2}em)` }} key={`${layer}-${index}`}>{layer}</span>)}</div>
-      <label className="editor-input"><span>Teks kustom</span><input value={customText} maxLength={72} onChange={(event) => setCustomText(event.target.value)} placeholder="Contoh: Koleksi Raya 2026" /></label>
-      <div className="editor-controls"><label><input type="checkbox" checked={watermark} onChange={(event) => setWatermark(event.target.checked)} /><Stamp size={14} /> Watermark Lensa Saku</label><label><span>Opasitas {opacity}%</span><input type="range" min="30" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label></div>
-      <div className="editor-positions" aria-label="Posisi teks">{(["top-left", "top-right", "bottom-left", "bottom-right"] as Position[]).map((choice) => <button className={position === choice ? "is-selected" : ""} onClick={() => setPosition(choice)} key={choice}>{choice.replace("-", " ")}</button>)}</div>
-      <button className="editor-export" onClick={() => void exportEditedImage()}><Download size={15} /> Unduh versi berlapis</button>
-    </section>
-  );
+  const setFromPointer = (clientX: number, clientY: number) => { const box = previewRef.current?.getBoundingClientRect(); if (!box) return; setPlacement({ x: Math.min(94, Math.max(6, ((clientX - box.left) / box.width) * 100)), y: Math.min(94, Math.max(6, ((clientY - box.top) / box.height) * 100)) }); };
+  const onKeyMove = (event: React.KeyboardEvent<HTMLDivElement>) => { const step = event.shiftKey ? 5 : 2; const move = (x: number, y: number) => setPlacement((point) => ({ x: Math.min(94, Math.max(6, point.x + x)), y: Math.min(94, Math.max(6, point.y + y)) })); if (event.key === "ArrowLeft") { event.preventDefault(); move(-step, 0); } if (event.key === "ArrowRight") { event.preventDefault(); move(step, 0); } if (event.key === "ArrowUp") { event.preventDefault(); move(0, -step); } if (event.key === "ArrowDown") { event.preventDefault(); move(0, step); } };
+  async function exportEditedImage() { if (!layers.length) return toast.message("Tambahkan teks atau aktifkan watermark terlebih dahulu."); try { const image = await loadImage(imageUrl); const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight; const context = canvas.getContext("2d"); if (!context) throw new Error("Canvas tidak tersedia."); context.drawImage(image, 0, 0); context.globalAlpha = opacity / 100; context.fillStyle = textColor; context.strokeStyle = "rgba(27,27,24,.78)"; context.lineWidth = Math.max(2, Math.round(canvas.width / 360)); context.font = `700 ${Math.max(20, Math.round(canvas.width / 26))}px ${fontOptions[font].canvas}`; context.textAlign = "center"; context.textBaseline = "middle"; const lineHeight = Math.max(28, Math.round(canvas.width / 20)); const maxWidth = canvas.width * .84; const estimatedCharacters = Math.max(10, Math.floor(maxWidth / (canvas.width / 35))); const textLines = layers.flatMap((layer) => layer.match(new RegExp(`.{1,${estimatedCharacters}}(?:\\s|$)|\\S+?(?:\\s|$)`, "g")) ?? [layer]); const x = (placement.x / 100) * canvas.width; let y = (placement.y / 100) * canvas.height - (lineHeight * (textLines.length - 1)) / 2; textLines.forEach((line) => { context.strokeText(line.trim(), x, y); context.fillText(line.trim(), x, y); y += lineHeight; }); const link = document.createElement("a"); link.download = `lensa-saku-edited-${title.toLowerCase().replace(/\s+/g, "-")}.png`; link.href = canvas.toDataURL("image/png"); link.click(); toast.success("Versi teks/watermark siap diunduh."); } catch { toast.error("Gambar tidak dapat dirender untuk ekspor. Coba gunakan tombol unduh asli."); } }
+  return <section className="result-editor" aria-label="Editor hasil ringan"><div className="editor-heading"><span><Type size={14} /> EDITOR HASIL</span><small>non-destruktif</small></div><div ref={previewRef} className="editor-preview"><img src={imageUrl} alt="Pratinjau hasil dengan lapisan teks" /><div className="editor-drag-surface" tabIndex={0} role="slider" aria-label="Posisi teks dan watermark" aria-valuetext={`${Math.round(placement.x)}% horizontal, ${Math.round(placement.y)}% vertikal`} onKeyDown={onKeyMove} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setFromPointer(event.clientX, event.clientY); }} onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) setFromPointer(event.clientX, event.clientY); }} />{layers.map((layer, index) => <span className="editor-layer" style={{ opacity: opacity / 100, color: textColor, fontFamily: fontOptions[font].css, left: `${placement.x}%`, top: `${placement.y}%`, transform: `translate(-50%, calc(-50% + ${index * 1.2}em))` }} key={`${layer}-${index}`}>{layer}</span>)}{layers.length > 0 && <span className="editor-drag-handle" style={{ left: `${placement.x}%`, top: `${placement.y}%` }}><Move size={13} /></span>}</div><label className="editor-input"><span>Teks kustom</span><input value={customText} maxLength={72} onChange={(event) => setCustomText(event.target.value)} placeholder="Contoh: Koleksi Raya 2026" /></label><div className="editor-controls"><label><input type="checkbox" checked={watermark} onChange={(event) => setWatermark(event.target.checked)} /><Stamp size={14} /> Watermark Lensa Saku</label><label><span>Opasitas {opacity}%</span><input type="range" min="30" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label></div><div className="editor-appearance"><label><span>Jenis font</span><select value={font} onChange={(event) => setFont(event.target.value as FontChoice)}>{(Object.entries(fontOptions) as [FontChoice, typeof fontOptions[FontChoice]][]).map(([value, option]) => <option key={value} value={value}>{option.label}</option>)}</select></label><label><span><Palette size={13} /> Warna teks</span><input aria-label="Warna teks" type="color" value={textColor} onChange={(event) => setTextColor(event.target.value)} /></label></div><p className="editor-drag-note">Seret penanda pada foto. Gunakan tombol panah saat penanda aktif untuk mengatur posisi presisi.</p><button className="editor-export" onClick={() => void exportEditedImage()}><Download size={15} /> Unduh versi berlapis</button></section>;
 }

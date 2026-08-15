@@ -27,11 +27,12 @@ export const photoTransforms = mysqlTable(
     sourceUrl: text("sourceUrl").notNull(),
     resultUrl: text("resultUrl"),
     status: mysqlEnum("status", ["processing", "completed", "failed"]).default("processing").notNull(),
+    isHidden: boolean("isHidden").notNull().default(false),
     errorMessage: varchar("errorMessage", { length: 500 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     completedAt: timestamp("completedAt"),
   },
-  (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt)]
+  (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt)]
 );
 
 /** Immutable business ledger for paid extra transformations. */

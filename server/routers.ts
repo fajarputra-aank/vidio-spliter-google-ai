@@ -3,7 +3,7 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { generateImage } from "./_core/imageGeneration";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { systemRouter } from "./_core/systemRouter";
 import * as db from "./db";
 import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds, styleIds } from "./photoPrompts";
@@ -36,7 +36,8 @@ export const appRouter = router({
     }),
   }),
   photo: router({
-    list: protectedProcedure.query(({ ctx }) => db.listPhotoTransforms(ctx.user.id)),
+    list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(({ ctx, input }) => db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)),
+    setHidden: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), isHidden: z.boolean() })).mutation(({ ctx, input }) => db.setPhotoTransformHidden(ctx.user.id, input.transformId, input.isHidden)),
     quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user.role) })),
     profile: protectedProcedure.query(async ({ ctx }) => ({
       user: { name: ctx.user.name, email: ctx.user.email, role: ctx.user.role, createdAt: ctx.user.createdAt },
@@ -99,7 +100,11 @@ export const appRouter = router({
     list: publicProcedure.query(({ ctx }) => db.listCommunityPosts(ctx.user?.id)),
     publish: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), caption: z.string().trim().max(240).optional() })).mutation(({ ctx, input }) => db.publishCommunityPost(ctx.user.id, input.transformId, input.caption)),
     unpublish: protectedProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ ctx, input }) => db.unpublishCommunityPost(ctx.user.id, input.postId)),
+    delete: protectedProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deleteCommunityPost(ctx.user.id, input.postId)),
     toggleLike: protectedProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ ctx, input }) => db.toggleCommunityLike(ctx.user.id, input.postId)),
+  }),
+  admin: router({
+    dashboard: adminProcedure.query(() => db.getAdminDashboard()),
   }),
 });
 

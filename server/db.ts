@@ -77,14 +77,22 @@ export async function failPhotoTransform(id: number, message: string) {
     .where(eq(photoTransforms.id, id));
 }
 
-export async function listPhotoTransforms(userId: number) {
+export async function listPhotoTransforms(userId: number, includeHidden = false) {
   const db = await getDb();
   if (!db) return [];
+  const where = includeHidden ? eq(photoTransforms.userId, userId) : and(eq(photoTransforms.userId, userId), eq(photoTransforms.isHidden, false));
   return db
     .select()
     .from(photoTransforms)
-    .where(eq(photoTransforms.userId, userId))
+    .where(where)
     .orderBy(desc(photoTransforms.createdAt));
+}
+
+export async function setPhotoTransformHidden(userId: number, transformId: number, isHidden: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.update(photoTransforms).set({ isHidden }).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId)));
+  return { success: Number(result[0].affectedRows ?? 0) > 0, isHidden };
 }
 
 export async function getDailyPhotoQuota(userId: number, now = new Date()) {
@@ -175,6 +183,18 @@ export async function unpublishCommunityPost(userId: number, postId: number) {
   return { success: true };
 }
 
+export async function deleteCommunityPost(userId: number, postId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.transaction(async (tx) => {
+    const post = await tx.select({ id: communityPosts.id }).from(communityPosts).where(and(eq(communityPosts.id, postId), eq(communityPosts.userId, userId))).limit(1);
+    if (!post[0]) return { success: false };
+    await tx.delete(communityLikes).where(eq(communityLikes.postId, postId));
+    await tx.delete(communityPosts).where(eq(communityPosts.id, postId));
+    return { success: true };
+  });
+}
+
 export async function listCommunityPosts(viewerId?: number) {
   const db = await getDb();
   if (!db) return [];
@@ -196,4 +216,32 @@ export async function toggleCommunityLike(userId: number, postId: number) {
   else await db.insert(communityLikes).values({ postId, userId });
   const result = await db.select({ total: count() }).from(communityLikes).where(eq(communityLikes.postId, postId));
   return { liked: !existing[0], likes: Number(result[0]?.total ?? 0) };
+}
+
+export async function getAdminDashboard() {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const { start, end } = utcDayBounds(new Date());
+  const [userCount, activity, purchaseCount, transforms, recentTransforms, recentPurchases] = await Promise.all([
+    db.select({ total: count() }).from(users),
+    db.select({ activeUsers: sql<number>`count(distinct ${photoTransforms.userId})`, transforms: count(), completed: sql<number>`coalesce(sum(case when ${photoTransforms.status} = 'completed' then 1 else 0 end), 0)`, failed: sql<number>`coalesce(sum(case when ${photoTransforms.status} = 'failed' then 1 else 0 end), 0)` }).from(photoTransforms).where(and(gte(photoTransforms.createdAt, start), lt(photoTransforms.createdAt, end))),
+    db.select({ total: count() }).from(creditPurchases),
+    db.select({ total: count() }).from(photoTransforms),
+    db.select({ id: photoTransforms.id, recipe: photoTransforms.recipe, style: photoTransforms.style, status: photoTransforms.status, createdAt: photoTransforms.createdAt, userName: users.name }).from(photoTransforms).innerJoin(users, eq(photoTransforms.userId, users.id)).orderBy(desc(photoTransforms.createdAt)).limit(12),
+    db.select({ id: creditPurchases.id, packId: creditPurchases.packId, credits: creditPurchases.credits, createdAt: creditPurchases.createdAt, userName: users.name, userEmail: users.email }).from(creditPurchases).innerJoin(users, eq(creditPurchases.userId, users.id)).orderBy(desc(creditPurchases.createdAt)).limit(12),
+  ]);
+  return {
+    overview: {
+      totalUsers: Number(userCount[0]?.total ?? 0),
+      totalTransforms: Number(transforms[0]?.total ?? 0),
+      activeUsersToday: Number(activity[0]?.activeUsers ?? 0),
+      transformsToday: Number(activity[0]?.transforms ?? 0),
+      completedToday: Number(activity[0]?.completed ?? 0),
+      failedToday: Number(activity[0]?.failed ?? 0),
+      completedPurchases: Number(purchaseCount[0]?.total ?? 0),
+    },
+    recentTransforms,
+    recentPurchases,
+    dayStart: start,
+  };
 }
