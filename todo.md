@@ -27,4 +27,17 @@
 - [x] Uji gaya AI, slider, profil, kuota, dan tampilan responsif; lalu simpan checkpoint baru.
 - [x] Tambahkan pengujian render untuk slider sebelum–sesudah dan verifikasi profil terautentikasi pada preview.
 - [x] Tambahkan pengujian prosedur profil terproteksi dengan konteks pengguna terautentikasi.
-- [ ] Simpan checkpoint baru untuk gaya AI, slider, dan profil; lalu serahkan checkpoint serta paket skill tervalidasi.
+- [x] Simpan checkpoint baru untuk gaya AI, slider, dan profil; lalu serahkan checkpoint serta paket skill tervalidasi.
+- [x] Perbarui skill reusable agar mencakup pembayaran kredit, publikasi komunitas, dan editor hasil yang aman.
+- [x] Aktifkan fondasi Stripe dan rancang paket kredit transformasi yang dapat dibeli.
+- [x] Tambahkan data kredit terpisah dari kuota harian serta catatan publikasi dan apresiasi komunitas.
+- [x] Implementasikan alur pembelian kredit, pengecekan saldo, dan pemakaian kredit saat kuota harian habis.
+- [x] Bangun galeri komunitas publik dengan publikasi opt-in, suka privat per pengguna, serta penanganan karya kosong.
+- [x] Tambahkan editor teks dan watermark yang dapat diposisikan sebelum unduh hasil.
+- [ ] Uji pembayaran, kredit, komunitas, editor, akses privat, dan responsivitas; lalu simpan checkpoint baru.
+- [x] Verifikasi alamat email dan identitas akun yang akan dijadikan administrator.
+- [x] Terapkan akses administrator tanpa batas kuota serta pastikan akses tersebut tidak menimpa akun lain.
+- [x] Tambahkan variasi transformasi foto AI yang lebih luas dan tetap menjaga subjek/foto asli.
+- [x] Uji akses admin serta pilihan transformasi baru, lalu simpan checkpoint pembaruan.
+- [x] Tambahkan pengujian prosedur transformasi yang membuktikan administrator melewati kuota habis tanpa memakai kredit.
+- [ ] Simpan checkpoint baru setelah verifikasi akses administrator dan katalog transformasi terbaru.

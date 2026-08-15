@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import {
   Aperture, ArrowRight, Camera, Check, ChevronRight, Clock3, Download,
-  History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
+  Globe2, History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
   Palette, Ratio, ScanFace, Share2, Sparkles, Utensils, WandSparkles, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,19 +25,23 @@ const assets = {
   food: "/manus-storage/lensa-saku-food_bf21e58e.jpg",
 };
 
-type Recipe = { id: "headshot" | "product" | "food" | "social"; name: string; category: string; label: string; description: string; image: string; prompt: string };
+type Recipe = { id: "headshot" | "product" | "food" | "social" | "fashion" | "interior" | "restore" | "night"; name: string; category: string; label: string; description: string; image: string; prompt: string };
 type UploadPayload = { base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; fileName: string };
 type OutputAspect = "1:1" | "16:9" | "9:16";
-type AiStyle = "editorial" | "realistic" | "anime";
+type AiStyle = "editorial" | "realistic" | "anime" | "cinematic" | "vintage" | "pastel" | "minimal";
 
 const recipes: Recipe[] = [
   { id: "headshot", name: "Headshot rapi", category: "Potret", label: "Paling dipilih", description: "Cahaya studio bersih untuk profil kerja dan CV.", image: assets.headshot, prompt: "cahaya studio lembut" },
   { id: "product", name: "Produk katalog", category: "Produk", label: "Untuk jualan", description: "Rapi, terang, dan berfokus pada detail produk.", image: assets.product, prompt: "latar katalog hangat" },
   { id: "food", name: "Menu menggoda", category: "Makanan", label: "Baru", description: "Warna makanan diperkuat tanpa mengubah rasa alami.", image: assets.food, prompt: "nuansa menu editorial" },
   { id: "social", name: "Konten sosial", category: "Sosial", label: "Cepat pakai", description: "Kontras ringan untuk feed yang terasa lebih hidup.", image: assets.headshot, prompt: "warna editorial hangat" },
+  { id: "fashion", name: "Kampanye fashion", category: "Fashion", label: "Editorial", description: "Rasa kampanye yang menonjolkan detail pakaian.", image: assets.headshot, prompt: "arah fashion campaign" },
+  { id: "interior", name: "Ruang & properti", category: "Ruang", label: "Lebih terang", description: "Perspektif dan tekstur ruang terasa lebih rapi.", image: assets.product, prompt: "arsitektur editorial" },
+  { id: "restore", name: "Pulihkan foto", category: "Restorasi", label: "Perbaikan", description: "Bersihkan kabut dan gores tanpa mengubah cerita.", image: assets.food, prompt: "restorasi natural" },
+  { id: "night", name: "Malam sinematik", category: "Kreatif", label: "Atmosfer", description: "Kontras malam dengan cahaya praktis yang realistis.", image: assets.product, prompt: "grade malam sinematik" },
 ];
 
-const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }];
+const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }, { name: "Fashion", icon: Palette }, { name: "Ruang", icon: Camera }, { name: "Restorasi", icon: WandSparkles }, { name: "Kreatif", icon: Aperture }];
 const progressStages = ["Mengunci foto sumber", "Menyiapkan arah visual", "Merender transformasi AI", "Menyimpan hasil ke galeri"];
 const aspectOptions: Array<{ value: OutputAspect; title: string; note: string }> = [
   { value: "1:1", title: "1:1", note: "kotak" },
@@ -48,6 +52,10 @@ const styleOptions: Array<{ value: AiStyle; title: string; note: string }> = [
   { value: "editorial", title: "Editorial", note: "hangat & terarah" },
   { value: "realistic", title: "Realistis", note: "tekstur setia" },
   { value: "anime", title: "Anime", note: "ilustrasi orisinal" },
+  { value: "cinematic", title: "Sinematik", note: "kontras filmis" },
+  { value: "vintage", title: "Vintage", note: "cetak analog" },
+  { value: "pastel", title: "Pastel", note: "lembut & lapang" },
+  { value: "minimal", title: "Minimal", note: "ruang negatif" },
 ];
 
 function downloadImage(url: string, recipe: string) {
@@ -76,6 +84,7 @@ export default function Home() {
   const utils = trpc.useUtils();
   const historyQuery = trpc.photo.list.useQuery(undefined, { enabled: isAuthenticated });
   const quotaQuery = trpc.photo.quota.useQuery(undefined, { enabled: isAuthenticated });
+  const creditBalanceQuery = trpc.billing.balance.useQuery(undefined, { enabled: isAuthenticated });
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe>(recipes[0]);
   const [selectedAspect, setSelectedAspect] = useState<OutputAspect>("1:1");
@@ -88,6 +97,7 @@ export default function Home() {
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isAdmin = user?.role === "admin";
 
   const shownRecipes = selectedCategory === "Semua" ? recipes : recipes.filter((recipe) => recipe.category === selectedCategory);
   const previewImage = resultImage ?? uploadedImage ?? selectedRecipe.image;
@@ -111,6 +121,8 @@ export default function Home() {
       setIsProcessing(false);
       void utils.photo.list.invalidate();
       void utils.photo.quota.invalidate();
+      void utils.billing.balance.invalidate();
+      void utils.photo.profile.invalidate();
       toast.success("Hasil AI sudah masuk ke galeri pribadimu.");
     },
     onError: (error) => {
@@ -154,8 +166,8 @@ export default function Home() {
       inputRef.current?.click();
       return;
     }
-    if (quotaQuery.data?.exhausted) {
-      toast.error("Kuota harian sudah habis. Coba lagi setelah kuota diperbarui.");
+    if (!isAdmin && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1) {
+      toast.error("Kuota harian dan kredit tambahanmu sudah habis. Tambahkan kredit untuk lanjut meracik.");
       return;
     }
     setProgress(8);
@@ -192,6 +204,7 @@ export default function Home() {
           <button className="rail-nav-button is-active" aria-label="Studio" onClick={() => scrollTo("studio")}><Aperture size={19} strokeWidth={1.7} /><span>Studio</span></button>
           <button className="rail-nav-button" aria-label="Koleksi" onClick={() => scrollTo("gallery")}><History size={19} strokeWidth={1.7} /><span>Koleksi</span></button>
           <Link href="/profil" className="rail-nav-button" aria-label="Profil"><Palette size={19} strokeWidth={1.7} /><span>Profil</span></Link>
+          <Link href="/komunitas" className="rail-nav-button" aria-label="Komunitas"><Globe2 size={19} strokeWidth={1.7} /><span>Ruang</span></Link>
           <button className="rail-nav-button" aria-label="Bantuan" onClick={() => toast.message("Mulai dengan unggah foto, pilih resep, lalu lihat hasilmu di koleksi.")}><Camera size={19} strokeWidth={1.7} /><span>Bantuan</span></button>
         </nav>
         <button className="rail-avatar" aria-label={isAuthenticated ? "Keluar dari akun" : "Masuk"} onClick={() => isAuthenticated ? logout() : startLogin()}>{isAuthenticated ? (user?.name?.slice(0, 1).toUpperCase() ?? "A") : <LogIn size={15} />}</button>
@@ -204,12 +217,12 @@ export default function Home() {
           <div className="eyebrow topbar-note"><span className="pulse-dot" /> {isAuthenticated ? "arsip visual pribadi aktif" : "masuk untuk menyimpan hasil"}</div>
           <div className="topbar-actions">
             {!authLoading && (isAuthenticated ? <Link href="/profil" className="text-button auth-action"><Palette size={14} /> Profilku</Link> : <button className="text-button auth-action" onClick={startLogin}><LogIn size={14} /> Masuk untuk simpan</button>)}
-            <button className="text-button" onClick={() => toast.message("Paket Pro dapat ditambahkan setelah sistem pembayaran disiapkan.")}>Lihat paket <ChevronRight size={15} /></button>
+            <Link href="/kredit" className="text-button">Tambah kredit <ChevronRight size={15} /></Link>
             <button className="mobile-menu" aria-label="Buka menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={21} /> : <Menu size={21} />}</button>
           </div>
         </header>
 
-        {menuOpen && <div className="mobile-panel" role="dialog" aria-label="Menu aplikasi"><button onClick={() => scrollTo("studio")}>Studio kerja</button><button onClick={() => scrollTo("gallery")}>Koleksiku</button><Link href="/profil">Profil</Link><button onClick={() => toast.message("Pilih foto, pilih resep, lalu proses hasilnya.")}>Bantuan</button></div>}
+        {menuOpen && <div className="mobile-panel" role="dialog" aria-label="Menu aplikasi"><button onClick={() => scrollTo("studio")}>Studio kerja</button><button onClick={() => scrollTo("gallery")}>Koleksiku</button><Link href="/profil">Profil</Link><Link href="/komunitas">Ruang komunitas</Link><Link href="/kredit">Tambah kredit</Link><button onClick={() => toast.message("Pilih foto, pilih resep, lalu proses hasilnya.")}>Bantuan</button></div>}
 
         <section className="masthead">
           <div className="masthead-copy"><div className="eyebrow">01 — meja kerja visual</div><h1>Satu foto masuk.<br /><em>Materi siap pakai</em> keluar.</h1><p>Ubah foto produk, potret, dan menu menjadi visual yang lebih rapi. Hasil transformasi asli disimpan ke galeri pribadi agar selalu mudah diunduh kembali.</p><div className="masthead-ctas"><button className="primary-action" onClick={() => scrollTo("studio")}>Mulai dari foto <ArrowRight size={17} /></button><div className="compact-proof"><span>AI</span><small>proses aman<br />hasil tersimpan</small></div></div></div>
@@ -228,7 +241,7 @@ export default function Home() {
                 <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) readImage(file); }} hidden />
               </div>
               <p className="local-note"><span /> Foto sumber disimpan privat saat kamu menjalankan transformasi AI.</p>
-              {isAuthenticated && <div className={`quota-slip ${quotaQuery.data?.exhausted ? "is-exhausted" : ""}`}><div><span>KUOTA HARI INI</span><strong>{quotaQuery.isLoading ? "…" : `${quotaQuery.data?.remaining ?? 0} / ${quotaQuery.data?.dailyLimit ?? 5}`}</strong></div><p>{quotaQuery.data?.exhausted ? "Kuota habis. Akan diperbarui pada hari berikutnya." : "Transformasi tersisa untuk hari ini."}</p></div>}
+              {isAuthenticated && <div className={`quota-slip ${quotaQuery.data?.exhausted && !isAdmin ? "is-exhausted" : ""}`}><div><span>{isAdmin ? "AKSES ADMIN" : "KUOTA HARI INI"}</span><strong>{isAdmin ? "∞" : quotaQuery.isLoading ? "…" : `${quotaQuery.data?.remaining ?? 0} / ${quotaQuery.data?.dailyLimit ?? 5}`}</strong></div><p>{isAdmin ? "Transformasi tanpa batas aktif untuk akun administrator." : quotaQuery.data?.exhausted ? `Kuota habis. ${creditBalanceQuery.data?.credits ?? 0} kredit cadangan siap dipakai.` : "Transformasi tersisa untuk hari ini."}</p>{!isAdmin && <Link href="/kredit">{creditBalanceQuery.data?.credits ?? 0} kredit →</Link>}</div>}
             </section>
 
             <section className="recipe-column">
@@ -244,7 +257,7 @@ export default function Home() {
               <div className="column-label"><span>PRATINJAU</span><span>{resultImage ? "siap" : isProcessing ? "meracik" : "menunggu"}</span></div>
               {resultImage && uploadedImage ? <BeforeAfterSlider before={uploadedImage} after={resultImage} aspectRatio={selectedAspect} /> : <div className={`result-frame ratio-preview ${isProcessing ? "is-processing" : ""}`} style={{ aspectRatio: selectedAspect }}><img src={previewImage} alt="Pratinjau hasil resep terpilih" /><span className="frame-number">LS / {new Date().getFullYear()}</span><span className="ratio-stamp">{selectedAspect}</span>{isProcessing && <div className="processing-layer progress-layer"><div className="process-orbit"><Sparkles size={20} /></div><strong>{progressStages[progressStage]}</strong><span>AI sedang memproses frame-mu</span><div className="progress-track" aria-label={`Progres proses ${progress}%`}><i style={{ width: `${progress}%` }} /></div><small>{progress}% · perkiraan selama AI menyelesaikan frame</small></div>}</div>}
               <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? `Hasil ${selectedStyle} ${selectedAspect} sudah tersimpan. Geser garis pembanding untuk melihat perubahan.` : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : `Unggah foto asli lalu terapkan resep serta gaya ${selectedStyle} untuk membuat hasil ${selectedAspect}.`}</p></div>
-              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || quotaQuery.data?.exhausted}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : quotaQuery.data?.exhausted ? "Kuota hari ini habis" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
+              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!isAdmin && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : isAdmin ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
             </section>
           </div>
           {isProcessing && <div className="progress-console" role="status" aria-live="polite"><div className="console-title"><span className="pulse-dot" /> PROSES AKTIF <b>{progress}%</b></div><div className="console-steps">{progressStages.map((stage, index) => <div key={stage} className={index < progressStage ? "is-complete" : index === progressStage ? "is-current" : ""}><span>{index < progressStage ? <Check size={12} /> : String(index + 1).padStart(2, "0")}</span>{stage}</div>)}</div></div>}

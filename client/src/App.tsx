@@ -10,6 +10,8 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
+import Credits from "./pages/Credits";
+import Community from "./pages/Community";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -17,6 +19,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/profil" component={Profile} />
+      <Route path="/kredit" component={Credits} />
+      <Route path="/komunitas" component={Community} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
