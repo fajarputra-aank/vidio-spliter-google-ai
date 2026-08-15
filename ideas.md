@@ -73,6 +73,10 @@ Logo berupa **aperture empat daun** dengan satu irisan amber yang menyerupai kil
 
 Setiap transformasi memiliki status **processing**, **completed**, atau **failed** serta menyimpan referensi aman ke foto sumber dan hasil di penyimpanan berkas. Koleksi ditampilkan per pengguna yang masuk, sehingga riwayat tidak dicampur antarakun. Saat AI merender, konsol proses menggunakan empat tahap yang mudah dibaca dan progres terestimasi; status tidak diklaim selesai hingga respons dari layanan gambar benar-benar diterima.
 
+## Ratio, Quota & Sharing Decisions
+
+Pilihan **1:1**, **16:9**, dan **9:16** diterjemahkan sebagai instruksi komposisi pada prompt AI karena layanan gambar yang digunakan tidak menyediakan parameter dimensi eksplisit. Setiap akun memperoleh **lima** percobaan transformasi per hari UTC; percobaan dicatat saat dimulai untuk mencegah pengulangan tanpa batas. Tombol bagikan memakai lembar berbagi bawaan perangkat agar pengguna dapat memilih aplikasi sosial yang tersedia; pada perangkat tanpa dukungan tersebut, aplikasi menyalin tautan hasil sebagai alternatif.
+
 ## Style Decisions
 
 - **Amber Kilat `#EF8F2F`** hanya digunakan pada aksi, status pilihan, indikator progres, dan cap proses; bidang dekoratif yang luas memakai kertas tulang, arang, atau fotografi.

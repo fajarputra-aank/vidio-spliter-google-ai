@@ -6,11 +6,12 @@ import { generateImage } from "./_core/imageGeneration";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { systemRouter } from "./_core/systemRouter";
 import * as db from "./db";
-import { buildTransformPrompt, photoRecipes, recipeIds } from "./photoPrompts";
+import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds } from "./photoPrompts";
 import { storagePut } from "./storage";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
+  aspectRatio: z.enum(aspectRatioIds),
   fileName: z.string().min(1).max(180),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
   sourceData: z.string().min(16).max(8_000_000),
@@ -32,7 +33,12 @@ export const appRouter = router({
   }),
   photo: router({
     list: protectedProcedure.query(({ ctx }) => db.listPhotoTransforms(ctx.user.id)),
+    quota: protectedProcedure.query(({ ctx }) => db.getDailyPhotoQuota(ctx.user.id)),
     transform: protectedProcedure.input(imageInput).mutation(async ({ ctx, input }) => {
+      const quota = await db.getDailyPhotoQuota(ctx.user.id);
+      if (quota.exhausted) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Kuota 5 transformasi untuk hari ini sudah habis. Coba lagi setelah kuota diperbarui." });
+      }
       const sourceBuffer = Buffer.from(input.sourceData, "base64");
       if (!sourceBuffer.length || sourceBuffer.length > 5_500_000) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Ukuran foto harus maksimal 5 MB." });
@@ -46,6 +52,7 @@ export const appRouter = router({
       const transform = await db.createPhotoTransform({
         userId: ctx.user.id,
         recipe: input.recipe,
+        aspectRatio: input.aspectRatio,
         title: photoRecipes[input.recipe].title,
         sourceKey: source.key,
         sourceUrl: source.url,
@@ -54,7 +61,7 @@ export const appRouter = router({
 
       try {
         const result = await generateImage({
-          prompt: buildTransformPrompt(input.recipe),
+          prompt: buildTransformPrompt(input.recipe, input.aspectRatio),
           originalImages: [{ b64Json: input.sourceData, mimeType: input.mimeType }],
           quality: "medium",
         });

@@ -20,6 +20,7 @@ export const photoTransforms = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
     recipe: varchar("recipe", { length: 40 }).notNull(),
+    aspectRatio: varchar("aspectRatio", { length: 8 }).notNull().default("1:1"),
     title: varchar("title", { length: 120 }).notNull(),
     sourceKey: varchar("sourceKey", { length: 512 }).notNull(),
     sourceUrl: text("sourceUrl").notNull(),

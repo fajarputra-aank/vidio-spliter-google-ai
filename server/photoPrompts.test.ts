@@ -16,4 +16,10 @@ describe("photo transform prompts", () => {
     expect(buildTransformPrompt("food")).toContain("restaurant");
     expect(buildTransformPrompt("social")).toContain("social media");
   });
+
+  it("adds a clear compositional direction for every supported output ratio", () => {
+    expect(buildTransformPrompt("product", "1:1")).toContain("1:1 square");
+    expect(buildTransformPrompt("product", "16:9")).toContain("16:9 horizontal");
+    expect(buildTransformPrompt("product", "9:16")).toContain("9:16 format");
+  });
 });

@@ -1,7 +1,8 @@
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertPhotoTransform, InsertUser, photoTransforms, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { dailyQuota, utcDayBounds } from "./photoQuota";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -83,4 +84,15 @@ export async function listPhotoTransforms(userId: number) {
     .from(photoTransforms)
     .where(eq(photoTransforms.userId, userId))
     .orderBy(desc(photoTransforms.createdAt));
+}
+
+export async function getDailyPhotoQuota(userId: number, now = new Date()) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const { start, end } = utcDayBounds(now);
+  const result = await db
+    .select({ used: count() })
+    .from(photoTransforms)
+    .where(and(eq(photoTransforms.userId, userId), gte(photoTransforms.createdAt, start), lt(photoTransforms.createdAt, end)));
+  return { ...dailyQuota(Number(result[0]?.used ?? 0)), resetsAt: end };
 }

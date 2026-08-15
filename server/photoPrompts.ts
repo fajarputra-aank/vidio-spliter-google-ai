@@ -3,8 +3,10 @@
  * believable while translating it into a restrained, commercial photo direction.
  */
 export const recipeIds = ["headshot", "product", "food", "social"] as const;
+export const aspectRatioIds = ["1:1", "16:9", "9:16"] as const;
 
 export type RecipeId = (typeof recipeIds)[number];
+export type AspectRatioId = (typeof aspectRatioIds)[number];
 
 export const photoRecipes: Record<RecipeId, { title: string; prompt: string }> = {
   headshot: {
@@ -25,6 +27,12 @@ export const photoRecipes: Record<RecipeId, { title: string; prompt: string }> =
   },
 };
 
-export function buildTransformPrompt(recipeId: RecipeId) {
-  return photoRecipes[recipeId].prompt;
+const aspectDirections: Record<AspectRatioId, string> = {
+  "1:1": "Compose the final image in a balanced 1:1 square format, with the important subject fully visible and comfortable edge space.",
+  "16:9": "Compose the final image in a cinematic 16:9 horizontal format, maintaining the important subject fully in frame with considered editorial negative space.",
+  "9:16": "Compose the final image in a vertical 9:16 format for mobile social stories, keeping the important subject fully visible through the central safe area.",
+};
+
+export function buildTransformPrompt(recipeId: RecipeId, aspectRatio: AspectRatioId = "1:1") {
+  return `${photoRecipes[recipeId].prompt} ${aspectDirections[aspectRatio]}`;
 }

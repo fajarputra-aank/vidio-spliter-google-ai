@@ -10,4 +10,11 @@
 - [x] Uji autentikasi, transformasi, galeri, pengunduhan, dan tampilan responsif.
 - [x] Tambahkan status kegagalan yang jelas pada galeri riwayat agar pengguna dapat mencoba memuat ulang dengan aman.
 - [x] Tegaskan model pemrosesan sinkron yang digunakan untuk transformasi AI dan batasan progres estimasi pada antarmuka.
-- [ ] Simpan checkpoint dan serahkan versi yang telah diverifikasi.
+- [x] Simpan checkpoint dan serahkan versi yang telah diverifikasi.
+- [x] Rancang pilihan rasio keluaran 1:1, 16:9, dan 9:16 beserta instruksi transformasi AI yang sesuai.
+- [x] Tambahkan pencatatan kuota transformasi harian privat per pengguna dan penolakan aman saat batas tercapai.
+- [x] Tampilkan sisa kuota serta pemilihan rasio yang mudah dibaca di dalam studio.
+- [x] Tambahkan tombol bagikan hasil dengan Web Share API dan salin tautan sebagai fallback.
+- [x] Uji aturan kuota, prompt rasio, perilaku berbagi, dan responsivitas; lalu simpan checkpoint versi terbaru.
+- [x] Tambahkan pengujian terisolasi untuk berbagi melalui lembar perangkat dan fallback salin tautan.
+- [ ] Simpan serta serahkan checkpoint baru yang mencakup rasio, kuota, dan berbagi.

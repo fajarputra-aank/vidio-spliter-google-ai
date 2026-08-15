@@ -6,10 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { shareImageUrl } from "@/lib/share";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Aperture, ArrowRight, Camera, Check, ChevronRight, Clock3, Download,
   History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
-  ScanFace, Sparkles, Utensils, WandSparkles, X,
+  Ratio, ScanFace, Share2, Sparkles, Utensils, WandSparkles, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +25,7 @@ const assets = {
 
 type Recipe = { id: "headshot" | "product" | "food" | "social"; name: string; category: string; label: string; description: string; image: string; prompt: string };
 type UploadPayload = { base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; fileName: string };
+type OutputAspect = "1:1" | "16:9" | "9:16";
 
 const recipes: Recipe[] = [
   { id: "headshot", name: "Headshot rapi", category: "Potret", label: "Paling dipilih", description: "Cahaya studio bersih untuk profil kerja dan CV.", image: assets.headshot, prompt: "cahaya studio lembut" },
@@ -33,6 +36,11 @@ const recipes: Recipe[] = [
 
 const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }];
 const progressStages = ["Mengunci foto sumber", "Menyiapkan arah visual", "Merender transformasi AI", "Menyimpan hasil ke galeri"];
+const aspectOptions: Array<{ value: OutputAspect; title: string; note: string }> = [
+  { value: "1:1", title: "1:1", note: "kotak" },
+  { value: "16:9", title: "16:9", note: "landscape" },
+  { value: "9:16", title: "9:16", note: "story" },
+];
 
 function downloadImage(url: string, recipe: string) {
   const link = document.createElement("a");
@@ -45,12 +53,24 @@ function formatDate(value: Date | string) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+async function shareImage(url: string, title: string) {
+  try {
+    const outcome = await shareImageUrl(url, title, window.location.origin, navigator);
+    toast.success(outcome === "native" ? "Pilihan berbagi sudah dibuka." : "Tautan hasil sudah disalin.");
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    toast.error("Tautan belum dapat dibagikan. Coba unduh hasilnya.");
+  }
+}
+
 export default function Home() {
   const { user, loading: authLoading, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
   const historyQuery = trpc.photo.list.useQuery(undefined, { enabled: isAuthenticated });
+  const quotaQuery = trpc.photo.quota.useQuery(undefined, { enabled: isAuthenticated });
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe>(recipes[0]);
+  const [selectedAspect, setSelectedAspect] = useState<OutputAspect>("1:1");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadPayload, setUploadPayload] = useState<UploadPayload | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -81,6 +101,7 @@ export default function Home() {
       setResultImage(record.resultUrl);
       setIsProcessing(false);
       void utils.photo.list.invalidate();
+      void utils.photo.quota.invalidate();
       toast.success("Hasil AI sudah masuk ke galeri pribadimu.");
     },
     onError: (error) => {
@@ -124,14 +145,24 @@ export default function Home() {
       inputRef.current?.click();
       return;
     }
+    if (quotaQuery.data?.exhausted) {
+      toast.error("Kuota harian sudah habis. Coba lagi setelah kuota diperbarui.");
+      return;
+    }
     setProgress(8);
     setResultImage(null);
     setIsProcessing(true);
-    transformMutation.mutate({ recipe: selectedRecipe.id, fileName: uploadPayload.fileName, mimeType: uploadPayload.mimeType, sourceData: uploadPayload.base64 });
+    transformMutation.mutate({ recipe: selectedRecipe.id, aspectRatio: selectedAspect, fileName: uploadPayload.fileName, mimeType: uploadPayload.mimeType, sourceData: uploadPayload.base64 });
   }
 
   function chooseRecipe(recipe: Recipe) {
     setSelectedRecipe(recipe);
+    setResultImage(null);
+    setProgress(0);
+  }
+
+  function chooseAspect(aspect: OutputAspect) {
+    setSelectedAspect(aspect);
     setResultImage(null);
     setProgress(0);
   }
@@ -181,20 +212,22 @@ export default function Home() {
                 <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) readImage(file); }} hidden />
               </div>
               <p className="local-note"><span /> Foto sumber disimpan privat saat kamu menjalankan transformasi AI.</p>
+              {isAuthenticated && <div className={`quota-slip ${quotaQuery.data?.exhausted ? "is-exhausted" : ""}`}><div><span>KUOTA HARI INI</span><strong>{quotaQuery.isLoading ? "…" : `${quotaQuery.data?.remaining ?? 0} / ${quotaQuery.data?.dailyLimit ?? 5}`}</strong></div><p>{quotaQuery.data?.exhausted ? "Kuota habis. Akan diperbarui pada hari berikutnya." : "Transformasi tersisa untuk hari ini."}</p></div>}
             </section>
 
             <section className="recipe-column">
               <div className="column-label"><span>PILIH RESEP</span><span>{shownRecipes.length} tersedia</span></div>
               <div className="category-tabs" aria-label="Kategori resep">{categories.map((category) => { const Icon = category.icon; return <button key={category.name} className={selectedCategory === category.name ? "is-selected" : ""} onClick={() => setSelectedCategory(category.name)}><Icon size={15} />{category.name}</button>; })}</div>
               <div className="recipe-list">{shownRecipes.map((recipe, index) => <button key={recipe.id} className={`recipe-card ${selectedRecipe.id === recipe.id ? "is-selected" : ""}`} onClick={() => chooseRecipe(recipe)}><span className="recipe-image"><img src={recipe.image} alt="" /><i>R-{String(index + 1).padStart(2, "0")}</i></span><div><span className="recipe-label">{recipe.label}</span><strong>{recipe.name}</strong><p>{recipe.description}</p></div><span className="recipe-check">{selectedRecipe.id === recipe.id && <Check size={15} />}</span></button>)}</div>
+              <div className="aspect-picker"><div><span className="eyebrow"><Ratio size={13} /> RASIO KELUARAN</span><p>AI menata komposisi sesuai frame pilihanmu.</p></div><Select value={selectedAspect} onValueChange={(value) => chooseAspect(value as OutputAspect)}><SelectTrigger size="sm" className="aspect-select"><SelectValue /></SelectTrigger><SelectContent>{aspectOptions.map((aspect) => <SelectItem key={aspect.value} value={aspect.value}>{aspect.title} · {aspect.note}</SelectItem>)}</SelectContent></Select></div>
               <div className="selected-recipe-note"><WandSparkles size={16} /><span>Resep dipilih: <strong>{selectedRecipe.name}</strong> · {selectedRecipe.prompt}</span></div>
             </section>
 
             <section className="result-column">
               <div className="column-label"><span>PRATINJAU</span><span>{resultImage ? "siap" : isProcessing ? "meracik" : "menunggu"}</span></div>
-              <div className={`result-frame ${isProcessing ? "is-processing" : ""}`}><img src={previewImage} alt="Pratinjau hasil resep terpilih" /><span className="frame-number">LS / {new Date().getFullYear()}</span>{isProcessing && <div className="processing-layer progress-layer"><div className="process-orbit"><Sparkles size={20} /></div><strong>{progressStages[progressStage]}</strong><span>AI sedang memproses frame-mu</span><div className="progress-track" aria-label={`Progres proses ${progress}%`}><i style={{ width: `${progress}%` }} /></div><small>{progress}% · perkiraan selama AI menyelesaikan frame</small></div>}{resultImage && <span className="result-stamp">SIAP CETAK</span>}</div>
-              <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? "Hasil asli sudah disimpan ke galeri pribadi dan dapat diunduh lagi kapan saja." : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : "Unggah foto asli lalu terapkan resep untuk membuat hasil dengan layanan AI."}</p></div>
-              {resultImage ? <button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh hasil</button> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
+              <div className={`result-frame ratio-preview ${isProcessing ? "is-processing" : ""}`} style={{ aspectRatio: selectedAspect }}><img src={previewImage} alt="Pratinjau hasil resep terpilih" /><span className="frame-number">LS / {new Date().getFullYear()}</span><span className="ratio-stamp">{selectedAspect}</span>{isProcessing && <div className="processing-layer progress-layer"><div className="process-orbit"><Sparkles size={20} /></div><strong>{progressStages[progressStage]}</strong><span>AI sedang memproses frame-mu</span><div className="progress-track" aria-label={`Progres proses ${progress}%`}><i style={{ width: `${progress}%` }} /></div><small>{progress}% · perkiraan selama AI menyelesaikan frame</small></div>}{resultImage && <span className="result-stamp">SIAP CETAK</span>}</div>
+              <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? `Hasil ${selectedAspect} sudah tersimpan ke galeri pribadi dan dapat diunduh atau dibagikan kapan saja.` : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : `Unggah foto asli lalu terapkan resep untuk membuat hasil ${selectedAspect} dengan layanan AI.`}</p></div>
+              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || quotaQuery.data?.exhausted}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : quotaQuery.data?.exhausted ? "Kuota hari ini habis" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
             </section>
           </div>
           {isProcessing && <div className="progress-console" role="status" aria-live="polite"><div className="console-title"><span className="pulse-dot" /> PROSES AKTIF <b>{progress}%</b></div><div className="console-steps">{progressStages.map((stage, index) => <div key={stage} className={index < progressStage ? "is-complete" : index === progressStage ? "is-current" : ""}><span>{index < progressStage ? <Check size={12} /> : String(index + 1).padStart(2, "0")}</span>{stage}</div>)}</div></div>}
@@ -202,7 +235,7 @@ export default function Home() {
 
         <section className="history-section" id="gallery">
           <div className="section-heading"><div><span className="eyebrow">03 — koleksi pribadi</span><h2>Jejak frame-mu.</h2></div><p>{isAuthenticated ? "Semua hasil transformasi tersimpan privat di akunmu. Pilih kembali kapan pun untuk melihat atau mengunduh ulang." : "Masuk untuk membuat galeri personal yang menyimpan sumber dan hasil transformasi AI."}</p></div>
-          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyQuery.data?.length ? <div className="history-grid">{historyQuery.data.map((item) => <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><img src={item.resultUrl || item.sourceUrl} alt={`Hasil ${item.title}`} />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status.toUpperCase()}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? "Hasil AI siap dilihat ulang." : item.status === "failed" ? "Proses sebelumnya belum berhasil." : "Masih diproses di studio."}</p><div className="history-actions">{item.resultUrl && <button onClick={() => { setResultImage(item.resultUrl ?? item.sourceUrl); scrollTo("studio"); }}><Sparkles size={14} /> Lihat</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}</div></div></article>)}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
+          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyQuery.data?.length ? <div className="history-grid">{historyQuery.data.map((item) => <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><img src={item.resultUrl || item.sourceUrl} alt={`Hasil ${item.title}`} />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status.toUpperCase()}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? `Hasil ${item.aspectRatio} siap dilihat ulang.` : item.status === "failed" ? "Proses sebelumnya belum berhasil." : "Masih diproses di studio."}</p><div className="history-actions">{item.resultUrl && <button onClick={() => { setResultImage(item.resultUrl ?? item.sourceUrl); setSelectedAspect(item.aspectRatio as OutputAspect); scrollTo("studio"); }}><Sparkles size={14} /> Lihat</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}{item.resultUrl && <button onClick={() => void shareImage(item.resultUrl ?? item.sourceUrl, item.title)}><Share2 size={14} /> Bagikan</button>}</div></div></article>)}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
         </section>
 
         <section className="explore-section"><div className="section-heading compact-heading"><div><span className="eyebrow">04 — arah visual</span><h2>Untuk pekerjaan yang berbeda.</h2></div><button className="text-button" onClick={() => scrollTo("studio")}>Pilih resep <ArrowRight size={15} /></button></div><div className="contact-meta"><span>CONTACT SHEET / 04 FRAME</span><span>ARAH VISUAL TERPILIH</span></div><div className="explore-strip"><article className="explore-card"><img src={assets.headshot} alt="Contoh hasil portrait profesional" /><span className="explore-frame-no">01 / 04</span><div><span>PROFIL KERJA</span><strong>Rapi tanpa terasa kaku.</strong></div></article><article className="explore-card"><img src={assets.product} alt="Contoh foto produk katalog" /><span className="explore-frame-no">02 / 04</span><div><span>FOTO PRODUK</span><strong>Detail kecil ikut bicara.</strong></div></article><article className="explore-card"><img src={assets.food} alt="Contoh foto makanan editorial" /><span className="explore-frame-no">03 / 04</span><div><span>MENU & KULINER</span><strong>Warna hangat, fokus ke rasa.</strong></div></article><article className="explore-text-card"><span>RESEP BARU SETIAP PEKAN</span><p>Buka satu foto ke banyak kemungkinan baru.</p><button onClick={() => scrollTo("studio")}>Masuk studio <ArrowRight size={17} /></button></article></div></section>

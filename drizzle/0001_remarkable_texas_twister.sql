@@ -1,0 +1,1 @@
+ALTER TABLE `photoTransforms` ADD `aspectRatio` varchar(8) DEFAULT '1:1' NOT NULL;
