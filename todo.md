@@ -89,3 +89,10 @@
 - [x] Tambahkan route pengaturan notifikasi khusus yang dapat diakses pengguna.
 - [x] Hubungkan preferensi yang ditampilkan ke notifikasi moderasi dan aktivitas transformasi yang benar-benar diproduksi.
 - [x] Simpan checkpoint rilis setelah halaman pengaturan dan jenis notifikasi aktif selesai diverifikasi.
+- [x] Tambahkan status arsip album yang mempertahankan frame serta hanya dapat diubah pemilik.
+- [x] Tambahkan detail riwayat tindakan moderator yang privat pada notifikasi moderasi.
+- [x] Tambahkan preset 7 hari terakhir dan bulan ini pada filter periode arsip.
+- [x] Uji arsip album, detail moderasi, preset periode, dan responsivitas; lalu simpan checkpoint pembaruan.
+- [x] Perbarui dan validasi skill reusable untuk arsip album, detail moderasi, dan preset periode cepat.
+- [x] Tampilkan timeline laporan diterima, ditinjau, dan tindakan diterapkan pada detail notifikasi moderasi.
+- [x] Simpan checkpoint rilis arsip album, detail moderasi, dan preset periode cepat setelah timeline diverifikasi.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterAlbums, filterArchive, filterArchiveDateRange, sortArchiveItems } from "./profileFilters";
+import { filterAlbums, filterArchive, filterArchiveDateRange, quickArchiveRange, sortArchiveItems } from "./profileFilters";
 
 const frames = [
   { title: "Produk kayu", recipe: "product", style: "editorial", aspectRatio: "1:1" },
@@ -39,5 +39,11 @@ describe("profile archive and album filters", () => {
     ];
     expect(filterArchiveDateRange(datedFrames, "2026-08-12", "2026-08-15").map((item) => item.title)).toEqual(["Makan malam", "Potret kerja"]);
     expect(filterArchiveDateRange(datedFrames, "", "2026-08-10").map((item) => item.title)).toEqual(["Produk kayu"]);
+  });
+
+  it("builds seven-day and current-month quick ranges from a stable local date", () => {
+    const now = new Date(2026, 7, 15, 12, 0, 0);
+    expect(quickArchiveRange("seven", now)).toEqual({ from: "2026-08-09", to: "2026-08-15" });
+    expect(quickArchiveRange("month", now)).toEqual({ from: "2026-08-01", to: "2026-08-15" });
   });
 });

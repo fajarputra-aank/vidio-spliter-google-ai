@@ -124,10 +124,12 @@ export const photoAlbums = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
     name: varchar("name", { length: 80 }).notNull(),
+    isArchived: boolean("isArchived").notNull().default(false),
+    archivedAt: timestamp("archivedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
-  (table) => [uniqueIndex("photoAlbums_user_name_unique").on(table.userId, table.name), index("photoAlbums_user_created_idx").on(table.userId, table.createdAt)]
+  (table) => [uniqueIndex("photoAlbums_user_name_unique").on(table.userId, table.name), index("photoAlbums_user_archived_created_idx").on(table.userId, table.isArchived, table.createdAt)]
 );
 
 export const photoAlbumItems = mysqlTable(

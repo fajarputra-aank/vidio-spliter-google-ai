@@ -309,6 +309,15 @@ export async function renamePhotoAlbum(userId: number, albumId: number, name: st
   return { success: true };
 }
 
+export async function setPhotoAlbumArchived(userId: number, albumId: number, isArchived: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const album = await db.select({ id: photoAlbums.id }).from(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId))).limit(1);
+  if (!album[0]) return { success: false };
+  await db.update(photoAlbums).set({ isArchived, archivedAt: isArchived ? new Date() : null }).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId)));
+  return { success: true, isArchived };
+}
+
 export async function deletePhotoAlbum(userId: number, albumId: number) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
@@ -364,6 +373,24 @@ export async function listUserNotifications(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(userNotifications).where(eq(userNotifications.userId, userId)).orderBy(desc(userNotifications.createdAt)).limit(24);
+}
+
+export async function getUserNotificationDetail(userId: number, notificationId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const notification = await db.select().from(userNotifications).where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId))).limit(1);
+  if (!notification[0]) return null;
+  if (notification[0].kind !== "community_moderation" || !notification[0].relatedPostId) return { notification: notification[0], moderation: null };
+  const review = await db.select({ status: communityReports.status, createdAt: communityReports.createdAt, reviewedAt: communityReports.reviewedAt }).from(communityReports).where(eq(communityReports.postId, notification[0].relatedPostId)).orderBy(desc(communityReports.reviewedAt)).limit(1);
+  return {
+    notification: notification[0],
+    moderation: {
+      action: "Publikasi komunitas dihapus; frame privat tetap tersimpan.",
+      reviewedAt: review[0]?.reviewedAt ?? notification[0].createdAt,
+      reviewStatus: review[0]?.status ?? "actioned",
+      reportReceivedAt: review[0]?.createdAt ?? null,
+    },
+  };
 }
 
 export async function getUserNotificationPreferences(userId: number) {

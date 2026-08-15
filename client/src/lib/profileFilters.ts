@@ -31,3 +31,16 @@ export function filterArchiveDateRange<T extends { createdAt: Date | string }>(i
     return createdAt >= start && createdAt <= end;
   });
 }
+
+function asLocalDateInput(value: Date) {
+  const local = new Date(value.getTime() - value.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+export function quickArchiveRange(period: "seven" | "month", now = new Date()) {
+  const end = asLocalDateInput(now);
+  if (period === "month") return { from: asLocalDateInput(new Date(now.getFullYear(), now.getMonth(), 1)), to: end };
+  const start = new Date(now);
+  start.setDate(now.getDate() - 6);
+  return { from: asLocalDateInput(start), to: end };
+}

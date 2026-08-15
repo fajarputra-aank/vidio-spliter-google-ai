@@ -71,6 +71,13 @@
       "when": 1786778743418,
       "tag": "0009_abandoned_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1786779200231,
+      "tag": "0010_lean_sentinels",
+      "breakpoints": true
     }
   ]
 }

@@ -7,10 +7,12 @@ const mocks = vi.hoisted(() => ({
   createPhotoAlbum: vi.fn(),
   renamePhotoAlbum: vi.fn(),
   deletePhotoAlbum: vi.fn(),
+  setPhotoAlbumArchived: vi.fn(),
   addTransformToAlbum: vi.fn(),
   addTransformsToAlbum: vi.fn(),
   removeTransformFromAlbum: vi.fn(),
   listUserNotifications: vi.fn(),
+  getUserNotificationDetail: vi.fn(),
   markUserNotificationRead: vi.fn(),
   markAllUserNotificationsRead: vi.fn(),
   getUserNotificationPreferences: vi.fn(),
@@ -38,6 +40,7 @@ describe("community report and private album contracts", () => {
     mocks.createPhotoAlbum.mockResolvedValue({ id: 8, userId: 31, name: "Pilihan" });
     mocks.renamePhotoAlbum.mockResolvedValue({ success: true });
     mocks.deletePhotoAlbum.mockResolvedValue({ success: true });
+    mocks.setPhotoAlbumArchived.mockResolvedValue({ success: true, isArchived: true });
     mocks.addTransformToAlbum.mockResolvedValue({ success: true });
     mocks.addTransformsToAlbum.mockResolvedValue({ success: true, added: 2 });
     mocks.removeTransformFromAlbum.mockResolvedValue({ success: true });
@@ -45,6 +48,7 @@ describe("community report and private album contracts", () => {
     await caller.albums.list();
     await caller.albums.create({ name: "Pilihan" });
     await caller.albums.rename({ albumId: 8, name: "Pilihan baru" });
+    await caller.albums.setArchived({ albumId: 8, isArchived: true });
     await caller.albums.addTransform({ albumId: 8, transformId: 55 });
     await caller.albums.addTransforms({ albumId: 8, transformIds: [55, 56] });
     await caller.albums.removeTransform({ albumId: 8, transformId: 55 });
@@ -52,6 +56,7 @@ describe("community report and private album contracts", () => {
     expect(mocks.listPhotoAlbums).toHaveBeenCalledWith(31);
     expect(mocks.createPhotoAlbum).toHaveBeenCalledWith(31, "Pilihan");
     expect(mocks.renamePhotoAlbum).toHaveBeenCalledWith(31, 8, "Pilihan baru");
+    expect(mocks.setPhotoAlbumArchived).toHaveBeenCalledWith(31, 8, true);
     expect(mocks.addTransformToAlbum).toHaveBeenCalledWith(31, 8, 55);
     expect(mocks.addTransformsToAlbum).toHaveBeenCalledWith(31, 8, [55, 56]);
     expect(mocks.removeTransformFromAlbum).toHaveBeenCalledWith(31, 8, 55);
@@ -60,13 +65,16 @@ describe("community report and private album contracts", () => {
 
   it("exposes only the signed-in user's moderation notifications and read action", async () => {
     mocks.listUserNotifications.mockResolvedValue([{ id: 17, userId: 31, title: "Karya publik ditindak moderator" }]);
+    mocks.getUserNotificationDetail.mockResolvedValue({ notification: { id: 17, userId: 31 }, moderation: { action: "Publikasi komunitas dihapus" } });
     mocks.markUserNotificationRead.mockResolvedValue({ success: true });
     mocks.markAllUserNotificationsRead.mockResolvedValue({ success: true, marked: 3 });
     const caller = appRouter.createCaller(context());
     await expect(caller.notifications.list()).resolves.toEqual([{ id: 17, userId: 31, title: "Karya publik ditindak moderator" }]);
+    await expect(caller.notifications.detail({ notificationId: 17 })).resolves.toEqual({ notification: { id: 17, userId: 31 }, moderation: { action: "Publikasi komunitas dihapus" } });
     await expect(caller.notifications.markRead({ notificationId: 17 })).resolves.toEqual({ success: true });
     await expect(caller.notifications.markAllRead()).resolves.toEqual({ success: true, marked: 3 });
     expect(mocks.listUserNotifications).toHaveBeenCalledWith(31);
+    expect(mocks.getUserNotificationDetail).toHaveBeenCalledWith(31, 17);
     expect(mocks.markUserNotificationRead).toHaveBeenCalledWith(31, 17);
     expect(mocks.markAllUserNotificationsRead).toHaveBeenCalledWith(31);
   });
