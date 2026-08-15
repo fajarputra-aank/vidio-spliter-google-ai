@@ -4,10 +4,12 @@ import type { TrpcContext } from "./_core/context";
 const mocks = vi.hoisted(() => ({
   createCommunityReport: vi.fn(),
   listPhotoAlbums: vi.fn(),
+  listArchivedPhotoAlbums: vi.fn(),
   createPhotoAlbum: vi.fn(),
   renamePhotoAlbum: vi.fn(),
   deletePhotoAlbum: vi.fn(),
   setPhotoAlbumArchived: vi.fn(),
+  touchPhotoAlbum: vi.fn(),
   addTransformToAlbum: vi.fn(),
   addTransformsToAlbum: vi.fn(),
   removeTransformFromAlbum: vi.fn(),
@@ -37,26 +39,32 @@ describe("community report and private album contracts", () => {
 
   it("scopes every album action to the authenticated owner", async () => {
     mocks.listPhotoAlbums.mockResolvedValue([]);
+    mocks.listArchivedPhotoAlbums.mockResolvedValue([]);
     mocks.createPhotoAlbum.mockResolvedValue({ id: 8, userId: 31, name: "Pilihan" });
     mocks.renamePhotoAlbum.mockResolvedValue({ success: true });
     mocks.deletePhotoAlbum.mockResolvedValue({ success: true });
     mocks.setPhotoAlbumArchived.mockResolvedValue({ success: true, isArchived: true });
+    mocks.touchPhotoAlbum.mockResolvedValue({ success: true });
     mocks.addTransformToAlbum.mockResolvedValue({ success: true });
     mocks.addTransformsToAlbum.mockResolvedValue({ success: true, added: 2 });
     mocks.removeTransformFromAlbum.mockResolvedValue({ success: true });
     const caller = appRouter.createCaller(context());
     await caller.albums.list();
+    await caller.albums.listArchived();
     await caller.albums.create({ name: "Pilihan" });
     await caller.albums.rename({ albumId: 8, name: "Pilihan baru" });
     await caller.albums.setArchived({ albumId: 8, isArchived: true });
+    await caller.albums.touch({ albumId: 8 });
     await caller.albums.addTransform({ albumId: 8, transformId: 55 });
     await caller.albums.addTransforms({ albumId: 8, transformIds: [55, 56] });
     await caller.albums.removeTransform({ albumId: 8, transformId: 55 });
     await caller.albums.delete({ albumId: 8 });
     expect(mocks.listPhotoAlbums).toHaveBeenCalledWith(31);
+    expect(mocks.listArchivedPhotoAlbums).toHaveBeenCalledWith(31);
     expect(mocks.createPhotoAlbum).toHaveBeenCalledWith(31, "Pilihan");
     expect(mocks.renamePhotoAlbum).toHaveBeenCalledWith(31, 8, "Pilihan baru");
     expect(mocks.setPhotoAlbumArchived).toHaveBeenCalledWith(31, 8, true);
+    expect(mocks.touchPhotoAlbum).toHaveBeenCalledWith(31, 8);
     expect(mocks.addTransformToAlbum).toHaveBeenCalledWith(31, 8, 55);
     expect(mocks.addTransformsToAlbum).toHaveBeenCalledWith(31, 8, [55, 56]);
     expect(mocks.removeTransformFromAlbum).toHaveBeenCalledWith(31, 8, 55);

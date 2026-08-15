@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
+import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -318,6 +318,18 @@ export async function setPhotoAlbumArchived(userId: number, albumId: number, isA
   return { success: true, isArchived };
 }
 
+export async function touchPhotoAlbum(userId: number, albumId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.update(photoAlbums).set({ lastAccessedAt: new Date() }).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId)));
+  return { success: Number(result[0].affectedRows ?? 0) > 0 };
+}
+
+export async function listArchivedPhotoAlbums(userId: number) {
+  const albums = await listPhotoAlbums(userId);
+  return albums.filter((album) => album.isArchived);
+}
+
 export async function deletePhotoAlbum(userId: number, albumId: number) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
@@ -398,6 +410,39 @@ export async function getUserNotificationPreferences(userId: number) {
   if (!db) return { communityModeration: true, accountActivity: true, productUpdates: false };
   const preferences = await db.select().from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, userId)).limit(1);
   return preferences[0] ?? { communityModeration: true, accountActivity: true, productUpdates: false };
+}
+
+export async function upsertScheduledJob(name: string, taskUid: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.insert(scheduledJobs).values({ name, taskUid }).onDuplicateKeyUpdate({ set: { taskUid } });
+}
+
+export async function getScheduledJobByTaskUid(taskUid: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const jobs = await db.select().from(scheduledJobs).where(eq(scheduledJobs.taskUid, taskUid)).limit(1);
+  return jobs[0];
+}
+
+export async function runArchivedAlbumReminderSweep(now = new Date()) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const threshold = new Date(now);
+  threshold.setUTCMonth(threshold.getUTCMonth() - 6);
+  return db.transaction(async (tx) => {
+    const archivedAlbums = await tx.select().from(photoAlbums).where(eq(photoAlbums.isArchived, true));
+    let reminded = 0;
+    for (const album of archivedAlbums) {
+      if (album.lastAccessedAt >= threshold || (album.lastInactivityReminderAt && album.lastInactivityReminderAt >= threshold)) continue;
+      const preferences = await tx.select({ accountActivity: userNotificationPreferences.accountActivity }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, album.userId)).limit(1);
+      if (!(preferences[0]?.accountActivity ?? true)) continue;
+      await tx.insert(userNotifications).values({ userId: album.userId, kind: "album_inactivity", title: "Album terarsip belum dibuka", content: `Album “${album.name}” belum dibuka selama lebih dari enam bulan. Frame di dalamnya tetap aman.`, relatedAlbumId: album.id });
+      await tx.update(photoAlbums).set({ lastInactivityReminderAt: now }).where(eq(photoAlbums.id, album.id));
+      reminded += 1;
+    }
+    return { reminded, checked: archivedAlbums.length };
+  });
 }
 
 export async function updateUserNotificationPreferences(userId: number, input: { communityModeration: boolean; accountActivity: boolean; productUpdates: boolean }) {

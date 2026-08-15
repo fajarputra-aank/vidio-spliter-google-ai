@@ -126,6 +126,8 @@ export const photoAlbums = mysqlTable(
     name: varchar("name", { length: 80 }).notNull(),
     isArchived: boolean("isArchived").notNull().default(false),
     archivedAt: timestamp("archivedAt"),
+    lastAccessedAt: timestamp("lastAccessedAt").defaultNow().notNull(),
+    lastInactivityReminderAt: timestamp("lastInactivityReminderAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -149,10 +151,11 @@ export const userNotifications = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
-    kind: mysqlEnum("kind", ["community_moderation", "account_activity"]).notNull(),
+    kind: mysqlEnum("kind", ["community_moderation", "account_activity", "album_inactivity"]).notNull(),
     title: varchar("title", { length: 160 }).notNull(),
     content: varchar("content", { length: 360 }).notNull(),
     relatedPostId: int("relatedPostId"),
+    relatedAlbumId: int("relatedAlbumId"),
     isRead: boolean("isRead").notNull().default(false),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
@@ -171,6 +174,18 @@ export const userNotificationPreferences = mysqlTable(
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
   (table) => [uniqueIndex("userNotificationPreferences_user_unique").on(table.userId)]
+);
+
+/** Durable mapping for platform-managed project-level scheduled callbacks. */
+export const scheduledJobs = mysqlTable(
+  "scheduledJobs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 80 }).notNull(),
+    taskUid: varchar("taskUid", { length: 65 }).notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("scheduledJobs_name_unique").on(table.name), uniqueIndex("scheduledJobs_task_uid_unique").on(table.taskUid)]
 );
 
 export type User = typeof users.$inferSelect;

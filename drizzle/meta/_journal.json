@@ -78,6 +78,13 @@
       "when": 1786779200231,
       "tag": "0010_lean_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1786780449632,
+      "tag": "0011_complete_starhawk",
+      "breakpoints": true
     }
   ]
 }

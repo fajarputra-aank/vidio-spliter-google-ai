@@ -96,3 +96,9 @@
 - [x] Perbarui dan validasi skill reusable untuk arsip album, detail moderasi, dan preset periode cepat.
 - [x] Tampilkan timeline laporan diterima, ditinjau, dan tindakan diterapkan pada detail notifikasi moderasi.
 - [x] Simpan checkpoint rilis arsip album, detail moderasi, dan preset periode cepat setelah timeline diverifikasi.
+- [x] Tambahkan halaman profil khusus untuk melihat, memulihkan, dan mengelola album yang telah diarsipkan.
+- [x] Tambahkan ekspor CSV yang hanya memuat hasil arsip sesuai pencarian, filter, urutan, serta rentang tanggal aktif.
+- [ ] Tambahkan pengingat privat otomatis untuk album terarsip yang tidak dibuka lebih dari enam bulan.
+- [ ] Konfigurasikan pemeriksaan berkala aplikasi untuk menghasilkan pengingat album tidak aktif secara idempoten.
+- [x] Perbarui dan validasi skill reusable untuk halaman album terarsip, ekspor CSV privat, dan pengingat album tidak aktif.
+- [ ] Uji halaman album terarsip, ekspor CSV, pengingat enam bulan, serta responsivitas; lalu simpan checkpoint pembaruan.

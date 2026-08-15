@@ -117,10 +117,12 @@ export const appRouter = router({
   }),
   albums: router({
     list: protectedProcedure.query(({ ctx }) => db.listPhotoAlbums(ctx.user.id)),
+    listArchived: protectedProcedure.query(({ ctx }) => db.listArchivedPhotoAlbums(ctx.user.id)),
     create: protectedProcedure.input(z.object({ name: z.string().trim().min(1).max(80) })).mutation(({ ctx, input }) => db.createPhotoAlbum(ctx.user.id, input.name)),
     rename: protectedProcedure.input(z.object({ albumId: z.number().int().positive(), name: z.string().trim().min(1).max(80) })).mutation(({ ctx, input }) => db.renamePhotoAlbum(ctx.user.id, input.albumId, input.name)),
     delete: protectedProcedure.input(z.object({ albumId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deletePhotoAlbum(ctx.user.id, input.albumId)),
     setArchived: protectedProcedure.input(z.object({ albumId: z.number().int().positive(), isArchived: z.boolean() })).mutation(({ ctx, input }) => db.setPhotoAlbumArchived(ctx.user.id, input.albumId, input.isArchived)),
+    touch: protectedProcedure.input(z.object({ albumId: z.number().int().positive() })).mutation(({ ctx, input }) => db.touchPhotoAlbum(ctx.user.id, input.albumId)),
     addTransform: protectedProcedure.input(z.object({ albumId: z.number().int().positive(), transformId: z.number().int().positive() })).mutation(({ ctx, input }) => db.addTransformToAlbum(ctx.user.id, input.albumId, input.transformId)),
     addTransforms: protectedProcedure.input(z.object({ albumId: z.number().int().positive(), transformIds: z.array(z.number().int().positive()).min(1).max(50) })).mutation(({ ctx, input }) => db.addTransformsToAlbum(ctx.user.id, input.albumId, input.transformIds)),
     removeTransform: protectedProcedure.input(z.object({ albumId: z.number().int().positive(), transformId: z.number().int().positive() })).mutation(({ ctx, input }) => db.removeTransformFromAlbum(ctx.user.id, input.albumId, input.transformId)),
