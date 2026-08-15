@@ -56,5 +56,16 @@
 - [x] Tambahkan tindakan moderator administrator untuk menghapus karya publik dan suka terkait secara aman.
 - [x] Tambahkan unduhan HD hasil berlapis teks/watermark yang mengonsumsi kredit secara aman.
 - [x] Uji moderasi admin, penggunaan kredit HD, ekspor hasil, serta responsivitas; lalu simpan checkpoint pembaruan.
-- [ ] Simpan checkpoint baru setelah fitur moderasi admin dan unduhan HD berbasis kredit selesai diverifikasi.
-- [ ] Serahkan paket skill ai-photo-studio-fullstack terbaru yang mencakup moderasi dan ekspor HD.
+- [x] Simpan checkpoint baru setelah fitur moderasi admin dan unduhan HD berbasis kredit selesai diverifikasi.
+- [x] Serahkan paket skill ai-photo-studio-fullstack terbaru yang mencakup moderasi dan ekspor HD.
+- [x] Perbarui skill reusable agar mencakup laporan komunitas, remix gaya, dan album privat.
+- [x] Validasi skill reusable yang diperbarui dan siapkan paket terbaru untuk pengguna.
+- [x] Rancang tabel laporan komunitas serta album/keanggotaan album yang privat per pengguna.
+- [x] Tambahkan laporan konten dengan alasan yang tervalidasi dan alur tinjauan admin.
+- [x] Tambahkan remix yang memindahkan gaya/resep/aspek karya publik ke studio pengguna tanpa menyalin foto sumber.
+- [x] Tambahkan pembuatan album, penambahan/penghapusan frame, dan tampilan album pada profil.
+- [x] Uji otorisasi, laporan, remix, album, dan responsivitas; lalu simpan checkpoint pembaruan.
+- [x] Tambahkan state memuat dan error yang jelas pada panel laporan admin.
+- [x] Tambahkan state memuat dan error yang jelas pada album privat profil.
+- [x] Simpan checkpoint rilis fitur laporan, remix, dan album.
+- [x] Siapkan paket skill ai-photo-studio-fullstack tervalidasi untuk penyerahan.

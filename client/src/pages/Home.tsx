@@ -7,6 +7,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { shareImageUrl } from "@/lib/share";
+import { readRemixPreset } from "@/lib/remix";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import {
@@ -96,6 +97,7 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [remixNote, setRemixNote] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isAdmin = user?.role === "admin";
 
@@ -108,6 +110,20 @@ export default function Home() {
     const timer = window.setInterval(() => setProgress((current) => Math.min(91, current + (current < 55 ? 6 : 2))), 700);
     return () => window.clearInterval(timer);
   }, [isProcessing]);
+
+  useEffect(() => {
+    const preset = readRemixPreset(window.location.search);
+    if (!preset) return;
+    const recipe = recipes.find((item) => item.id === preset.recipe);
+    const style = styleOptions.find((item) => item.value === preset.style);
+    const aspect = aspectOptions.find((item) => item.value === preset.aspect);
+    if (recipe) setSelectedRecipe(recipe);
+    setSelectedStyle(preset.style);
+    setSelectedAspect(preset.aspect);
+    setSelectedCategory("Semua");
+    setRemixNote(`Preset remix aktif: ${recipe?.name ?? "resep"} · ${style?.title ?? "gaya"} · ${aspect?.title ?? "rasio"}. Unggah fotomu sendiri untuk lanjut.`);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   const transformMutation = trpc.photo.transform.useMutation({
     onSuccess: (record) => {
@@ -232,7 +248,7 @@ export default function Home() {
         <section className="process-strip" aria-label="Alur kerja"><div><span>01</span><strong>Masukkan foto</strong><p>JPG, PNG, atau WEBP.</p></div><div><span>02</span><strong>Pilih resep</strong><p>Sesuaikan dengan tujuan.</p></div><div><span>03</span><strong>AI meracik hasil</strong><p>Progress tampil langsung.</p></div><aside><Clock3 size={18} /><span>Hasil tersimpan untuk diunduh kapan pun.</span></aside></section>
 
         <section className="workbench-section" id="studio">
-          <div className="section-heading"><div><span className="eyebrow">02 — studio aktif</span><h2>Racik frame-mu.</h2></div><p>Untuk memproses foto AI, masuk dan unggah foto asli. Lensa Saku menyimpan sumber serta hasilmu ke galeri privat.</p></div>
+          <div className="section-heading"><div><span className="eyebrow">02 — studio aktif</span><h2>Racik frame-mu.</h2></div><p>Untuk memproses foto AI, masuk dan unggah foto asli. Lensa Saku menyimpan sumber serta hasilmu ke galeri privat.</p></div>{remixNote && <div className="remix-slip"><WandSparkles size={16} /><span>{remixNote}</span><button onClick={() => setRemixNote(null)}><X size={14} /></button></div>}
           <div className="workbench">
             <section className="upload-column">
               <div className="column-label"><span>FOTO SUMBER</span><span>{uploadPayload?.fileName || "belum ada"}</span></div>

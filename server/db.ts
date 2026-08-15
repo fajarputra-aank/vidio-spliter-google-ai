@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { communityLikes, communityPosts, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoTransforms, users } from "../drizzle/schema";
+import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -223,12 +223,91 @@ export async function moderateDeleteCommunityPost(postId: number) {
 export async function listCommunityPosts(viewerId?: number) {
   const db = await getDb();
   if (!db) return [];
-  const posts = await db.select({ post: communityPosts, authorName: users.name }).from(communityPosts).innerJoin(users, eq(communityPosts.userId, users.id)).where(eq(communityPosts.isPublished, true)).orderBy(desc(communityPosts.createdAt));
-  return Promise.all(posts.map(async ({ post, authorName }) => {
+  const posts = await db.select({ post: communityPosts, authorName: users.name, recipe: photoTransforms.recipe, style: photoTransforms.style, aspectRatio: photoTransforms.aspectRatio }).from(communityPosts).innerJoin(users, eq(communityPosts.userId, users.id)).innerJoin(photoTransforms, eq(communityPosts.transformId, photoTransforms.id)).where(eq(communityPosts.isPublished, true)).orderBy(desc(communityPosts.createdAt));
+  return Promise.all(posts.map(async ({ post, authorName, recipe, style, aspectRatio }) => {
     const likeCount = await db.select({ total: count() }).from(communityLikes).where(eq(communityLikes.postId, post.id));
     const viewerLike = viewerId ? await db.select({ id: communityLikes.id }).from(communityLikes).where(and(eq(communityLikes.postId, post.id), eq(communityLikes.userId, viewerId))).limit(1) : [];
-    return { ...post, authorName: authorName || "Kreator", likes: Number(likeCount[0]?.total ?? 0), likedByViewer: Boolean(viewerLike[0]) };
+    return { ...post, authorName: authorName || "Kreator", recipe, style, aspectRatio, likes: Number(likeCount[0]?.total ?? 0), likedByViewer: Boolean(viewerLike[0]) };
   }));
+}
+
+export async function createCommunityReport(reporterUserId: number, input: { postId: number; reason: "inappropriate" | "spam" | "copyright" | "other"; details?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const post = await db.select({ id: communityPosts.id, userId: communityPosts.userId }).from(communityPosts).where(and(eq(communityPosts.id, input.postId), eq(communityPosts.isPublished, true))).limit(1);
+  if (!post[0]) throw new Error("Karya publik tidak ditemukan.");
+  if (post[0].userId === reporterUserId) throw new Error("Kamu tidak dapat melaporkan karya sendiri.");
+  const existing = await db.select({ id: communityReports.id }).from(communityReports).where(and(eq(communityReports.postId, input.postId), eq(communityReports.reporterUserId, reporterUserId))).limit(1);
+  if (existing[0]) throw new Error("Kamu sudah melaporkan karya ini.");
+  await db.insert(communityReports).values({ postId: input.postId, reporterUserId, reason: input.reason, details: input.details?.trim() || null });
+  return { success: true };
+}
+
+export async function listAdminCommunityReports() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({ id: communityReports.id, reason: communityReports.reason, details: communityReports.details, status: communityReports.status, createdAt: communityReports.createdAt, postId: communityReports.postId, resultUrl: communityPosts.resultUrl, caption: communityPosts.caption, authorName: users.name }).from(communityReports).innerJoin(communityPosts, eq(communityReports.postId, communityPosts.id)).innerJoin(users, eq(communityPosts.userId, users.id)).where(eq(communityReports.status, "open")).orderBy(desc(communityReports.createdAt));
+}
+
+export async function resolveCommunityReport(reportId: number, action: "dismiss" | "remove_public") {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.transaction(async (tx) => {
+    const report = await tx.select({ id: communityReports.id, postId: communityReports.postId }).from(communityReports).where(and(eq(communityReports.id, reportId), eq(communityReports.status, "open"))).limit(1);
+    if (!report[0]) return { success: false };
+    if (action === "remove_public") {
+      await tx.delete(communityLikes).where(eq(communityLikes.postId, report[0].postId));
+      await tx.delete(communityPosts).where(eq(communityPosts.id, report[0].postId));
+      await tx.update(communityReports).set({ status: "actioned", reviewedAt: new Date() }).where(eq(communityReports.id, reportId));
+    } else {
+      await tx.update(communityReports).set({ status: "dismissed", reviewedAt: new Date() }).where(eq(communityReports.id, reportId));
+    }
+    return { success: true };
+  });
+}
+
+export async function listPhotoAlbums(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const albums = await db.select().from(photoAlbums).where(eq(photoAlbums.userId, userId)).orderBy(desc(photoAlbums.updatedAt));
+  return Promise.all(albums.map(async (album) => {
+    const [total, cover, items] = await Promise.all([
+      db.select({ count: count() }).from(photoAlbumItems).where(eq(photoAlbumItems.albumId, album.id)),
+      db.select({ resultUrl: photoTransforms.resultUrl }).from(photoAlbumItems).innerJoin(photoTransforms, eq(photoAlbumItems.transformId, photoTransforms.id)).where(eq(photoAlbumItems.albumId, album.id)).orderBy(desc(photoAlbumItems.createdAt)).limit(1),
+      db.select({ transformId: photoTransforms.id, title: photoTransforms.title, resultUrl: photoTransforms.resultUrl, style: photoTransforms.style, aspectRatio: photoTransforms.aspectRatio }).from(photoAlbumItems).innerJoin(photoTransforms, eq(photoAlbumItems.transformId, photoTransforms.id)).where(eq(photoAlbumItems.albumId, album.id)).orderBy(desc(photoAlbumItems.createdAt)),
+    ]);
+    return { ...album, itemCount: Number(total[0]?.count ?? 0), coverUrl: cover[0]?.resultUrl ?? null, items };
+  }));
+}
+
+export async function createPhotoAlbum(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const inserted = await db.insert(photoAlbums).values({ userId, name });
+  const records = await db.select().from(photoAlbums).where(eq(photoAlbums.id, Number(inserted[0].insertId))).limit(1);
+  return records[0];
+}
+
+export async function addTransformToAlbum(userId: number, albumId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const [album, transform] = await Promise.all([
+    db.select({ id: photoAlbums.id }).from(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId))).limit(1),
+    db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId))).limit(1),
+  ]);
+  if (!album[0] || !transform[0]) return { success: false };
+  const existing = await db.select({ id: photoAlbumItems.id }).from(photoAlbumItems).where(and(eq(photoAlbumItems.albumId, albumId), eq(photoAlbumItems.transformId, transformId))).limit(1);
+  if (!existing[0]) await db.insert(photoAlbumItems).values({ albumId, transformId });
+  return { success: true };
+}
+
+export async function removeTransformFromAlbum(userId: number, albumId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const album = await db.select({ id: photoAlbums.id }).from(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId))).limit(1);
+  if (!album[0]) return { success: false };
+  await db.delete(photoAlbumItems).where(and(eq(photoAlbumItems.albumId, albumId), eq(photoAlbumItems.transformId, transformId)));
+  return { success: true };
 }
 
 export async function toggleCommunityLike(userId: number, postId: number) {

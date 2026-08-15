@@ -98,6 +98,49 @@ export const communityLikes = mysqlTable(
   (table) => [uniqueIndex("communityLikes_post_user_unique").on(table.postId, table.userId), index("communityLikes_post_idx").on(table.postId)]
 );
 
+/** Authenticated, duplicate-safe reports on a currently public community post. */
+export const communityReports = mysqlTable(
+  "communityReports",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    postId: int("postId").notNull(),
+    reporterUserId: int("reporterUserId").notNull(),
+    reason: mysqlEnum("reason", ["inappropriate", "spam", "copyright", "other"]).notNull(),
+    details: varchar("details", { length: 320 }),
+    status: mysqlEnum("status", ["open", "dismissed", "actioned"]).default("open").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    reviewedAt: timestamp("reviewedAt"),
+  },
+  (table) => [
+    uniqueIndex("communityReports_post_reporter_unique").on(table.postId, table.reporterUserId),
+    index("communityReports_status_created_idx").on(table.status, table.createdAt),
+  ]
+);
+
+/** Private grouping metadata; transforms themselves remain immutable and private. */
+export const photoAlbums = mysqlTable(
+  "photoAlbums",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    name: varchar("name", { length: 80 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("photoAlbums_user_name_unique").on(table.userId, table.name), index("photoAlbums_user_created_idx").on(table.userId, table.createdAt)]
+);
+
+export const photoAlbumItems = mysqlTable(
+  "photoAlbumItems",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    albumId: int("albumId").notNull(),
+    transformId: int("transformId").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("photoAlbumItems_album_transform_unique").on(table.albumId, table.transformId), index("photoAlbumItems_album_idx").on(table.albumId)]
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type PhotoTransform = typeof photoTransforms.$inferSelect;

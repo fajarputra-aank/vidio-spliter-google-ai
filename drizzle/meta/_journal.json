@@ -43,6 +43,13 @@
       "when": 1786774945882,
       "tag": "0005_stormy_norrin_radd",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1786776299837,
+      "tag": "0006_furry_kabuki",
+      "breakpoints": true
     }
   ]
 }
