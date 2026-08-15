@@ -101,6 +101,6 @@
 - [x] Tambahkan pengingat privat otomatis untuk album terarsip yang tidak dibuka lebih dari enam bulan.
 - [x] Konfigurasikan pemeriksaan berkala aplikasi untuk menghasilkan pengingat album tidak aktif secara idempoten.
 - [x] Perbarui dan validasi skill reusable untuk halaman album terarsip, ekspor CSV privat, dan pengingat album tidak aktif.
-- [ ] Uji halaman album terarsip, ekspor CSV, pengingat enam bulan, serta responsivitas; lalu simpan checkpoint pembaruan.
+- [x] Uji halaman album terarsip, ekspor CSV, pengingat enam bulan, serta responsivitas; lalu simpan checkpoint pembaruan.
 - [x] Uji sweep pengingat album untuk ambang enam bulan, preferensi notifikasi, dan idempotensi tanpa reminder ganda.
-- [ ] Deploy endpoint pengingat terbaru dan jalankan verifikasi callback terdaftar sebelum menutup rilis otomatis.
+- [x] Deploy endpoint pengingat terbaru dan jalankan verifikasi callback terdaftar sebelum menutup rilis otomatis.
