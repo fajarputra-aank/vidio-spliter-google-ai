@@ -8,13 +8,14 @@ import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { shareImageUrl } from "@/lib/share";
 import { readRemixPreset } from "@/lib/remix";
+import { selectAlternativeRecipe } from "@/lib/studioExperiment";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import {
-  Aperture, ArrowRight, Camera, Check, ChevronRight, Clock3, Download,
+  Aperture, ArrowRight, BookmarkPlus, Camera, Check, ChevronRight, Clock3, Download,
   Globe2, History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
-  Palette, Ratio, ScanFace, Share2, Sparkles, Utensils, WandSparkles, X,
+  Palette, Ratio, RotateCcw, ScanFace, Share2, Sparkles, Trash2, Utensils, WandSparkles, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -97,6 +98,7 @@ export default function Home() {
   const historyQuery = trpc.photo.list.useQuery(undefined, { enabled: isAuthenticated });
   const quotaQuery = trpc.photo.quota.useQuery(undefined, { enabled: isAuthenticated });
   const creditBalanceQuery = trpc.billing.balance.useQuery(undefined, { enabled: isAuthenticated });
+  const promptFavoritesQuery = trpc.promptFavorites.list.useQuery(undefined, { enabled: isAuthenticated });
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe>(recipes[0]);
   const [selectedAspect, setSelectedAspect] = useState<OutputAspect>("1:1");
@@ -110,8 +112,9 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [remixNote, setRemixNote] = useState<string | null>(null);
   const [customInstruction, setCustomInstruction] = useState("");
-  const [recommendation, setRecommendation] = useState<PhotoRecommendation | null>(null);
+  const [recommendations, setRecommendations] = useState<PhotoRecommendation[]>([]);
   const [recommendationStatus, setRecommendationStatus] = useState<"idle" | "login" | "error">("idle");
+  const [isRestoringHistorySource, setIsRestoringHistorySource] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const isAdmin = user?.role === "admin";
 
@@ -163,8 +166,17 @@ export default function Home() {
   });
 
   const recommendationMutation = trpc.photo.recommend.useMutation({
-    onSuccess: (value) => { setRecommendation(value as PhotoRecommendation); setRecommendationStatus("idle"); },
-    onError: () => { setRecommendation(null); setRecommendationStatus("error"); },
+    onSuccess: (value) => { setRecommendations(value as PhotoRecommendation[]); setRecommendationStatus("idle"); },
+    onError: () => { setRecommendations([]); setRecommendationStatus("error"); },
+  });
+
+  const createPromptFavoriteMutation = trpc.promptFavorites.create.useMutation({
+    onSuccess: () => { void utils.promptFavorites.list.invalidate(); toast.success("Arahan disimpan ke favorit privat."); },
+    onError: (error) => toast.error(error.message),
+  });
+  const deletePromptFavoriteMutation = trpc.promptFavorites.delete.useMutation({
+    onSuccess: () => { void utils.promptFavorites.list.invalidate(); toast.success("Arahan dihapus dari favorit."); },
+    onError: (error) => toast.error(error.message),
   });
 
   function readImage(file: File) {
@@ -185,7 +197,7 @@ export default function Home() {
       setUploadPayload({ base64, mimeType: file.type as UploadPayload["mimeType"], fileName: file.name });
       setResultImage(null);
       setProgress(0);
-      setRecommendation(null);
+      setRecommendations([]);
       if (isAuthenticated) {
         setRecommendationStatus("idle");
         recommendationMutation.mutate({ sourceData: base64, mimeType: file.type as UploadPayload["mimeType"] });
@@ -234,6 +246,56 @@ export default function Home() {
     setSelectedStyle(style);
     setResultImage(null);
     setProgress(0);
+  }
+
+  function saveInstructionFavorite() {
+    const instruction = customInstruction.trim();
+    if (!isAuthenticated) return startLogin();
+    if (instruction.length < 3) return toast.error("Tulis arahan minimal 3 karakter sebelum menyimpannya.");
+    createPromptFavoriteMutation.mutate({ instruction });
+  }
+
+  function tryAnotherRecipe() {
+    const alternative = selectAlternativeRecipe(selectedRecipe.id, recommendations.map((item) => item.recipe), recipes.map((item) => item.id));
+    const recipe = recipes.find((item) => item.id === alternative);
+    if (!recipe) return;
+    chooseRecipe(recipe);
+    setSelectedCategory(recipe.category);
+    scrollTo("studio");
+    toast.message(`Foto sumber tetap dipakai. Coba ${recipe.name} saat siap.`);
+  }
+
+  async function restoreHistoryToStudio(item: { id: number; sourceUrl: string; resultUrl: string | null; recipe: string; aspectRatio: string; style: string }) {
+    const recipe = recipes.find((candidate) => candidate.id === item.recipe);
+    setUploadedImage(item.sourceUrl);
+    setResultImage(item.resultUrl ?? item.sourceUrl);
+    setSelectedAspect(item.aspectRatio as OutputAspect);
+    setSelectedStyle(item.style as AiStyle);
+    if (recipe) { setSelectedRecipe(recipe); setSelectedCategory(recipe.category); }
+    setUploadPayload(null);
+    setIsRestoringHistorySource(true);
+    scrollTo("studio");
+    try {
+      const response = await fetch(item.sourceUrl);
+      if (!response.ok) throw new Error("source unavailable");
+      const blob = await response.blob();
+      const mimeType = (["image/jpeg", "image/png", "image/webp"] as string[]).includes(blob.type) ? blob.type as UploadPayload["mimeType"] : "image/jpeg";
+      const sourceData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const value = String(reader.result).split(",")[1];
+          value ? resolve(value) : reject(new Error("source decode failed"));
+        };
+        reader.onerror = () => reject(reader.error ?? new Error("source read failed"));
+        reader.readAsDataURL(blob);
+      });
+      setUploadPayload({ base64: sourceData, mimeType, fileName: `riwayat-${item.id}.${mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg"}` });
+      toast.success("Sumber privat dimuat kembali. Kamu dapat mencoba resep lain tanpa unggah ulang.");
+    } catch {
+      toast.error("Sumber riwayat belum dapat dimuat ulang. Pilih berkas asli untuk membuat transformasi baru.");
+    } finally {
+      setIsRestoringHistorySource(false);
+    }
   }
 
   function scrollTo(id: string) { document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
@@ -292,19 +354,19 @@ export default function Home() {
               {recommendationMutation.isPending && <div className="recipe-recommendation is-loading"><Sparkles size={15} /><span>Menganalisis jenis foto untuk mencari resep yang cocok…</span></div>}
               {recommendationStatus === "login" && <button className="recipe-recommendation is-login" onClick={startLogin}><LogIn size={15} /><span><small>REKOMENDASI AI</small><strong>Masuk untuk analisis otomatis</strong><em>Analisis jenis foto berjalan privat setelah kamu masuk ke studio.</em></span><ArrowRight size={15} /></button>}
               {recommendationStatus === "error" && <div className="recipe-recommendation is-loading"><X size={15} /><span>Analisis foto belum tersedia. Kamu tetap dapat memilih resep secara manual.</span></div>}
-              {recommendation && !recommendationMutation.isPending && <button className="recipe-recommendation" onClick={() => { const recipe = recipes.find((item) => item.id === recommendation.recipe); if (recipe) { chooseRecipe(recipe); setSelectedCategory(recipe.category); } }}><Sparkles size={15} /><span><small>REKOMENDASI AI · {recommendation.confidence === "high" ? "TINGGI" : recommendation.confidence === "medium" ? "SEDANG" : "AWAL"}</small><strong>Coba {recipes.find((item) => item.id === recommendation.recipe)?.name ?? "Konten sosial"}</strong><em>{recommendation.reason}</em></span><ArrowRight size={15} /></button>}
+              {recommendations.length > 0 && !recommendationMutation.isPending && <div className="recipe-recommendation-list" aria-label="Tiga rekomendasi resep AI">{recommendations.map((recommendation, index) => <button className="recipe-recommendation" key={recommendation.recipe} onClick={() => { const recipe = recipes.find((item) => item.id === recommendation.recipe); if (recipe) { chooseRecipe(recipe); setSelectedCategory(recipe.category); toast.message(`${recipe.name} dipilih. Foto sumber tetap sama.`); } }}><Sparkles size={15} /><span><small>REKOMENDASI AI {String(index + 1).padStart(2, "0")} · {recommendation.confidence === "high" ? "TINGGI" : recommendation.confidence === "medium" ? "SEDANG" : "EKSPLORASI"}</small><strong>Coba {recipes.find((item) => item.id === recommendation.recipe)?.name ?? "Konten sosial"}</strong><em>{recommendation.reason}</em></span><ArrowRight size={15} /></button>)}</div>}
               <div className="recipe-list">{shownRecipes.map((recipe, index) => <button key={recipe.id} className={`recipe-card ${selectedRecipe.id === recipe.id ? "is-selected" : ""}`} onClick={() => chooseRecipe(recipe)}><span className="recipe-image"><img src={recipe.image} alt="" /><i>R-{String(index + 1).padStart(2, "0")}</i></span><div><span className="recipe-label">{recipe.label}</span><strong>{recipe.name}</strong><p>{recipe.description}</p></div><span className="recipe-check">{selectedRecipe.id === recipe.id && <Check size={15} />}</span></button>)}</div>
               <div className="style-picker"><div><span className="eyebrow"><Palette size={13} /> GAYA AI</span><p>Pilih bahasa visual untuk hasilmu.</p></div><div className="style-options">{styleOptions.map((style) => <button key={style.value} className={selectedStyle === style.value ? "is-selected" : ""} onClick={() => chooseStyle(style.value)}><strong>{style.title}</strong><small>{style.note}</small></button>)}</div></div>
               <div className="aspect-picker"><div><span className="eyebrow"><Ratio size={13} /> RASIO KELUARAN</span><p>AI menata komposisi sesuai frame pilihanmu.</p></div><Select value={selectedAspect} onValueChange={(value) => chooseAspect(value as OutputAspect)}><SelectTrigger size="sm" className="aspect-select"><SelectValue /></SelectTrigger><SelectContent>{aspectOptions.map((aspect) => <SelectItem key={aspect.value} value={aspect.value}>{aspect.title} · {aspect.note}</SelectItem>)}</SelectContent></Select></div>
               <div className="selected-recipe-note"><WandSparkles size={16} /><span>Resep dipilih: <strong>{selectedRecipe.name}</strong> · {selectedRecipe.prompt}</span></div>
-              <div className="instruction-field"><label htmlFor="custom-instruction"><span>ARAH TAMBAHAN OPSIONAL</span><small>{customInstruction.length}/360</small></label><Textarea id="custom-instruction" value={customInstruction} onChange={(event) => setCustomInstruction(event.target.value.slice(0, 360))} placeholder="Contoh: pertahankan suasana hangat, buat latar lebih tenang." /><p>Instruksi dipakai hanya bila tidak bertentangan dengan perlindungan subjek, label, dan komposisi foto sumber.</p></div>
+              <div className="instruction-field"><label htmlFor="custom-instruction"><span>ARAH TAMBAHAN OPSIONAL</span><small>{customInstruction.length}/360</small></label><Textarea id="custom-instruction" value={customInstruction} onChange={(event) => setCustomInstruction(event.target.value.slice(0, 360))} placeholder="Contoh: pertahankan suasana hangat, buat latar lebih tenang." /><p>Instruksi dipakai hanya bila tidak bertentangan dengan perlindungan subjek, label, dan komposisi foto sumber.</p><div className="instruction-favorites"><div className="favorite-heading"><span>FAVORIT PRIBADI</span><button type="button" onClick={saveInstructionFavorite} disabled={createPromptFavoriteMutation.isPending || customInstruction.trim().length < 3}><BookmarkPlus size={14} /> Simpan arahan</button></div>{!isAuthenticated ? <button type="button" className="favorite-login" onClick={startLogin}>Masuk untuk menyimpan arahan favorit privat.</button> : promptFavoritesQuery.isLoading ? <small>Memuat arahan favorit…</small> : promptFavoritesQuery.isError ? <div className="favorite-error"><small>Favorit privat belum dapat dimuat.</small><button type="button" onClick={() => void promptFavoritesQuery.refetch()}>Muat ulang</button></div> : promptFavoritesQuery.data?.length ? <div className="favorite-list">{promptFavoritesQuery.data.map((favorite) => <div className="favorite-chip" key={favorite.id}><button type="button" onClick={() => { setCustomInstruction(favorite.instruction); toast.message("Arahan favorit dipakai kembali."); }}>{favorite.instruction}</button><button type="button" aria-label="Hapus arahan favorit" onClick={() => deletePromptFavoriteMutation.mutate({ favoriteId: favorite.id })} disabled={deletePromptFavoriteMutation.isPending}><Trash2 size={13} /></button></div>)}</div> : <small>Belum ada arahan favorit. Simpan arah yang ingin dipakai lagi di sini.</small>}</div></div>
             </section>
 
             <section className="result-column">
               <div className="column-label"><span>PRATINJAU</span><span>{resultImage ? "siap" : isProcessing ? "meracik" : "menunggu"}</span></div>
               {resultImage && uploadedImage ? <><BeforeAfterSlider before={uploadedImage} after={resultImage} aspectRatio={selectedAspect} /><p className="comparison-help">Geser garis pembanding, gunakan kontrol sentuh/keyboard, atau tekan <strong>TENGAH</strong> untuk kembali ke posisi 50:50.</p></> : <div className={`result-frame ratio-preview ${isProcessing ? "is-processing" : ""}`} style={{ aspectRatio: selectedAspect }}><img src={previewImage} alt="Pratinjau hasil resep terpilih" /><span className="frame-number">LS / {new Date().getFullYear()}</span><span className="ratio-stamp">{selectedAspect}</span>{isProcessing && <div className="processing-layer progress-layer"><div className="process-orbit"><Sparkles size={20} /></div><strong>{progressStages[progressStage]}</strong><span>AI sedang memproses frame-mu</span><div className="progress-track" aria-label={`Progres proses ${progress}%`}><i style={{ width: `${progress}%` }} /></div><small>{progress}% · perkiraan selama AI menyelesaikan frame</small></div>}</div>}
               <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? `Hasil ${selectedStyle} ${selectedAspect} sudah tersimpan. Geser garis pembanding untuk melihat perubahan.` : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : `Unggah foto asli lalu terapkan resep serta gaya ${selectedStyle} untuk membuat hasil ${selectedAspect}.`}</p></div>
-              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!isAdmin && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : isAdmin ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
+              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button><button className="share-action retry-action" onClick={tryAnotherRecipe} disabled={isRestoringHistorySource}><RotateCcw size={16} /> {isRestoringHistorySource ? "Menyiapkan sumber…" : "Coba resep lain"}</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!isAdmin && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : isAdmin ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
             </section>
           </div>
           {isProcessing && <div className="progress-console" role="status" aria-live="polite"><div className="console-title"><span className="pulse-dot" /> PROSES AKTIF <b>{progress}%</b></div><div className="console-steps">{progressStages.map((stage, index) => <div key={stage} className={index < progressStage ? "is-complete" : index === progressStage ? "is-current" : ""}><span>{index < progressStage ? <Check size={12} /> : String(index + 1).padStart(2, "0")}</span>{stage}</div>)}</div></div>}
@@ -312,7 +374,7 @@ export default function Home() {
 
         <section className="history-section" id="gallery">
           <div className="section-heading"><div><span className="eyebrow">03 — koleksi pribadi</span><h2>Jejak frame-mu.</h2></div><p>{isAuthenticated ? "Semua hasil transformasi tersimpan privat di akunmu. Pilih kembali kapan pun untuk melihat atau mengunduh ulang." : "Masuk untuk membuat galeri personal yang menyimpan sumber dan hasil transformasi AI."}</p></div>
-          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyQuery.data?.length ? <div className="history-grid">{historyQuery.data.map((item) => <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><img src={item.resultUrl || item.sourceUrl} alt={`Hasil ${item.title}`} />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status.toUpperCase()}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? `${item.style} · ${item.aspectRatio} siap dilihat ulang.` : item.status === "failed" ? "Proses sebelumnya belum berhasil." : "Masih diproses di studio."}</p><div className="history-actions">{item.resultUrl && <button onClick={() => { setUploadedImage(item.sourceUrl); setResultImage(item.resultUrl ?? item.sourceUrl); setSelectedAspect(item.aspectRatio as OutputAspect); setSelectedStyle(item.style as AiStyle); scrollTo("studio"); }}><Sparkles size={14} /> Bandingkan</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}{item.resultUrl && <button onClick={() => void shareImage(item.resultUrl ?? item.sourceUrl, item.title)}><Share2 size={14} /> Bagikan</button>}</div></div></article>)}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
+          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyQuery.data?.length ? <div className="history-grid">{historyQuery.data.map((item) => <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><img src={item.resultUrl || item.sourceUrl} alt={`Hasil ${item.title}`} />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status.toUpperCase()}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? `${item.style} · ${item.aspectRatio} siap dilihat ulang.` : item.status === "failed" ? "Proses sebelumnya belum berhasil." : "Masih diproses di studio."}</p><div className="history-actions">{item.resultUrl && <button onClick={() => void restoreHistoryToStudio(item)}><Sparkles size={14} /> Bandingkan</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}{item.resultUrl && <button onClick={() => void shareImage(item.resultUrl ?? item.sourceUrl, item.title)}><Share2 size={14} /> Bagikan</button>}</div></div></article>)}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
         </section>
 
         <section className="explore-section"><div className="section-heading compact-heading"><div><span className="eyebrow">04 — arah visual</span><h2>Untuk pekerjaan yang berbeda.</h2></div><button className="text-button" onClick={() => scrollTo("studio")}>Pilih resep <ArrowRight size={15} /></button></div><div className="contact-meta"><span>CONTACT SHEET / 04 FRAME</span><span>ARAH VISUAL TERPILIH</span></div><div className="explore-strip"><article className="explore-card"><img src={assets.headshot} alt="Contoh hasil portrait profesional" /><span className="explore-frame-no">01 / 04</span><div><span>PROFIL KERJA</span><strong>Rapi tanpa terasa kaku.</strong></div></article><article className="explore-card"><img src={assets.product} alt="Contoh foto produk katalog" /><span className="explore-frame-no">02 / 04</span><div><span>FOTO PRODUK</span><strong>Detail kecil ikut bicara.</strong></div></article><article className="explore-card"><img src={assets.food} alt="Contoh foto makanan editorial" /><span className="explore-frame-no">03 / 04</span><div><span>MENU & KULINER</span><strong>Warna hangat, fokus ke rasa.</strong></div></article><article className="explore-text-card"><span>RESEP BARU SETIAP PEKAN</span><p>Buka satu foto ke banyak kemungkinan baru.</p><button onClick={() => scrollTo("studio")}>Masuk studio <ArrowRight size={17} /></button></article></div></section>

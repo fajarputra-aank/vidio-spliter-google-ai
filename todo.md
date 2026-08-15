@@ -116,3 +116,11 @@
 - [x] Uji instruksi opsional, rekomendasi resep, before-after, responsivitas, dan simpan checkpoint pembaruan.
 - [x] Jelaskan ketersediaan rekomendasi resep setelah login serta tampilkan state gagal analisis yang eksplisit.
 - [x] Simpan checkpoint rilis instruksi opsional, rekomendasi resep, dan before-after setelah penyempurnaan final diverifikasi.
+- [x] Tambahkan beberapa rekomendasi resep AI yang dapat dipilih dari analisis foto yang sama.
+- [x] Tambahkan percobaan ulang dengan resep lain tanpa mengunggah foto sumber kembali.
+- [x] Tambahkan riwayat instruksi favorit privat yang dapat digunakan ulang dan dihapus pemilik.
+- [x] Perbarui dan validasi skill reusable untuk variasi rekomendasi, eksperimen ulang, dan instruksi favorit.
+- [x] Uji rekomendasi alternatif, coba ulang, favorit privat, dan responsivitas.
+- [x] Dukung coba ulang resep lain dari hasil riwayat dengan memulihkan payload sumber tanpa unggah ulang.
+- [x] Tampilkan error eksplisit dan aksi muat ulang bila riwayat instruksi favorit privat gagal dimuat.
+- [x] Simpan checkpoint baru setelah fitur rekomendasi alternatif, coba ulang dari riwayat, dan error state favorit privat selesai diverifikasi.

@@ -93,6 +93,11 @@ export const appRouter = router({
       }
     }),
   }),
+  promptFavorites: router({
+    list: protectedProcedure.query(({ ctx }) => db.listPhotoPromptFavorites(ctx.user.id)),
+    create: protectedProcedure.input(z.object({ instruction: z.string().trim().min(3).max(360) })).mutation(({ ctx, input }) => db.createPhotoPromptFavorite(ctx.user.id, input.instruction)),
+    delete: protectedProcedure.input(z.object({ favoriteId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deletePhotoPromptFavorite(ctx.user.id, input.favoriteId)),
+  }),
   billing: router({
     packs: publicProcedure.query(() => Object.values(creditPacks)),
     balance: protectedProcedure.query(async ({ ctx }) => ({ credits: await db.getCreditBalance(ctx.user.id), purchases: await db.listCreditPurchases(ctx.user.id) })),

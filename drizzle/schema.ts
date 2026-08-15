@@ -145,6 +145,18 @@ export const photoAlbumItems = mysqlTable(
   (table) => [uniqueIndex("photoAlbumItems_album_transform_unique").on(table.albumId, table.transformId), index("photoAlbumItems_album_idx").on(table.albumId)]
 );
 
+/** Reusable private directions, never copied into public community metadata. */
+export const photoPromptFavorites = mysqlTable(
+  "photoPromptFavorites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    instruction: varchar("instruction", { length: 360 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("photoPromptFavorites_user_instruction_unique").on(table.userId, table.instruction), index("photoPromptFavorites_user_created_idx").on(table.userId, table.createdAt)]
+);
+
 /** Private in-app events, including actions performed by community moderators. */
 export const userNotifications = mysqlTable(
   "userNotifications",

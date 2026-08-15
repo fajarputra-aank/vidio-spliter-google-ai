@@ -265,10 +265,11 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .result-frame.ratio-preview { width: 100%; min-height: 160px; }
 .result-frame.ratio-preview img { min-height: 0; height: 100%; position: absolute; inset: 0; }
 .ratio-stamp { position: absolute; z-index: 4; left: 10px; bottom: 10px; padding: 4px 5px; color: #1b1b18; background: #ef8f2f; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
-.result-actions { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.result-actions { margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .result-actions .download-action { width: 100%; margin: 0; box-shadow: 3px 3px 0 #ef8f2f; }
 .share-action { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #efbd84; color: #1b1b18; font-size: 11px; font-weight: 800; border: 1px solid #1b1b18; }
 .share-action:hover { background: #ef8f2f; }
+.retry-action { background: #eee7db; }
 .quota-slip { margin-top: 13px; padding: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-left: 3px solid #ef8f2f; background: #f2eadc; }
 .quota-slip div span, .quota-slip strong { display: block; }
 .quota-slip div span { color: #81796d; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
@@ -276,6 +277,38 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .quota-slip p { max-width: 106px; margin: 0; color: #736b60; font-size: 8px; line-height: 1.45; }
 .quota-slip.is-exhausted { border-left-color: #6f4630; background: #f0e1d8; }
 @media (max-width: 760px) { .aspect-picker { align-items: flex-start; } .result-actions { gap: 6px; } .quota-slip { margin-bottom: 2px; } }
+
+/* Guided experimentation — several private-safe recipe suggestions and reusable directions. */
+.recipe-recommendation-list { display: grid; gap: 6px; margin: 0 0 11px; }
+.recipe-recommendation { width: 100%; padding: 9px 10px; display: grid; grid-template-columns: 17px minmax(0,1fr) 15px; align-items: start; gap: 8px; color: #1b1b18; background: #f5eee2; border: 1px solid #d6c9b8; text-align: left; transition: transform 160ms cubic-bezier(.23,1,.32,1), border-color 160ms cubic-bezier(.23,1,.32,1), background 160ms cubic-bezier(.23,1,.32,1); }
+.recipe-recommendation:hover { transform: translateX(2px); border-color: #1b1b18; background: #fff6e6; }
+.recipe-recommendation > svg { margin-top: 2px; color: #a95115; }
+.recipe-recommendation > span { display: grid; gap: 3px; min-width: 0; }
+.recipe-recommendation small { color: #887d6e; font-size: 7px; font-weight: 800; letter-spacing: .085em; }
+.recipe-recommendation strong { font-size: 10px; line-height: 1.3; }
+.recipe-recommendation em { color: #6f675c; font-size: 8px; font-style: normal; line-height: 1.42; }
+.recipe-recommendation > svg:last-child { align-self: center; color: #6a6258; }
+.recipe-recommendation.is-loading, .recipe-recommendation.is-login { margin: 0 0 11px; }
+.recipe-recommendation.is-login { align-items: center; }
+.instruction-field { margin-top: 12px; padding: 10px; border: 1px solid #d9d0c1; background: #fffaf1; }
+.instruction-field label, .favorite-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #645d53; font-size: 8px; font-weight: 800; letter-spacing: .09em; }
+.instruction-field textarea { min-height: 74px; margin-top: 7px; resize: vertical; border-radius: 0; border-color: #cfc3b2; background: #fffdf8; color: #2f2b24; font-size: 10px; line-height: 1.5; }
+.instruction-field > p { margin: 7px 0 0; color: #7a7266; font-size: 8px; line-height: 1.45; }
+.instruction-favorites { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #cfc3b2; }
+.favorite-heading button { min-height: 25px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; background: #1b1b18; color: #fffdf8; font-size: 8px; font-weight: 800; letter-spacing: .02em; }
+.favorite-heading button:disabled { opacity: .5; cursor: not-allowed; }
+.instruction-favorites > small { display: block; margin-top: 7px; color: #847a6d; font-size: 8px; line-height: 1.45; }
+.favorite-login { margin-top: 7px; padding: 0; background: transparent; color: #a95115; font-size: 8px; font-weight: 800; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+.favorite-list { display: grid; gap: 5px; margin-top: 7px; }
+.favorite-error { margin-top: 7px; padding: 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-left: 2px solid #a95115; background: #f3e5da; }
+.favorite-error small { color: #704b37; font-size: 8px; line-height: 1.35; }
+.favorite-error button { padding: 4px 6px; flex: 0 0 auto; background: #1b1b18; color: #fffdf8; font-size: 8px; font-weight: 800; }
+.favorite-chip { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) 25px; border: 1px solid #ded2c0; background: #fffdf8; }
+.favorite-chip > button:first-child { min-width: 0; padding: 7px 8px; overflow: hidden; background: transparent; color: #514a40; font-size: 8px; line-height: 1.4; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.favorite-chip > button:first-child:hover { color: #a95115; }
+.favorite-chip > button:last-child { display: grid; place-items: center; background: #eee7db; color: #695f53; }
+.favorite-chip > button:last-child:hover { color: #1b1b18; background: #efbd84; }
+@media (max-width: 760px) { .result-actions { grid-template-columns: 1fr; } .recipe-recommendation { padding: 10px; } }
 
 /* Style directions, proof slider, and profile archive. */
 .style-picker { margin-top: 12px; padding: 10px; border-top: 1px solid #d9d0c1; background: #f5eee2; }

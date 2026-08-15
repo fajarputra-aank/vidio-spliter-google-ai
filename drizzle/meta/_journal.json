@@ -85,6 +85,13 @@
       "when": 1786780449632,
       "tag": "0011_complete_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1786784641909,
+      "tag": "0012_thankful_rattler",
+      "breakpoints": true
     }
   ]
 }

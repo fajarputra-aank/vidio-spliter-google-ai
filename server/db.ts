@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
+import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -380,6 +380,30 @@ export async function removeTransformFromAlbum(userId: number, albumId: number, 
   if (!album[0]) return { success: false };
   await db.delete(photoAlbumItems).where(and(eq(photoAlbumItems.albumId, albumId), eq(photoAlbumItems.transformId, transformId)));
   return { success: true };
+}
+
+export async function listPhotoPromptFavorites(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(photoPromptFavorites).where(eq(photoPromptFavorites.userId, userId)).orderBy(desc(photoPromptFavorites.createdAt)).limit(12);
+}
+
+export async function createPhotoPromptFavorite(userId: number, instruction: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const clean = instruction.trim();
+  const existing = await db.select().from(photoPromptFavorites).where(and(eq(photoPromptFavorites.userId, userId), eq(photoPromptFavorites.instruction, clean))).limit(1);
+  if (existing[0]) return existing[0];
+  const inserted = await db.insert(photoPromptFavorites).values({ userId, instruction: clean });
+  const records = await db.select().from(photoPromptFavorites).where(eq(photoPromptFavorites.id, Number(inserted[0].insertId))).limit(1);
+  return records[0];
+}
+
+export async function deletePhotoPromptFavorite(userId: number, favoriteId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.delete(photoPromptFavorites).where(and(eq(photoPromptFavorites.id, favoriteId), eq(photoPromptFavorites.userId, userId)));
+  return { success: Number(result[0].affectedRows ?? 0) > 0 };
 }
 
 export async function listUserNotifications(userId: number) {
