@@ -325,6 +325,23 @@ export async function addTransformToAlbum(userId: number, albumId: number, trans
   return { success: true };
 }
 
+export async function addTransformsToAlbum(userId: number, albumId: number, transformIds: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const uniqueIds = Array.from(new Set(transformIds));
+  if (!uniqueIds.length) return { success: false, added: 0 };
+  return db.transaction(async (tx) => {
+    const album = await tx.select({ id: photoAlbums.id }).from(photoAlbums).where(and(eq(photoAlbums.id, albumId), eq(photoAlbums.userId, userId))).limit(1);
+    if (!album[0]) return { success: false, added: 0 };
+    const transforms = await Promise.all(uniqueIds.map((transformId) => tx.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId))).limit(1)));
+    if (transforms.some((transform) => !transform[0])) return { success: false, added: 0 };
+    const existing = await Promise.all(uniqueIds.map((transformId) => tx.select({ id: photoAlbumItems.id }).from(photoAlbumItems).where(and(eq(photoAlbumItems.albumId, albumId), eq(photoAlbumItems.transformId, transformId))).limit(1)));
+    const newItems = uniqueIds.filter((_, index) => !existing[index][0]).map((transformId) => ({ albumId, transformId }));
+    if (newItems.length) await tx.insert(photoAlbumItems).values(newItems);
+    return { success: true, added: newItems.length };
+  });
+}
+
 export async function removeTransformFromAlbum(userId: number, albumId: number, transformId: number) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
@@ -347,6 +364,13 @@ export async function markUserNotificationRead(userId: number, notificationId: n
   if (!notification[0]) return { success: false };
   await db.update(userNotifications).set({ isRead: true }).where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId)));
   return { success: true };
+}
+
+export async function markAllUserNotificationsRead(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.update(userNotifications).set({ isRead: true }).where(and(eq(userNotifications.userId, userId), eq(userNotifications.isRead, false)));
+  return { success: true, marked: Number(result[0].affectedRows ?? 0) };
 }
 
 export async function toggleCommunityLike(userId: number, postId: number) {

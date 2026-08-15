@@ -8,9 +8,11 @@ const mocks = vi.hoisted(() => ({
   renamePhotoAlbum: vi.fn(),
   deletePhotoAlbum: vi.fn(),
   addTransformToAlbum: vi.fn(),
+  addTransformsToAlbum: vi.fn(),
   removeTransformFromAlbum: vi.fn(),
   listUserNotifications: vi.fn(),
   markUserNotificationRead: vi.fn(),
+  markAllUserNotificationsRead: vi.fn(),
   listAdminCommunityReports: vi.fn(),
   resolveCommunityReport: vi.fn(),
 }));
@@ -35,18 +37,21 @@ describe("community report and private album contracts", () => {
     mocks.renamePhotoAlbum.mockResolvedValue({ success: true });
     mocks.deletePhotoAlbum.mockResolvedValue({ success: true });
     mocks.addTransformToAlbum.mockResolvedValue({ success: true });
+    mocks.addTransformsToAlbum.mockResolvedValue({ success: true, added: 2 });
     mocks.removeTransformFromAlbum.mockResolvedValue({ success: true });
     const caller = appRouter.createCaller(context());
     await caller.albums.list();
     await caller.albums.create({ name: "Pilihan" });
     await caller.albums.rename({ albumId: 8, name: "Pilihan baru" });
     await caller.albums.addTransform({ albumId: 8, transformId: 55 });
+    await caller.albums.addTransforms({ albumId: 8, transformIds: [55, 56] });
     await caller.albums.removeTransform({ albumId: 8, transformId: 55 });
     await caller.albums.delete({ albumId: 8 });
     expect(mocks.listPhotoAlbums).toHaveBeenCalledWith(31);
     expect(mocks.createPhotoAlbum).toHaveBeenCalledWith(31, "Pilihan");
     expect(mocks.renamePhotoAlbum).toHaveBeenCalledWith(31, 8, "Pilihan baru");
     expect(mocks.addTransformToAlbum).toHaveBeenCalledWith(31, 8, 55);
+    expect(mocks.addTransformsToAlbum).toHaveBeenCalledWith(31, 8, [55, 56]);
     expect(mocks.removeTransformFromAlbum).toHaveBeenCalledWith(31, 8, 55);
     expect(mocks.deletePhotoAlbum).toHaveBeenCalledWith(31, 8);
   });
@@ -54,11 +59,14 @@ describe("community report and private album contracts", () => {
   it("exposes only the signed-in user's moderation notifications and read action", async () => {
     mocks.listUserNotifications.mockResolvedValue([{ id: 17, userId: 31, title: "Karya publik ditindak moderator" }]);
     mocks.markUserNotificationRead.mockResolvedValue({ success: true });
+    mocks.markAllUserNotificationsRead.mockResolvedValue({ success: true, marked: 3 });
     const caller = appRouter.createCaller(context());
     await expect(caller.notifications.list()).resolves.toEqual([{ id: 17, userId: 31, title: "Karya publik ditindak moderator" }]);
     await expect(caller.notifications.markRead({ notificationId: 17 })).resolves.toEqual({ success: true });
+    await expect(caller.notifications.markAllRead()).resolves.toEqual({ success: true, marked: 3 });
     expect(mocks.listUserNotifications).toHaveBeenCalledWith(31);
     expect(mocks.markUserNotificationRead).toHaveBeenCalledWith(31, 17);
+    expect(mocks.markAllUserNotificationsRead).toHaveBeenCalledWith(31);
   });
 
   it("keeps report review actions behind the administrator gate", async () => {

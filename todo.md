@@ -75,3 +75,9 @@
 - [x] Tambahkan pengujian otorisasi, notifikasi moderasi, manajemen album, dan filter profil; lalu simpan checkpoint pembaruan.
 - [x] Perbarui dan validasi skill reusable untuk pola notifikasi moderasi serta navigasi arsip profil.
 - [x] Simpan checkpoint rilis notifikasi moderasi, manajemen album, dan navigasi profil.
+- [x] Tambahkan pemilihan beberapa frame dan pemindahan batch ke album milik pengguna.
+- [x] Tambahkan pengurutan arsip berdasarkan tanggal pembuatan dan rasio gambar.
+- [x] Tambahkan tindakan tandai semua notifikasi sebagai dibaca yang terikat pengguna.
+- [x] Uji operasi batch album, pengurutan arsip, notifikasi massal, dan responsivitas; lalu simpan checkpoint pembaruan.
+- [x] Perbarui dan validasi skill reusable untuk operasi album dan notifikasi massal.
+- [x] Simpan checkpoint rilis multi-select album, urutan arsip, dan notifikasi massal.

@@ -14,3 +14,11 @@ export function filterAlbums<T extends AlbumFilterItem>(items: T[], search: stri
   const query = normalized(search);
   return items.filter((item) => !query || item.name.toLocaleLowerCase("id-ID").includes(query));
 }
+
+export function sortArchiveItems<T extends ArchiveFilterItem & { createdAt: Date | string }>(items: T[], order: "newest" | "oldest" | "aspect") {
+  return [...items].sort((left, right) => {
+    if (order === "aspect") return left.aspectRatio.localeCompare(right.aspectRatio) || new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    const delta = new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    return order === "newest" ? delta : -delta;
+  });
+}
