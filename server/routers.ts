@@ -126,6 +126,8 @@ export const appRouter = router({
   }),
   notifications: router({
     list: protectedProcedure.query(({ ctx }) => db.listUserNotifications(ctx.user.id)),
+    preferences: protectedProcedure.query(({ ctx }) => db.getUserNotificationPreferences(ctx.user.id)),
+    updatePreferences: protectedProcedure.input(z.object({ communityModeration: z.boolean(), accountActivity: z.boolean(), productUpdates: z.boolean() })).mutation(({ ctx, input }) => db.updateUserNotificationPreferences(ctx.user.id, input)),
     markRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(({ ctx, input }) => db.markUserNotificationRead(ctx.user.id, input.notificationId)),
     markAllRead: protectedProcedure.mutation(({ ctx }) => db.markAllUserNotificationsRead(ctx.user.id)),
   }),

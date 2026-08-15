@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   listUserNotifications: vi.fn(),
   markUserNotificationRead: vi.fn(),
   markAllUserNotificationsRead: vi.fn(),
+  getUserNotificationPreferences: vi.fn(),
+  updateUserNotificationPreferences: vi.fn(),
   listAdminCommunityReports: vi.fn(),
   resolveCommunityReport: vi.fn(),
 }));
@@ -67,6 +69,17 @@ describe("community report and private album contracts", () => {
     expect(mocks.listUserNotifications).toHaveBeenCalledWith(31);
     expect(mocks.markUserNotificationRead).toHaveBeenCalledWith(31, 17);
     expect(mocks.markAllUserNotificationsRead).toHaveBeenCalledWith(31);
+  });
+
+  it("keeps notification preferences private to the authenticated user", async () => {
+    const preferences = { communityModeration: false, accountActivity: true, productUpdates: false };
+    mocks.getUserNotificationPreferences.mockResolvedValue(preferences);
+    mocks.updateUserNotificationPreferences.mockResolvedValue(preferences);
+    const caller = appRouter.createCaller(context());
+    await expect(caller.notifications.preferences()).resolves.toEqual(preferences);
+    await expect(caller.notifications.updatePreferences(preferences)).resolves.toEqual(preferences);
+    expect(mocks.getUserNotificationPreferences).toHaveBeenCalledWith(31);
+    expect(mocks.updateUserNotificationPreferences).toHaveBeenCalledWith(31, preferences);
   });
 
   it("keeps report review actions behind the administrator gate", async () => {

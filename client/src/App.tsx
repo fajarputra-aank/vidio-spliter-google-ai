@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import Credits from "./pages/Credits";
 import Community from "./pages/Community";
 import Admin from "./pages/Admin";
+import NotificationSettings from "./pages/NotificationSettings";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />
       <Route path="/admin" component={Admin} />
+      <Route path="/pengaturan/notifikasi" component={NotificationSettings} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

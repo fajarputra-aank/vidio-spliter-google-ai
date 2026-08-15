@@ -147,7 +147,7 @@ export const userNotifications = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
-    kind: mysqlEnum("kind", ["community_moderation"]).notNull(),
+    kind: mysqlEnum("kind", ["community_moderation", "account_activity"]).notNull(),
     title: varchar("title", { length: 160 }).notNull(),
     content: varchar("content", { length: 360 }).notNull(),
     relatedPostId: int("relatedPostId"),
@@ -155,6 +155,20 @@ export const userNotifications = mysqlTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   (table) => [index("userNotifications_user_read_created_idx").on(table.userId, table.isRead, table.createdAt)]
+);
+
+/** Per-user choices for which private in-app notification categories may be created. */
+export const userNotificationPreferences = mysqlTable(
+  "userNotificationPreferences",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    communityModeration: boolean("communityModeration").notNull().default(true),
+    accountActivity: boolean("accountActivity").notNull().default(true),
+    productUpdates: boolean("productUpdates").notNull().default(false),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("userNotificationPreferences_user_unique").on(table.userId)]
 );
 
 export type User = typeof users.$inferSelect;

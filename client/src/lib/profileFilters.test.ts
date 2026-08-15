@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterAlbums, filterArchive, sortArchiveItems } from "./profileFilters";
+import { filterAlbums, filterArchive, filterArchiveDateRange, sortArchiveItems } from "./profileFilters";
 
 const frames = [
   { title: "Produk kayu", recipe: "product", style: "editorial", aspectRatio: "1:1" },
@@ -29,5 +29,15 @@ describe("profile archive and album filters", () => {
     expect(sortArchiveItems(datedFrames, "oldest").map((item) => item.title)).toEqual(["Produk kayu", "Potret kerja", "Makan malam"]);
     expect(sortArchiveItems(datedFrames, "aspect").map((item) => item.aspectRatio)).toEqual(["1:1", "16:9", "9:16"]);
     expect(datedFrames.map((item) => item.title)).toEqual(["Produk kayu", "Makan malam", "Potret kerja"]);
+  });
+
+  it("filters archive items inclusively within a local calendar date range", () => {
+    const datedFrames = [
+      { ...frames[0], createdAt: "2026-08-10T05:00:00.000Z" },
+      { ...frames[1], createdAt: "2026-08-12T13:00:00.000Z" },
+      { ...frames[2], createdAt: "2026-08-15T22:00:00.000Z" },
+    ];
+    expect(filterArchiveDateRange(datedFrames, "2026-08-12", "2026-08-15").map((item) => item.title)).toEqual(["Makan malam", "Potret kerja"]);
+    expect(filterArchiveDateRange(datedFrames, "", "2026-08-10").map((item) => item.title)).toEqual(["Produk kayu"]);
   });
 });

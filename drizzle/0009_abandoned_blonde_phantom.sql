@@ -1,0 +1,1 @@
+ALTER TABLE `userNotifications` MODIFY COLUMN `kind` enum('community_moderation','account_activity') NOT NULL;

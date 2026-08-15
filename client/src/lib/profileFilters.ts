@@ -22,3 +22,12 @@ export function sortArchiveItems<T extends ArchiveFilterItem & { createdAt: Date
     return order === "newest" ? delta : -delta;
   });
 }
+
+export function filterArchiveDateRange<T extends { createdAt: Date | string }>(items: T[], startDate: string, endDate: string) {
+  const start = startDate ? new Date(`${startDate}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
+  const end = endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : Number.POSITIVE_INFINITY;
+  return items.filter((item) => {
+    const createdAt = new Date(item.createdAt).getTime();
+    return createdAt >= start && createdAt <= end;
+  });
+}

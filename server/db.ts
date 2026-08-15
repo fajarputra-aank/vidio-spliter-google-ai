@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, userNotifications, users } from "../drizzle/schema";
+import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoTransforms, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -65,6 +65,11 @@ export async function completePhotoTransform(id: number, resultUrl: string) {
     .set({ status: "completed", resultUrl, completedAt: new Date(), errorMessage: null })
     .where(eq(photoTransforms.id, id));
   const rows = await db.select().from(photoTransforms).where(eq(photoTransforms.id, id)).limit(1);
+  const transform = rows[0];
+  if (transform) {
+    const preferences = await db.select({ accountActivity: userNotificationPreferences.accountActivity }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, transform.userId)).limit(1);
+    if (preferences[0]?.accountActivity ?? true) await db.insert(userNotifications).values({ userId: transform.userId, kind: "account_activity", title: "Transformasi selesai", content: `“${transform.title}” sudah siap ditinjau, diunduh, atau disusun ke album privat.`, relatedPostId: null });
+  }
   return rows[0];
 }
 
@@ -216,7 +221,8 @@ export async function moderateDeleteCommunityPost(postId: number) {
     if (!post[0]) return { success: false };
     await tx.delete(communityLikes).where(eq(communityLikes.postId, postId));
     await tx.delete(communityPosts).where(eq(communityPosts.id, postId));
-    await tx.insert(userNotifications).values({ userId: post[0].userId, kind: "community_moderation", title: "Karya publik ditindak moderator", content: "Satu karya telah dihapus dari ruang komunitas setelah ditinjau moderator. Riwayat privatmu tetap tersimpan.", relatedPostId: postId });
+    const preferences = await tx.select({ communityModeration: userNotificationPreferences.communityModeration }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, post[0].userId)).limit(1);
+    if (preferences[0]?.communityModeration ?? true) await tx.insert(userNotifications).values({ userId: post[0].userId, kind: "community_moderation", title: "Karya publik ditindak moderator", content: "Satu karya telah dihapus dari ruang komunitas setelah ditinjau moderator. Riwayat privatmu tetap tersimpan.", relatedPostId: postId });
     return { success: true };
   });
 }
@@ -261,7 +267,10 @@ export async function resolveCommunityReport(reportId: number, action: "dismiss"
       await tx.delete(communityLikes).where(eq(communityLikes.postId, report[0].postId));
       await tx.delete(communityPosts).where(eq(communityPosts.id, report[0].postId));
       await tx.update(communityReports).set({ status: "actioned", reviewedAt: new Date() }).where(eq(communityReports.id, reportId));
-      if (post[0]) await tx.insert(userNotifications).values({ userId: post[0].userId, kind: "community_moderation", title: "Laporan komunitas ditindaklanjuti", content: "Satu karya telah dihapus dari ruang komunitas setelah laporan ditinjau. Riwayat privatmu tetap tersimpan.", relatedPostId: report[0].postId });
+      if (post[0]) {
+        const preferences = await tx.select({ communityModeration: userNotificationPreferences.communityModeration }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, post[0].userId)).limit(1);
+        if (preferences[0]?.communityModeration ?? true) await tx.insert(userNotifications).values({ userId: post[0].userId, kind: "community_moderation", title: "Laporan komunitas ditindaklanjuti", content: "Satu karya telah dihapus dari ruang komunitas setelah laporan ditinjau. Riwayat privatmu tetap tersimpan.", relatedPostId: report[0].postId });
+      }
     } else {
       await tx.update(communityReports).set({ status: "dismissed", reviewedAt: new Date() }).where(eq(communityReports.id, reportId));
     }
@@ -355,6 +364,20 @@ export async function listUserNotifications(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(userNotifications).where(eq(userNotifications.userId, userId)).orderBy(desc(userNotifications.createdAt)).limit(24);
+}
+
+export async function getUserNotificationPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) return { communityModeration: true, accountActivity: true, productUpdates: false };
+  const preferences = await db.select().from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, userId)).limit(1);
+  return preferences[0] ?? { communityModeration: true, accountActivity: true, productUpdates: false };
+}
+
+export async function updateUserNotificationPreferences(userId: number, input: { communityModeration: boolean; accountActivity: boolean; productUpdates: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.insert(userNotificationPreferences).values({ userId, ...input }).onDuplicateKeyUpdate({ set: input });
+  return getUserNotificationPreferences(userId);
 }
 
 export async function markUserNotificationRead(userId: number, notificationId: number) {

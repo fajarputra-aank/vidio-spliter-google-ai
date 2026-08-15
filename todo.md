@@ -81,3 +81,11 @@
 - [x] Uji operasi batch album, pengurutan arsip, notifikasi massal, dan responsivitas; lalu simpan checkpoint pembaruan.
 - [x] Perbarui dan validasi skill reusable untuk operasi album dan notifikasi massal.
 - [x] Simpan checkpoint rilis multi-select album, urutan arsip, dan notifikasi massal.
+- [x] Tambahkan pembuatan album baru dari toolbar pemindahan multi-frame.
+- [x] Tambahkan filter rentang tanggal pada arsip privat pengguna.
+- [x] Tambahkan halaman preferensi notifikasi pengguna dengan penyimpanan privat.
+- [x] Uji pembuatan album batch, rentang tanggal, preferensi notifikasi, dan responsivitas; lalu simpan checkpoint pembaruan.
+- [x] Perbarui dan validasi skill reusable untuk preferensi notifikasi serta filter periode arsip.
+- [x] Tambahkan route pengaturan notifikasi khusus yang dapat diakses pengguna.
+- [x] Hubungkan preferensi yang ditampilkan ke notifikasi moderasi dan aktivitas transformasi yang benar-benar diproduksi.
+- [x] Simpan checkpoint rilis setelah halaman pengaturan dan jenis notifikasi aktif selesai diverifikasi.
