@@ -34,10 +34,11 @@
 - [x] Implementasikan alur pembelian kredit, pengecekan saldo, dan pemakaian kredit saat kuota harian habis.
 - [x] Bangun galeri komunitas publik dengan publikasi opt-in, suka privat per pengguna, serta penanganan karya kosong.
 - [x] Tambahkan editor teks dan watermark yang dapat diposisikan sebelum unduh hasil.
-- [ ] Uji pembayaran, kredit, komunitas, editor, akses privat, dan responsivitas; lalu simpan checkpoint baru.
+- [x] Uji pembayaran, kredit, komunitas, editor, akses privat, dan responsivitas; lalu simpan checkpoint baru.
 - [x] Verifikasi alamat email dan identitas akun yang akan dijadikan administrator.
 - [x] Terapkan akses administrator tanpa batas kuota serta pastikan akses tersebut tidak menimpa akun lain.
 - [x] Tambahkan variasi transformasi foto AI yang lebih luas dan tetap menjaga subjek/foto asli.
 - [x] Uji akses admin serta pilihan transformasi baru, lalu simpan checkpoint pembaruan.
 - [x] Tambahkan pengujian prosedur transformasi yang membuktikan administrator melewati kuota habis tanpa memakai kredit.
-- [ ] Simpan checkpoint baru setelah verifikasi akses administrator dan katalog transformasi terbaru.
+- [x] Simpan checkpoint baru setelah verifikasi akses administrator dan katalog transformasi terbaru.
+- [ ] Simpan checkpoint final yang mencakup pengujian checkout kredit dan pembaruan administrator.
