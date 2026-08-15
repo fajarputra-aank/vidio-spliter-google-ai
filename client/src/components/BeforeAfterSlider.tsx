@@ -27,6 +27,7 @@ export function BeforeAfterSlider({
       </div>
       <span className="comparison-label comparison-before-label">{beforeLabel}</span>
       <span className="comparison-label comparison-after-label">{afterLabel}</span>
+      <button type="button" className="comparison-reset" onClick={() => setReveal(50)} aria-label="Kembalikan pembanding ke posisi tengah">TENGAH</button>
       <div className="comparison-split" style={{ left: `${reveal}%` }} aria-hidden="true"><span /></div>
       <div className="comparison-control"><Slider value={[reveal]} min={0} max={100} step={1} onValueChange={([value]) => setReveal(value ?? 50)} aria-label="Geser untuk membandingkan sebelum dan sesudah" /></div>
     </figure>

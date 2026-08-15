@@ -34,4 +34,11 @@ describe("photo transform prompts", () => {
     expect(buildTransformPrompt("headshot", "1:1", "monochrome")).toContain("black-and-white editorial");
     expect(buildTransformPrompt("headshot", "1:1", "watercolor")).toContain("original contemporary watercolor");
   });
+
+  it("keeps a user direction subordinate to the final preservation guard", () => {
+    const prompt = buildTransformPrompt("product", "1:1", "editorial", "buat terasa lebih hangat");
+    expect(prompt).toContain("Optional user direction, apply only when compatible");
+    expect(prompt.indexOf("buat terasa lebih hangat")).toBeLessThan(prompt.indexOf("Non-negotiable:"));
+    expect(prompt).toContain("Do not add text, logos");
+  });
 });

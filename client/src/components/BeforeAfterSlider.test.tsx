@@ -14,5 +14,7 @@ describe("BeforeAfterSlider", () => {
     expect(markup).toContain("SEBELUM");
     expect(markup).toContain("SESUDAH");
     expect(markup).toContain('aria-label="Geser untuk membandingkan sebelum dan sesudah"');
+    expect(markup).toContain("TENGAH");
+    expect(markup).toContain('aria-label="Kembalikan pembanding ke posisi tengah"');
   });
 });

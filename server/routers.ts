@@ -11,6 +11,7 @@ import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
 import { getStripe } from "./stripe";
 import { hasUnlimitedTransforms } from "./accessPolicy";
+import { recommendPhotoRecipe } from "./photoRecommendations";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -19,6 +20,7 @@ const imageInput = z.object({
   fileName: z.string().min(1).max(180),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
   sourceData: z.string().min(16).max(8_000_000),
+  customInstruction: z.string().trim().min(3).max(360).optional(),
 });
 
 function safeFileName(value: string) {
@@ -43,6 +45,11 @@ export const appRouter = router({
       user: { name: ctx.user.name, email: ctx.user.email, role: ctx.user.role, createdAt: ctx.user.createdAt },
       ...(await db.getPhotoProfileSummary(ctx.user.id)),
     })),
+    recommend: protectedProcedure.input(z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(8_000_000) })).mutation(async ({ input }) => {
+      const sourceBuffer = Buffer.from(input.sourceData, "base64");
+      if (!sourceBuffer.length || sourceBuffer.length > 5_500_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Ukuran foto harus maksimal 5 MB." });
+      return recommendPhotoRecipe(input.sourceData, input.mimeType);
+    }),
     hdExport: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       if (hasUnlimitedTransforms(ctx.user.role)) {
         const records = await db.listPhotoTransforms(ctx.user.id, true);
@@ -71,7 +78,7 @@ export const appRouter = router({
         const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: input.recipe, aspectRatio: input.aspectRatio, style: input.style, title: photoRecipes[input.recipe].title, sourceKey: source.key, sourceUrl: source.url, status: "processing" });
         transformId = transform.id;
         const result = await generateImage({
-          prompt: buildTransformPrompt(input.recipe, input.aspectRatio, input.style),
+          prompt: buildTransformPrompt(input.recipe, input.aspectRatio, input.style, input.customInstruction),
           originalImages: [{ b64Json: input.sourceData, mimeType: input.mimeType }],
           quality: "medium",
         });

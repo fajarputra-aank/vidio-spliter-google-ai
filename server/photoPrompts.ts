@@ -46,6 +46,9 @@ const styleDirections: Record<StyleId, string> = {
   watercolor: "Use an original contemporary watercolor illustration with faithful forms, transparent pigment texture, and no imitation of a named artist.",
 };
 
-export function buildTransformPrompt(recipeId: RecipeId, aspectRatio: AspectRatioId = "1:1", style: StyleId = "editorial") {
-  return `${photoRecipes[recipeId].prompt} ${styleDirections[style]} ${aspectDirections[aspectRatio]}`;
+export function buildTransformPrompt(recipeId: RecipeId, aspectRatio: AspectRatioId = "1:1", style: StyleId = "editorial", customInstruction?: string) {
+  const instruction = customInstruction?.trim().replace(/[\u0000-\u001F]+/g, " ").slice(0, 360);
+  const direction = instruction ? `Optional user direction, apply only when compatible with the preservation rules: ${instruction}` : "";
+  const guard = "Non-negotiable: preserve the original main subject, identity, composition, and readable labels. Do not add text, logos, extra people, duplicate objects, or unrelated details.";
+  return `${photoRecipes[recipeId].prompt} ${styleDirections[style]} ${aspectDirections[aspectRatio]} ${direction} ${guard}`.trim();
 }

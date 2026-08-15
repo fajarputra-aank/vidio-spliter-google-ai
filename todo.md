@@ -109,3 +109,10 @@
 - [x] Perbarui pemilih transformasi studio dengan pengelompokan dan deskripsi manfaat yang mudah dipahami.
 - [x] Perbarui dan validasi skill reusable untuk koleksi transformasi AI yang diperluas.
 - [x] Uji resep baru, alur pemilihan, responsivitas, dan simpan checkpoint pembaruan.
+- [x] Tambahkan instruksi teks opsional yang tervalidasi untuk mengarahkan transformasi tanpa mengalahkan guard preservasi foto sumber.
+- [x] Tambahkan rekomendasi resep otomatis berdasarkan analisis aman terhadap berkas foto yang diunggah.
+- [x] Perjelas kontrol dan petunjuk before/after pada hasil transformasi.
+- [x] Perbarui dan validasi skill reusable untuk instruksi transformasi serta rekomendasi resep.
+- [x] Uji instruksi opsional, rekomendasi resep, before-after, responsivitas, dan simpan checkpoint pembaruan.
+- [x] Jelaskan ketersediaan rekomendasi resep setelah login serta tampilkan state gagal analisis yang eksplisit.
+- [x] Simpan checkpoint rilis instruksi opsional, rekomendasi resep, dan before-after setelah penyempurnaan final diverifikasi.
