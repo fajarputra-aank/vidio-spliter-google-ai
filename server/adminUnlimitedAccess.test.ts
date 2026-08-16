@@ -11,12 +11,13 @@ function context(role: "admin" | "user"): TrpcContext {
 
 describe("admin unlimited transform access", () => {
   it("lets an administrator list and update special access by normalized email", async () => {
-    mocks.listUnlimitedTransformUsers.mockResolvedValue([{ id: 9, email: "creator@example.test", name: "Creator" }]);
+    mocks.listUnlimitedTransformUsers.mockResolvedValue([{ id: 9, email: "creator@example.test", name: "Creator", unlimitedTransforms: true }]);
     mocks.setUnlimitedTransformsByEmail.mockResolvedValue({ id: 9, email: "creator@example.test", unlimitedTransforms: true, changed: true, isAdmin: false });
     const caller = appRouter.createCaller(context("admin"));
-    await expect(caller.admin.unlimitedAccessList()).resolves.toHaveLength(1);
+    await expect(caller.admin.unlimitedAccessList({ search: "creator", access: "unlimited" })).resolves.toHaveLength(1);
     await caller.admin.setUnlimitedAccess({ email: " Creator@Example.Test ", enabled: true });
     expect(mocks.setUnlimitedTransformsByEmail).toHaveBeenCalledWith("Creator@Example.Test", true);
+    expect(mocks.listUnlimitedTransformUsers).toHaveBeenCalledWith({ search: "creator", access: "unlimited" });
   });
 
   it("rejects regular users before any special-access data is exposed or changed", async () => {

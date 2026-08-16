@@ -530,10 +530,15 @@ export async function getAdminDashboard() {
   };
 }
 
-export async function listUnlimitedTransformUsers() {
+export async function listUnlimitedTransformUsers(input: { search?: string; access?: "all" | "unlimited" | "standard" } = {}) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
-  return db.select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt }).from(users).where(and(eq(users.role, "user"), eq(users.unlimitedTransforms, true))).orderBy(desc(users.updatedAt));
+  const search = input.search?.trim().toLowerCase();
+  const conditions = [eq(users.role, "user")];
+  if (input.access === "unlimited") conditions.push(eq(users.unlimitedTransforms, true));
+  if (input.access === "standard") conditions.push(eq(users.unlimitedTransforms, false));
+  if (search) conditions.push(sql`lower(${users.email}) like ${`%${search}%`}`);
+  return db.select({ id: users.id, name: users.name, email: users.email, unlimitedTransforms: users.unlimitedTransforms, createdAt: users.createdAt }).from(users).where(and(...conditions)).orderBy(desc(users.updatedAt)).limit(48);
 }
 
 export async function setUnlimitedTransformsByEmail(email: string, enabled: boolean) {

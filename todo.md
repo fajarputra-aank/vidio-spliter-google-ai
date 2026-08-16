@@ -136,3 +136,8 @@
 - [x] Tambahkan panel admin sederhana untuk mengelola email pengguna dengan akses tanpa batas.
 - [x] Uji otorisasi, alur pemberian/pencabutan akses, dan responsivitas panel admin.
 - [x] Simpan checkpoint rilis halaman admin pengelolaan akses transformasi tanpa batas.
+- [x] Tinjau data daftar akses dan kebutuhan pencarian email serta filter status admin.
+- [x] Tambahkan pencarian email dan filter status pada daftar akses transformasi tanpa batas.
+- [x] Uji pencarian/filter dan responsivitas panel admin.
+- [x] Stabilkan input query pencarian dan filter akses admin agar tidak memicu refetch berulang saat render.
+- [x] Simpan checkpoint pembaruan pencarian dan filter akses admin.
