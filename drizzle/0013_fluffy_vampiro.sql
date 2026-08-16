@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `unlimitedTransforms` boolean DEFAULT false NOT NULL;

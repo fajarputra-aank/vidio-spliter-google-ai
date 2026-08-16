@@ -10,7 +10,7 @@ import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds, styleIds
 import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
 import { getStripe } from "./stripe";
-import { hasUnlimitedTransforms } from "./accessPolicy";
+import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
 
 const imageInput = z.object({
@@ -40,9 +40,10 @@ export const appRouter = router({
   photo: router({
     list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(({ ctx, input }) => db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)),
     setHidden: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), isHidden: z.boolean() })).mutation(({ ctx, input }) => db.setPhotoTransformHidden(ctx.user.id, input.transformId, input.isHidden)),
-    quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user.role) })),
+    quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user) })),
     profile: protectedProcedure.query(async ({ ctx }) => ({
       user: { name: ctx.user.name, email: ctx.user.email, role: ctx.user.role, createdAt: ctx.user.createdAt },
+      isUnlimitedTransforms: hasUnlimitedTransforms(ctx.user),
       ...(await db.getPhotoProfileSummary(ctx.user.id)),
     })),
     recommend: protectedProcedure.input(z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(8_000_000) })).mutation(async ({ input }) => {
@@ -51,7 +52,7 @@ export const appRouter = router({
       return recommendPhotoRecipe(input.sourceData, input.mimeType);
     }),
     hdExport: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-      if (hasUnlimitedTransforms(ctx.user.role)) {
+      if (hasUnlimitedHdExports(ctx.user.role)) {
         const records = await db.listPhotoTransforms(ctx.user.id, true);
         const record = records.find((item) => item.id === input.transformId && item.status === "completed" && item.resultUrl);
         if (!record?.resultUrl) throw new TRPCError({ code: "NOT_FOUND", message: "Hasil HD belum tersedia." });
@@ -69,7 +70,7 @@ export const appRouter = router({
       const quota = await db.getDailyPhotoQuota(ctx.user.id);
       let usedPurchasedCredit = false;
       let transformId: number | null = null;
-      if (quota.exhausted && !hasUnlimitedTransforms(ctx.user.role)) {
+      if (quota.exhausted && !hasUnlimitedTransforms(ctx.user)) {
         usedPurchasedCredit = await db.consumePurchasedCredit(ctx.user.id);
         if (!usedPurchasedCredit) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Kuota harian dan kredit tambahanmu sudah habis. Tambahkan kredit untuk lanjut meracik." });
       }

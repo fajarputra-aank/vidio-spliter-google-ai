@@ -124,3 +124,10 @@
 - [x] Dukung coba ulang resep lain dari hasil riwayat dengan memulihkan payload sumber tanpa unggah ulang.
 - [x] Tampilkan error eksplisit dan aksi muat ulang bila riwayat instruksi favorit privat gagal dimuat.
 - [x] Simpan checkpoint baru setelah fitur rekomendasi alternatif, coba ulang dari riwayat, dan error state favorit privat selesai diverifikasi.
+- [x] Permintaan verifikasi jumlah kredit gratis digantikan oleh akses transformasi tanpa batas sesuai arahan terbaru pengguna.
+- [x] Permintaan kredit gratis digantikan oleh flag akses transformasi tanpa batas yang tidak mengubah ledger kredit.
+- [x] Permintaan saldo akhir kredit digantikan oleh verifikasi akses transformasi tanpa batas pada akun target.
+- [x] Verifikasi akun ridoazimi@gmail.com dan rancang akses transformasi tanpa batas tanpa hak admin.
+- [x] Tambahkan flag akses transformasi tanpa batas yang terpisah dari peran administrator.
+- [x] Terapkan akses tanpa batas pada akun terverifikasi dan uji penolakan kuota tanpa akses admin.
+- [x] Verifikasi, simpan checkpoint, dan serahkan pembaruan akses khusus.

@@ -92,6 +92,13 @@
       "when": 1786784641909,
       "tag": "0012_thankful_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1786848303746,
+      "tag": "0013_fluffy_vampiro",
+      "breakpoints": true
     }
   ]
 }

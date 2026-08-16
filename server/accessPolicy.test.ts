@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { hasUnlimitedTransforms } from "./accessPolicy";
+import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 
-describe("administrator transform access", () => {
-  it("grants unlimited transforms only to the admin role", () => {
-    expect(hasUnlimitedTransforms("admin")).toBe(true);
-    expect(hasUnlimitedTransforms("user")).toBe(false);
-    expect(hasUnlimitedTransforms(null)).toBe(false);
+describe("unlimited transform access", () => {
+  it("grants unlimited transformations to admins or an explicit special-access flag", () => {
+    expect(hasUnlimitedTransforms({ role: "admin", unlimitedTransforms: false })).toBe(true);
+    expect(hasUnlimitedTransforms({ role: "user", unlimitedTransforms: true })).toBe(true);
+    expect(hasUnlimitedTransforms({ role: "user", unlimitedTransforms: false })).toBe(false);
+  });
+
+  it("keeps free HD export exclusive to administrators", () => {
+    expect(hasUnlimitedHdExports("admin")).toBe(true);
+    expect(hasUnlimitedHdExports("user")).toBe(false);
   });
 });

@@ -44,6 +44,25 @@ function adminContext(): TrpcContext {
   };
 }
 
+function specialAccessContext(): TrpcContext {
+  return {
+    user: {
+      id: 2,
+      openId: "special-user",
+      name: "Special Access",
+      email: "special@example.test",
+      loginMethod: "manus",
+      role: "user",
+      unlimitedTransforms: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    },
+    req: { headers: {}, protocol: "https" } as TrpcContext["req"],
+    res: {} as TrpcContext["res"],
+  };
+}
+
 describe("admin photo transforms", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -70,5 +89,15 @@ describe("admin photo transforms", () => {
     expect(mocks.consumePurchasedCredit).not.toHaveBeenCalled();
     expect(mocks.generateImage).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ id: 42, status: "completed" });
+  });
+
+  it("lets a flagged regular user bypass the exhausted transform quota without becoming an admin", async () => {
+    const caller = appRouter.createCaller(specialAccessContext());
+    const sourceData = Buffer.from("a small image payload for special access").toString("base64");
+
+    await caller.photo.transform({ recipe: "headshot", aspectRatio: "1:1", style: "editorial", fileName: "profile.png", mimeType: "image/png", sourceData });
+
+    expect(mocks.consumePurchasedCredit).not.toHaveBeenCalled();
+    expect(mocks.generateImage).toHaveBeenCalledOnce();
   });
 });
