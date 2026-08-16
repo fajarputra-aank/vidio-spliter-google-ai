@@ -529,3 +529,21 @@ export async function getAdminDashboard() {
     dayStart: start,
   };
 }
+
+export async function listUnlimitedTransformUsers() {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt }).from(users).where(and(eq(users.role, "user"), eq(users.unlimitedTransforms, true))).orderBy(desc(users.updatedAt));
+}
+
+export async function setUnlimitedTransformsByEmail(email: string, enabled: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const normalizedEmail = email.trim().toLowerCase();
+  const records = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role, unlimitedTransforms: users.unlimitedTransforms }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
+  const user = records[0];
+  if (!user) throw new Error("Akun belum ditemukan. Pengguna harus masuk setidaknya sekali terlebih dahulu.");
+  if (user.role === "admin") return { ...user, unlimitedTransforms: true, changed: false, isAdmin: true };
+  await db.update(users).set({ unlimitedTransforms: enabled }).where(eq(users.id, user.id));
+  return { ...user, unlimitedTransforms: enabled, changed: user.unlimitedTransforms !== enabled, isAdmin: false };
+}

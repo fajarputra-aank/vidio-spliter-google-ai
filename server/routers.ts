@@ -150,6 +150,8 @@ export const appRouter = router({
   }),
   admin: router({
     dashboard: adminProcedure.query(() => db.getAdminDashboard()),
+    unlimitedAccessList: adminProcedure.query(() => db.listUnlimitedTransformUsers()),
+    setUnlimitedAccess: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), enabled: z.boolean() })).mutation(({ input }) => db.setUnlimitedTransformsByEmail(input.email, input.enabled)),
     moderationList: adminProcedure.query(() => db.listCommunityPosts()),
     moderateDeletePost: adminProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ input }) => db.moderateDeleteCommunityPost(input.postId)),
     reports: adminProcedure.query(() => db.listAdminCommunityReports()),

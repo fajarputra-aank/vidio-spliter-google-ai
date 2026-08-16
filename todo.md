@@ -131,3 +131,8 @@
 - [x] Tambahkan flag akses transformasi tanpa batas yang terpisah dari peran administrator.
 - [x] Terapkan akses tanpa batas pada akun terverifikasi dan uji penolakan kuota tanpa akses admin.
 - [x] Verifikasi, simpan checkpoint, dan serahkan pembaruan akses khusus.
+- [x] Tinjau dashboard admin dan kontrak akses tanpa batas untuk pengelolaan berbasis email.
+- [x] Tambahkan prosedur admin untuk melihat daftar, memberikan, dan mencabut akses transformasi tanpa batas.
+- [x] Tambahkan panel admin sederhana untuk mengelola email pengguna dengan akses tanpa batas.
+- [x] Uji otorisasi, alur pemberian/pencabutan akses, dan responsivitas panel admin.
+- [x] Simpan checkpoint rilis halaman admin pengelolaan akses transformasi tanpa batas.
