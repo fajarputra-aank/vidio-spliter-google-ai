@@ -7,11 +7,13 @@ const mocks = vi.hoisted(() => ({
   invalidateUserSessions: vi.fn(),
   recordUserSecurityEvent: vi.fn(),
   listUserSecurityEvents: vi.fn(),
+  listUserActiveSessions: vi.fn(),
   getLoginLock: vi.fn(),
   getUserByEmail: vi.fn(),
   recordFailedLogin: vi.fn(),
   sendPasswordChangedEmail: vi.fn(),
   sendAccountLockedEmail: vi.fn(),
+  registerActiveSession: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
@@ -19,6 +21,7 @@ vi.mock("./db", () => ({
   invalidateUserSessions: mocks.invalidateUserSessions,
   recordUserSecurityEvent: mocks.recordUserSecurityEvent,
   listUserSecurityEvents: mocks.listUserSecurityEvents,
+  listUserActiveSessions: mocks.listUserActiveSessions,
   getLoginLock: mocks.getLoginLock,
   getUserByEmail: mocks.getUserByEmail,
   recordFailedLogin: mocks.recordFailedLogin,
@@ -29,6 +32,8 @@ vi.mock("./accountEmails", () => ({
   sendPasswordChangedEmail: mocks.sendPasswordChangedEmail,
   sendAccountLockedEmail: mocks.sendAccountLockedEmail,
 }));
+
+vi.mock("./sessionMetadata", () => ({ registerActiveSession: mocks.registerActiveSession }));
 
 import { appRouter } from "./routers";
 
@@ -58,6 +63,7 @@ describe("account security", () => {
     const { ctx, user } = await createContext();
     mocks.updateLocalPassword.mockResolvedValue(user);
     mocks.invalidateUserSessions.mockResolvedValue(1);
+    mocks.registerActiveSession.mockResolvedValue("current-session");
     mocks.sendPasswordChangedEmail.mockResolvedValue(true);
     const result = await appRouter.createCaller(ctx).auth.changePassword({ currentPassword: "kata-sandi-lama-aman", nextPassword: "kata-sandi-baru-aman" });
     expect(mocks.recordUserSecurityEvent).toHaveBeenCalledWith(88, "password_changed");
@@ -92,5 +98,15 @@ describe("account security", () => {
     expect(mocks.listUserSecurityEvents).toHaveBeenCalledWith(88);
     expect(result).toHaveLength(1);
     expect(result[0]?.kind).toBe("login");
+  });
+
+  it("returns only the owner’s active sessions and marks the current device", async () => {
+    const { ctx } = await createContext();
+    ctx.sessionId = "current-session";
+    mocks.listUserActiveSessions.mockResolvedValue([{ id: "current-session", userId: 88, deviceLabel: "Windows · Chrome", locationLabel: "Jakarta, Indonesia", lastSeenAt: new Date(), createdAt: new Date(), revokedAt: null }]);
+    const result = await appRouter.createCaller(ctx).auth.activeSessions();
+    expect(mocks.listUserActiveSessions).toHaveBeenCalledWith(88);
+    expect(result[0]).toMatchObject({ id: "current-session", isCurrent: true });
+    expect(result[0]).not.toHaveProperty("userId");
   });
 });

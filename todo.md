@@ -193,3 +193,7 @@
 - [x] Kirim email pemberitahuan saat akun terkunci setelah percobaan login gagal berulang.
 - [x] Uji validasi, invalidasi sesi, email penguncian, responsivitas, dan simpan checkpoint rilis.
 - [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk kontrol sesi dan penguncian akun.
+- [x] Tinjau model sesi dan metadata perangkat/lokasi yang aman untuk ditampilkan kepada pemilik akun.
+- [x] Tambahkan pencatatan sesi aktif dengan perangkat, lokasi kasar, dan waktu akses terakhir yang privat.
+- [x] Tampilkan daftar sesi aktif pada pengaturan keamanan beserta penanda sesi saat ini.
+- [x] Uji privasi, kepemilikan data sesi, responsivitas, dan simpan checkpoint rilis.

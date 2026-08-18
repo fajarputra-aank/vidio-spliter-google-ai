@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNull, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, userSecurityEvents, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -181,8 +181,27 @@ export async function getUserSessionVersion(userId: number) {
 export async function invalidateUserSessions(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
+  await db.update(userActiveSessions).set({ revokedAt: new Date() }).where(and(eq(userActiveSessions.userId, userId), isNull(userActiveSessions.revokedAt)));
   await db.insert(userSessionVersions).values({ userId, version: 1 }).onDuplicateKeyUpdate({ set: { version: sql`${userSessionVersions.version} + 1`, updatedAt: new Date() } });
   return getUserSessionVersion(userId);
+}
+
+export async function createUserActiveSession(input: { id: string; userId: number; sessionVersion: number; deviceLabel: string; locationLabel: string }) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(userActiveSessions).values(input);
+}
+
+export async function touchUserActiveSession(sessionId: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(userActiveSessions).set({ lastSeenAt: new Date() }).where(and(eq(userActiveSessions.id, sessionId), isNull(userActiveSessions.revokedAt)));
+}
+
+export async function listUserActiveSessions(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(userActiveSessions).where(and(eq(userActiveSessions.userId, userId), isNull(userActiveSessions.revokedAt))).orderBy(desc(userActiveSessions.lastSeenAt), desc(userActiveSessions.createdAt)).limit(20);
 }
 
 export async function createPhotoTransform(transform: InsertPhotoTransform) {

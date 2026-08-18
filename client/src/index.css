@@ -9,6 +9,7 @@
 @import "./auth.css";
 @import "./profile-security.css";
 @import "./profile-security-actions.css";
+@import "./profile-active-sessions.css";
 
 @custom-variant dark (&:is(.dark *));
 

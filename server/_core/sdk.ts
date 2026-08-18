@@ -28,6 +28,7 @@ type LocalSessionPayload = {
   userId: number;
   kind: "local";
   sessionVersion: number;
+  sessionId?: string;
 };
 
 export type SessionPayload = LegacySessionPayload | LocalSessionPayload;
@@ -166,9 +167,9 @@ class SDKServer {
    */
   async createSessionToken(
     userId: number | string,
-    options: { expiresInMs?: number; name?: string; sessionVersion?: number } = {}
+    options: { expiresInMs?: number; name?: string; sessionVersion?: number; sessionId?: string } = {}
   ): Promise<string> {
-    if (typeof userId === "number") return this.signSession({ userId, kind: "local", sessionVersion: options.sessionVersion ?? await db.getUserSessionVersion(userId) }, options);
+    if (typeof userId === "number") return this.signSession({ userId, kind: "local", sessionVersion: options.sessionVersion ?? await db.getUserSessionVersion(userId), sessionId: options.sessionId }, options);
     return this.signSession(
       {
         openId: userId,
@@ -188,7 +189,7 @@ class SDKServer {
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
-    return new SignJWT("userId" in payload ? { userId: payload.userId, kind: "local", sessionVersion: payload.sessionVersion } : { openId: payload.openId, appId: payload.appId, name: payload.name })
+    return new SignJWT("userId" in payload ? { userId: payload.userId, kind: "local", sessionVersion: payload.sessionVersion, sessionId: payload.sessionId } : { openId: payload.openId, appId: payload.appId, name: payload.name })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
@@ -207,9 +208,9 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name, userId, kind, sessionVersion } = payload as Record<string, unknown>;
+      const { openId, appId, name, userId, kind, sessionVersion, sessionId } = payload as Record<string, unknown>;
 
-      if (kind === "local" && typeof userId === "number" && Number.isInteger(userId) && userId > 0) return { userId, kind: "local", sessionVersion: typeof sessionVersion === "number" && Number.isInteger(sessionVersion) && sessionVersion >= 0 ? sessionVersion : 0 };
+      if (kind === "local" && typeof userId === "number" && Number.isInteger(userId) && userId > 0) return { userId, kind: "local", sessionVersion: typeof sessionVersion === "number" && Number.isInteger(sessionVersion) && sessionVersion >= 0 ? sessionVersion : 0, sessionId: isNonEmptyString(sessionId) && sessionId.length <= 48 ? sessionId : undefined };
 
       if (
         !isNonEmptyString(openId) ||
@@ -281,7 +282,8 @@ class SDKServer {
       if (!user || !user.passwordHash) throw ForbiddenError("User not found");
       if (session.sessionVersion !== await db.getUserSessionVersion(user.id)) throw ForbiddenError("Sesi telah berakhir");
       await db.touchLocalSignIn(user.id);
-      return user;
+      if (session.sessionId) await db.touchUserActiveSession(session.sessionId);
+      return { ...user, sessionId: session.sessionId };
     }
 
     if (session.openId.startsWith(CRON_OPEN_ID_PREFIX)) {
@@ -303,6 +305,7 @@ const CRON_OPEN_ID_PREFIX = "cron_";
 export type AuthenticatedUser = User & {
   taskUid?: string;
   isCron?: boolean;
+  sessionId?: string;
 };
 
 function buildCronUser(

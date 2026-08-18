@@ -6,15 +6,19 @@ export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User | null;
+  sessionId?: string;
 };
 
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
   let user: User | null = null;
+  let sessionId: string | undefined;
 
   try {
-    user = await sdk.authenticateRequest(opts.req);
+    const authenticated = await sdk.authenticateRequest(opts.req);
+    sessionId = authenticated.sessionId;
+    user = authenticated;
   } catch (error) {
     // Authentication is optional for public procedures.
     user = null;
@@ -24,5 +28,6 @@ export async function createContext(
     req: opts.req,
     res: opts.res,
     user,
+    sessionId,
   };
 }

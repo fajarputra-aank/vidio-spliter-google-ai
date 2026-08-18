@@ -65,6 +65,22 @@ export const userSessionVersions = mysqlTable("userSessionVersions", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Private device session metadata. Exact IP addresses and coordinates are never persisted. */
+export const userActiveSessions = mysqlTable(
+  "userActiveSessions",
+  {
+    id: varchar("id", { length: 48 }).primaryKey(),
+    userId: int("userId").notNull(),
+    sessionVersion: int("sessionVersion").notNull(),
+    deviceLabel: varchar("deviceLabel", { length: 160 }).notNull(),
+    locationLabel: varchar("locationLabel", { length: 160 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    lastSeenAt: timestamp("lastSeenAt").defaultNow().notNull(),
+    revokedAt: timestamp("revokedAt"),
+  },
+  (table) => [index("userActiveSessions_user_active_idx").on(table.userId, table.revokedAt, table.lastSeenAt)]
+);
+
 /** Singleton brand identity. File bytes stay in object storage; this table only holds safe delivery URLs. */
 export const brandSettings = mysqlTable("brandSettings", {
   id: int("id").primaryKey(),

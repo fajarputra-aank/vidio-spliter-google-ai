@@ -14,6 +14,7 @@ import { recommendPhotoRecipe } from "./photoRecommendations";
 import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
 import { issueAccountEmail, sendAccountLockedEmail, sendPasswordChangedEmail } from "./accountEmails";
+import { registerActiveSession } from "./sessionMetadata";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -57,7 +58,9 @@ export const appRouter = router({
       try { details = validateRegistrationInput(input.name, input.email, input.password); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Data pendaftaran belum valid." }); }
       const user = await db.createLocalUser({ ...details, passwordHash: await hashPassword(input.password) });
       if (!user) throw new TRPCError({ code: "CONFLICT", message: "Email ini sudah terdaftar. Silakan masuk." });
-      const token = await sdk.createSessionToken(user.id);
+      const sessionVersion = await db.getUserSessionVersion(user.id);
+      const sessionId = await registerActiveSession(user.id, sessionVersion, ctx.req);
+      const token = await sdk.createSessionToken(user.id, { sessionVersion, sessionId });
       ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       let verificationSent = false;
       try { verificationSent = await issueAccountEmail(user, "email_verification"); } catch (error) { console.error("[Auth] Failed to send verification email", error); }
@@ -81,7 +84,9 @@ export const appRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Email atau kata sandi tidak sesuai." });
       }
       await db.clearFailedLogins(emailHash);
-      const token = await sdk.createSessionToken(user.id);
+      const sessionVersion = await db.getUserSessionVersion(user.id);
+      const sessionId = await registerActiveSession(user.id, sessionVersion, ctx.req);
+      const token = await sdk.createSessionToken(user.id, { sessionVersion, sessionId });
       ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       await db.touchLocalSignIn(user.id);
       try { await db.recordUserSecurityEvent(user.id, "login"); } catch (error) { console.error("[Auth] Failed to record login security event", error); }
@@ -123,7 +128,8 @@ export const appRouter = router({
       const user = await db.updateLocalPassword(ctx.user.id, await hashPassword(input.nextPassword), false);
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
       const sessionVersion = await db.invalidateUserSessions(user.id);
-      const refreshedSession = await sdk.createSessionToken(user.id, { sessionVersion });
+      const sessionId = await registerActiveSession(user.id, sessionVersion, ctx.req);
+      const refreshedSession = await sdk.createSessionToken(user.id, { sessionVersion, sessionId });
       ctx.res.cookie(COOKIE_NAME, refreshedSession, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       try { await db.recordUserSecurityEvent(user.id, "password_changed"); } catch (error) { console.error("[Auth] Failed to record password change event", error); }
       let emailNoticeSent = false;
@@ -131,6 +137,7 @@ export const appRouter = router({
       return { user, emailNoticeSent };
     }),
     securityHistory: protectedProcedure.query(({ ctx }) => db.listUserSecurityEvents(ctx.user.id)),
+    activeSessions: protectedProcedure.query(async ({ ctx }) => (await db.listUserActiveSessions(ctx.user.id)).map(({ userId: _userId, ...session }) => ({ ...session, isCurrent: Boolean(ctx.sessionId && session.id === ctx.sessionId) }))),
     signOutAllSessions: signedInProcedure.mutation(async ({ ctx }) => {
       await db.invalidateUserSessions(ctx.user.id);
       try { await db.recordUserSecurityEvent(ctx.user.id, "all_sessions_signed_out"); } catch (error) { console.error("[Auth] Failed to record session sign-out event", error); }
