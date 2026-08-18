@@ -217,6 +217,6 @@
 - [x] Menetapkan pemeriksaan harian terpusat untuk frekuensi ringkasan email pengguna.
 - [x] Uji ekspor, preferensi frekuensi, jadwal, privasi, responsivitas, dan simpan checkpoint rilis.
 - [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk ekspor serta ringkasan keamanan terjadwal.
-- [ ] Selidiki kegagalan pemuatan gambar sistem, thumbnail resep, dan hasil transformasi pada produksi.
-- [ ] Perbaiki sumber URL atau proxy gambar agar aset produksi dapat dimuat kembali dengan aman.
-- [ ] Uji pemuatan gambar produksi dan simpan checkpoint perbaikan.
+- [x] Selidiki kegagalan pemuatan gambar sistem, thumbnail resep, dan hasil transformasi pada produksi.
+- [x] Perbaiki sumber URL atau proxy gambar agar aset produksi dapat dimuat kembali dengan aman.
+- [x] Uji pemuatan gambar produksi dan simpan checkpoint perbaikan.
