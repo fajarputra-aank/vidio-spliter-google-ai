@@ -27,12 +27,21 @@ function safeFileName(value: string) {
 }
 
 const brandImageInput = z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(5_000_000) });
+const transferProofInput = z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(7_000_000) });
 
 async function storeBrandImage(kind: "logo" | "icon", image: z.infer<typeof brandImageInput>) {
   const bytes = Buffer.from(image.sourceData, "base64");
   if (!bytes.length || bytes.length > 3_500_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Berkas brand harus berupa gambar maksimal 3 MB." });
   const extension = image.mimeType === "image/png" ? "png" : image.mimeType === "image/webp" ? "webp" : "jpg";
   const stored = await storagePut(`brand/${kind}-${Date.now()}.${extension}`, bytes, image.mimeType);
+  return stored.url;
+}
+
+async function storeTransferProof(userId: number, image: z.infer<typeof transferProofInput>) {
+  const bytes = Buffer.from(image.sourceData, "base64");
+  if (!bytes.length || bytes.length > 5_000_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Bukti transfer harus berupa gambar maksimal 5 MB." });
+  const extension = image.mimeType === "image/png" ? "png" : image.mimeType === "image/webp" ? "webp" : "jpg";
+  const stored = await storagePut(`payment-proofs/${userId}/${Date.now()}.${extension}`, bytes, image.mimeType);
   return stored.url;
 }
 
@@ -114,10 +123,10 @@ export const appRouter = router({
   billing: router({
     packs: publicProcedure.query(() => Object.values(creditPacks)),
     balance: protectedProcedure.query(async ({ ctx }) => ({ credits: await db.getCreditBalance(ctx.user.id), purchases: await db.listCreditPurchases(ctx.user.id), manualOrders: await db.listManualCreditOrders(ctx.user.id) })),
-    createManualOrder: protectedProcedure.input(z.object({ packId: z.enum(["starter", "studio", "archive"]) })).mutation(async ({ ctx, input }) => {
+    createManualOrder: protectedProcedure.input(z.object({ packId: z.enum(["starter", "studio", "archive"]), proof: transferProofInput })).mutation(async ({ ctx, input }) => {
       const pack = getCreditPack(input.packId);
       if (!pack) throw new TRPCError({ code: "NOT_FOUND", message: "Paket kredit tidak ditemukan." });
-      return db.createManualCreditOrder(ctx.user.id, pack);
+      return db.createManualCreditOrder(ctx.user.id, pack, await storeTransferProof(ctx.user.id, input.proof));
     }),
   }),
   community: router({
@@ -155,7 +164,7 @@ export const appRouter = router({
     setUserRole: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), role: z.enum(["user", "admin"]) })).mutation(({ ctx, input }) => db.setUserRoleByEmail(ctx.user.id, input.email, input.role)),
     accessAudits: adminProcedure.query(() => db.listAdminAccessAudits()),
     updateBrand: adminProcedure.input(z.object({ logo: brandImageInput.optional(), icon: brandImageInput.optional() }).refine((input) => input.logo || input.icon, { message: "Pilih logo atau ikon yang akan diperbarui." })).mutation(async ({ ctx, input }) => db.updateBrandSettings(ctx.user.id, { logoUrl: input.logo ? await storeBrandImage("logo", input.logo) : undefined, iconUrl: input.icon ? await storeBrandImage("icon", input.icon) : undefined })),
-    manualCreditOrders: adminProcedure.query(() => db.listAdminManualCreditOrders()),
+    manualCreditOrders: adminProcedure.input(z.object({ search: z.string().trim().max(320).optional(), status: z.enum(["all", "pending", "approved", "rejected"]).default("all") }).optional()).query(({ input }) => db.listAdminManualCreditOrders(input)),
     reviewManualCreditOrder: adminProcedure.input(z.object({ orderId: z.number().int().positive(), action: z.enum(["approve", "reject"]) })).mutation(({ ctx, input }) => db.reviewManualCreditOrder(input.orderId, ctx.user.id, input.action)),
     moderationList: adminProcedure.query(() => db.listCommunityPosts()),
     moderateDeletePost: adminProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ input }) => db.moderateDeleteCommunityPost(input.postId)),

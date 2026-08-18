@@ -113,6 +113,20 @@
       "when": 1787030010911,
       "tag": "0015_overconfident_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1787030975406,
+      "tag": "0016_nifty_the_liberteens",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1787031020207,
+      "tag": "0017_spicy_millenium_guard",
+      "breakpoints": true
     }
   ]
 }

@@ -103,6 +103,7 @@ export const manualCreditOrders = mysqlTable(
     packId: varchar("packId", { length: 40 }).notNull(),
     credits: int("credits").notNull(),
     amountIdr: int("amountIdr").notNull(),
+    proofUrl: text("proofUrl"),
     status: mysqlEnum("status", ["pending", "approved", "rejected"]).notNull().default("pending"),
     reviewerUserId: int("reviewerUserId"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),

@@ -165,3 +165,8 @@
 - [x] Uji alur pembayaran rupiah, riwayat permintaan, dan responsivitas.
 - [x] Simpan checkpoint rilis pembayaran rupiah dan transfer BCA.
 - [x] Tambahkan bukti otomatis bahwa permintaan transfer baru langsung tampil sebagai pending di riwayat kredit.
+- [x] Tinjau alur transfer, penyimpanan berkas, dan notifikasi dalam aplikasi untuk bukti pembayaran serta keputusan admin.
+- [x] Tambahkan bukti transfer privat, notifikasi dalam aplikasi keputusan admin, dan pencarian/filter status permintaan transfer.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pembayaran manual dengan bukti dan notifikasi.
+- [x] Uji privasi bukti, notifikasi keputusan, filter admin, dan responsivitas.
+- [x] Simpan checkpoint rilis bukti transfer, notifikasi keputusan, dan filter admin.

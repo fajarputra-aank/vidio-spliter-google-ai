@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
-const mocks = vi.hoisted(() => ({ createManualCreditOrder: vi.fn() }));
+const mocks = vi.hoisted(() => ({ createManualCreditOrder: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./db", () => ({ createManualCreditOrder: mocks.createManualCreditOrder }));
+vi.mock("./storage", () => ({ storagePut: mocks.storagePut }));
 import { appRouter } from "./routers";
 
 function buyerContext(): TrpcContext {
@@ -10,12 +11,12 @@ function buyerContext(): TrpcContext {
 }
 
 describe("manual BCA credit order", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { vi.clearAllMocks(); mocks.storagePut.mockResolvedValue({ url: "/manus-storage/payment-proofs/7/receipt.jpg" }); });
 
   it("creates a server-priced transfer request bound to the authenticated buyer", async () => {
     mocks.createManualCreditOrder.mockResolvedValue({ id: 31, userId: 7, packId: "studio", credits: 25, amountIdr: 20_000, status: "pending" });
-    const result = await appRouter.createCaller(buyerContext()).billing.createManualOrder({ packId: "studio" });
+    const result = await appRouter.createCaller(buyerContext()).billing.createManualOrder({ packId: "studio", proof: { mimeType: "image/jpeg", sourceData: Buffer.alloc(32, 1).toString("base64") } });
     expect(result).toMatchObject({ packId: "studio", amountIdr: 20_000, status: "pending" });
-    expect(mocks.createManualCreditOrder).toHaveBeenCalledWith(7, expect.objectContaining({ id: "studio", credits: 25, unitAmount: 20_000, currency: "idr" }));
+    expect(mocks.createManualCreditOrder).toHaveBeenCalledWith(7, expect.objectContaining({ id: "studio", credits: 25, unitAmount: 20_000, currency: "idr" }), "/manus-storage/payment-proofs/7/receipt.jpg");
   });
 });

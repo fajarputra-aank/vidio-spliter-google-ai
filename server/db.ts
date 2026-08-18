@@ -5,6 +5,7 @@ import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
 import { shouldCreateArchivedAlbumReminder } from "./archivedAlbumReminderPolicy";
+import { getManualTransferNotification } from "./manualTransferNotifications";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -178,10 +179,10 @@ export async function listCreditPurchases(userId: number) {
   return db.select().from(creditPurchases).where(eq(creditPurchases.userId, userId)).orderBy(desc(creditPurchases.createdAt));
 }
 
-export async function createManualCreditOrder(userId: number, pack: { id: string; credits: number; unitAmount: number }) {
+export async function createManualCreditOrder(userId: number, pack: { id: string; credits: number; unitAmount: number }, proofUrl: string) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
-  const result = await db.insert(manualCreditOrders).values({ userId, packId: pack.id, credits: pack.credits, amountIdr: pack.unitAmount, status: "pending" });
+  const result = await db.insert(manualCreditOrders).values({ userId, packId: pack.id, credits: pack.credits, amountIdr: pack.unitAmount, proofUrl, status: "pending" });
   const records = await db.select().from(manualCreditOrders).where(eq(manualCreditOrders.id, Number(result[0].insertId))).limit(1);
   return records[0];
 }
@@ -192,10 +193,12 @@ export async function listManualCreditOrders(userId: number) {
   return db.select().from(manualCreditOrders).where(eq(manualCreditOrders.userId, userId)).orderBy(desc(manualCreditOrders.createdAt));
 }
 
-export async function listAdminManualCreditOrders() {
+export async function listAdminManualCreditOrders(input?: { search?: string; status?: "all" | "pending" | "approved" | "rejected" }) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
-  return db.select({ id: manualCreditOrders.id, packId: manualCreditOrders.packId, credits: manualCreditOrders.credits, amountIdr: manualCreditOrders.amountIdr, status: manualCreditOrders.status, createdAt: manualCreditOrders.createdAt, reviewedAt: manualCreditOrders.reviewedAt, userName: users.name, userEmail: users.email }).from(manualCreditOrders).innerJoin(users, eq(manualCreditOrders.userId, users.id)).orderBy(desc(manualCreditOrders.createdAt)).limit(48);
+  const orders = await db.select({ id: manualCreditOrders.id, packId: manualCreditOrders.packId, credits: manualCreditOrders.credits, amountIdr: manualCreditOrders.amountIdr, proofUrl: manualCreditOrders.proofUrl, status: manualCreditOrders.status, createdAt: manualCreditOrders.createdAt, reviewedAt: manualCreditOrders.reviewedAt, userName: users.name, userEmail: users.email }).from(manualCreditOrders).innerJoin(users, eq(manualCreditOrders.userId, users.id)).orderBy(desc(manualCreditOrders.createdAt)).limit(120);
+  const keyword = input?.search?.trim().toLowerCase();
+  return orders.filter((order) => (input?.status && input.status !== "all" ? order.status === input.status : true) && (keyword ? `${order.userName ?? ""} ${order.userEmail ?? ""} ${order.packId}`.toLowerCase().includes(keyword) : true));
 }
 
 export async function reviewManualCreditOrder(orderId: number, reviewerUserId: number, action: "approve" | "reject") {
@@ -209,6 +212,8 @@ export async function reviewManualCreditOrder(orderId: number, reviewerUserId: n
     const status = action === "approve" ? "approved" : "rejected";
     await tx.update(manualCreditOrders).set({ status, reviewerUserId, reviewedAt: new Date() }).where(eq(manualCreditOrders.id, orderId));
     if (action === "approve") await tx.insert(creditLedger).values({ userId: order.userId, credits: order.credits, reason: "purchase" });
+    const preferences = await tx.select({ accountActivity: userNotificationPreferences.accountActivity }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, order.userId)).limit(1);
+    if (preferences[0]?.accountActivity ?? true) await tx.insert(userNotifications).values({ userId: order.userId, kind: "account_activity", ...getManualTransferNotification(action, order.credits) });
     return { ...order, status, reviewerUserId, changed: true };
   });
 }
