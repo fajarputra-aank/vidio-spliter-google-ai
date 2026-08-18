@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNull, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, userSecurityEvents, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -155,6 +155,20 @@ export async function clearFailedLogins(emailHash: string) {
   const db = await getDb();
   if (!db) return;
   await db.delete(authLoginAttempts).where(eq(authLoginAttempts.emailHash, emailHash));
+}
+
+export type UserSecurityEventKind = "login" | "password_changed" | "password_reset";
+
+export async function recordUserSecurityEvent(userId: number, kind: UserSecurityEventKind) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(userSecurityEvents).values({ userId, kind });
+}
+
+export async function listUserSecurityEvents(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(userSecurityEvents).where(eq(userSecurityEvents.userId, userId)).orderBy(desc(userSecurityEvents.createdAt), desc(userSecurityEvents.id)).limit(50);
 }
 
 export async function createPhotoTransform(transform: InsertPhotoTransform) {

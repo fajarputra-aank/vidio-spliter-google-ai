@@ -26,3 +26,16 @@ export async function issueAccountEmail(user: Pick<User, "id" | "email">, purpos
   await sendSecurityEmail({ to: user.email, subject: config.subject, heading: config.heading, copy: config.copy, actionLabel: config.actionLabel, actionUrl: buildAccountActionUrl(config.path, token) });
   return true;
 }
+
+export async function sendPasswordChangedEmail(user: Pick<User, "email">) {
+  if (!user.email) return false;
+  await sendSecurityEmail({
+    to: user.email,
+    subject: "Kata sandi Lensa Saku telah diubah",
+    heading: "Kata sandimu sudah diperbarui.",
+    copy: "Kami mencatat perubahan kata sandi pada akunmu. Jika kamu tidak melakukannya, segera atur ulang kata sandi dan hubungi pengelola Lensa Saku.",
+    actionLabel: "Tinjau keamanan akun",
+    actionUrl: new URL("/pengaturan/profil", APP_ORIGIN).toString(),
+  });
+  return true;
+}

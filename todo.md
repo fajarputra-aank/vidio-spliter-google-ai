@@ -180,3 +180,10 @@
 - [x] Terapkan pembatasan percobaan login gagal untuk mengurangi risiko brute force.
 - [x] Bangun halaman lupa/reset kata sandi, status verifikasi email, dan pengiriman email transaksional.
 - [x] Uji keamanan token, pembatasan login, alur email, responsivitas, dan simpan checkpoint rilis pengamanan akun.
+- [x] Tinjau autentikasi, halaman profil, dan pola audit aktivitas keamanan.
+- [x] Tambahkan catatan aktivitas login serta perubahan kata sandi yang privat per pengguna.
+- [x] Tambahkan halaman pengaturan profil untuk mengubah kata sandi secara mandiri.
+- [x] Kirim email pemberitahuan setelah kata sandi berhasil diperbarui.
+- [x] Tampilkan riwayat keamanan akun yang hanya dapat dilihat pemilik.
+- [x] Uji audit, kata sandi, notifikasi email, responsivitas, dan simpan checkpoint rilis.
+- [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk pola keamanan profil.

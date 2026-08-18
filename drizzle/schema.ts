@@ -46,6 +46,18 @@ export const authLoginAttempts = mysqlTable(
   (table) => [uniqueIndex("authLoginAttempts_email_hash_unique").on(table.emailHash), index("authLoginAttempts_locked_until_idx").on(table.lockedUntil)]
 );
 
+/** Owner-visible audit trail for authentication activity, excluding IP addresses and credentials. */
+export const userSecurityEvents = mysqlTable(
+  "userSecurityEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    kind: mysqlEnum("kind", ["login", "password_changed", "password_reset"]).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [index("userSecurityEvents_user_created_idx").on(table.userId, table.createdAt)]
+);
+
 /** Singleton brand identity. File bytes stay in object storage; this table only holds safe delivery URLs. */
 export const brandSettings = mysqlTable("brandSettings", {
   id: int("id").primaryKey(),

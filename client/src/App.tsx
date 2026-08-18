@@ -18,6 +18,7 @@ import ArchivedAlbums from "./pages/ArchivedAlbums";
 import BrandSettings from "./pages/BrandSettings";
 import { BrandProvider } from "./contexts/BrandContext";
 import Auth, { ChangePassword, EmailVerification, ForgotPassword, ResetPassword } from "./pages/Auth";
+import ProfileSettings from "./pages/ProfileSettings";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/admin/brand" component={BrandSettings} />
       <Route path="/pengaturan/notifikasi" component={NotificationSettings} />
+      <Route path="/pengaturan/profil" component={ProfileSettings} />
       <Route path="/profil/album-terarsip" component={ArchivedAlbums} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

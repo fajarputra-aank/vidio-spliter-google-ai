@@ -7,6 +7,7 @@
 @import "tw-animate-css";
 @import "./brand-admin.css";
 @import "./auth.css";
+@import "./profile-security.css";
 
 @custom-variant dark (&:is(.dark *));
 
