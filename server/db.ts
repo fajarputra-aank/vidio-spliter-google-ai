@@ -285,6 +285,13 @@ export async function listPhotoTransforms(userId: number, includeHidden = false)
     .orderBy(desc(photoTransforms.createdAt));
 }
 
+export async function userOwnsPhotoMedia(userId: number, storageUrl: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.userId, userId), or(eq(photoTransforms.sourceUrl, storageUrl), eq(photoTransforms.resultUrl, storageUrl)))).limit(1);
+  return rows.length > 0;
+}
+
 export async function setPhotoTransformHidden(userId: number, transformId: number, isHidden: boolean) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");

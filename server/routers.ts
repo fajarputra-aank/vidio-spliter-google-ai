@@ -30,6 +30,19 @@ function safeFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(-120) || "photo";
 }
 
+function privateMediaUrl(value: string | null) {
+  if (!value?.startsWith("/manus-storage/")) return value;
+  return `/api/media/private/${encodeURIComponent(value.slice("/manus-storage/".length))}`;
+}
+
+function withPrivatePhotoMedia<T extends { sourceUrl: string; resultUrl: string | null }>(record: T) {
+  return { ...record, sourceUrl: privateMediaUrl(record.sourceUrl)!, resultUrl: privateMediaUrl(record.resultUrl) };
+}
+
+function withPrivateAlbumMedia<T extends { coverUrl: string | null; items: Array<{ resultUrl: string | null }> }>(album: T) {
+  return { ...album, coverUrl: privateMediaUrl(album.coverUrl), items: album.items.map((item) => ({ ...item, resultUrl: privateMediaUrl(item.resultUrl) })) };
+}
+
 const brandImageInput = z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(5_000_000) });
 const transferProofInput = z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(7_000_000) });
 
@@ -181,7 +194,7 @@ export const appRouter = router({
     get: publicProcedure.query(() => db.getBrandSettings()),
   }),
   photo: router({
-    list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(({ ctx, input }) => db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)),
+    list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => (await db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)).map(withPrivatePhotoMedia)),
     setHidden: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), isHidden: z.boolean() })).mutation(({ ctx, input }) => db.setPhotoTransformHidden(ctx.user.id, input.transformId, input.isHidden)),
     quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user) })),
     profile: protectedProcedure.query(async ({ ctx }) => ({
@@ -199,11 +212,11 @@ export const appRouter = router({
         const records = await db.listPhotoTransforms(ctx.user.id, true);
         const record = records.find((item) => item.id === input.transformId && item.status === "completed" && item.resultUrl);
         if (!record?.resultUrl) throw new TRPCError({ code: "NOT_FOUND", message: "Hasil HD belum tersedia." });
-        return { resultUrl: record.resultUrl, charged: false };
+        return { resultUrl: privateMediaUrl(record.resultUrl)!, charged: false };
       }
       const result = await db.consumeHdExportCredit(ctx.user.id, input.transformId);
       if (!result.ok) throw new TRPCError({ code: result.reason === "no_credit" ? "TOO_MANY_REQUESTS" : "NOT_FOUND", message: result.reason === "no_credit" ? "Kredit tidak cukup untuk unduhan HD." : "Hasil HD belum tersedia." });
-      return { resultUrl: result.resultUrl, charged: true };
+      return { resultUrl: privateMediaUrl(result.resultUrl)!, charged: true };
     }),
     transform: protectedProcedure.input(imageInput).mutation(async ({ ctx, input }) => {
       const sourceBuffer = Buffer.from(input.sourceData, "base64");
@@ -227,7 +240,7 @@ export const appRouter = router({
           quality: "medium",
         });
         if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
-        return await db.completePhotoTransform(transform.id, result.url);
+        return withPrivatePhotoMedia(await db.completePhotoTransform(transform.id, result.url));
       } catch (error) {
         if (usedPurchasedCredit) await db.refundPurchasedCredit(ctx.user.id);
         const message = error instanceof Error ? error.message : "Transformasi AI gagal diproses.";
@@ -260,8 +273,8 @@ export const appRouter = router({
     report: protectedProcedure.input(z.object({ postId: z.number().int().positive(), reason: z.enum(["inappropriate", "spam", "copyright", "other"]), details: z.string().trim().max(320).optional() })).mutation(({ ctx, input }) => db.createCommunityReport(ctx.user.id, input)),
   }),
   albums: router({
-    list: protectedProcedure.query(({ ctx }) => db.listPhotoAlbums(ctx.user.id)),
-    listArchived: protectedProcedure.query(({ ctx }) => db.listArchivedPhotoAlbums(ctx.user.id)),
+    list: protectedProcedure.query(async ({ ctx }) => (await db.listPhotoAlbums(ctx.user.id)).map(withPrivateAlbumMedia)),
+    listArchived: protectedProcedure.query(async ({ ctx }) => (await db.listArchivedPhotoAlbums(ctx.user.id)).map(withPrivateAlbumMedia)),
     create: protectedProcedure.input(z.object({ name: z.string().trim().min(1).max(80) })).mutation(({ ctx, input }) => db.createPhotoAlbum(ctx.user.id, input.name)),
     rename: protectedProcedure.input(z.object({ albumId: z.number().int().positive(), name: z.string().trim().min(1).max(80) })).mutation(({ ctx, input }) => db.renamePhotoAlbum(ctx.user.id, input.albumId, input.name)),
     delete: protectedProcedure.input(z.object({ albumId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deletePhotoAlbum(ctx.user.id, input.albumId)),

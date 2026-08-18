@@ -10,7 +10,7 @@ describe("applyBrandIdentity", () => {
       querySelector: vi.fn().mockReturnValue({ setAttribute }),
     } as unknown as Pick<Document, "documentElement" | "querySelector">;
     applyBrandIdentity({ logoUrl: "/manus-storage/logo-next.png", iconUrl: "/manus-storage/icon-next.png", updatedAt: null }, documentRef);
-    expect(setProperty).toHaveBeenCalledWith("--app-logo", 'url("/manus-storage/icon-next.png")');
-    expect(setAttribute).toHaveBeenCalledWith("href", "/manus-storage/icon-next.png");
+    expect(setProperty).toHaveBeenCalledWith("--app-logo", 'url("/api/media/public/icon-next.png")');
+    expect(setAttribute).toHaveBeenCalledWith("href", "/api/media/public/icon-next.png");
   });
 });

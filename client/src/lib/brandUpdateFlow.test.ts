@@ -16,7 +16,7 @@ describe("admin brand save flow", () => {
     expect(applyActiveBrand).toHaveBeenCalledWith(brand);
     expect(invalidateBrand).toHaveBeenCalledTimes(1);
     expect(resetDrafts).toHaveBeenCalledTimes(1);
-    expect(setProperty).toHaveBeenCalledWith("--app-logo", 'url("/manus-storage/icon-saved.png")');
-    expect(setAttribute).toHaveBeenCalledWith("href", "/manus-storage/icon-saved.png");
+    expect(setProperty).toHaveBeenCalledWith("--app-logo", 'url("/api/media/public/icon-saved.png")');
+    expect(setAttribute).toHaveBeenCalledWith("href", "/api/media/public/icon-saved.png");
   });
 });

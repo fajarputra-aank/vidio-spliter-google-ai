@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { shareImageUrl } from "@/lib/share";
 import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
+import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
 import { useBrand } from "@/contexts/BrandContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,10 +23,10 @@ import { toast } from "sonner";
 import { Link } from "wouter";
 
 const assets = {
-  hero: "/manus-storage/lensa-saku-hero-studio_c48067d1.jpg",
-  headshot: "/manus-storage/lensa-saku-headshot_7856b583.jpg",
-  product: "/manus-storage/lensa-saku-product_3a89a43d.jpg",
-  food: "/manus-storage/lensa-saku-food_bf21e58e.jpg",
+  hero: publicMediaUrl("/manus-storage/lensa-saku-hero-studio_9f9ec738.jpg"),
+  headshot: publicMediaUrl("/manus-storage/lensa-saku-headshot_83cca6e1.jpg"),
+  product: publicMediaUrl("/manus-storage/lensa-saku-product_617755a2.jpg"),
+  food: publicMediaUrl("/manus-storage/lensa-saku-food_26a6ef7f.jpg"),
 };
 
 type Recipe = { id: "headshot" | "beauty" | "background" | "product" | "food" | "social" | "fashion" | "interior" | "light" | "restore" | "detail" | "travel" | "night" | "sketch"; name: string; category: string; label: string; description: string; image: string; prompt: string };
@@ -73,7 +74,7 @@ const styleOptions: Array<{ value: AiStyle; title: string; note: string }> = [
 
 function downloadImage(url: string, recipe: string) {
   const link = document.createElement("a");
-  link.href = url;
+  link.href = privateMediaUrl(url);
   link.download = `lensa-saku-${recipe}.png`;
   link.click();
 }
@@ -151,7 +152,7 @@ export default function Home() {
         toast.error("Layanan AI tidak mengembalikan gambar hasil. Coba lagi.");
         return;
       }
-      setResultImage(record.resultUrl);
+      setResultImage(privateMediaUrl(record.resultUrl));
       setIsProcessing(false);
       void utils.photo.list.invalidate();
       void utils.photo.quota.invalidate();
@@ -268,8 +269,9 @@ export default function Home() {
 
   async function restoreHistoryToStudio(item: { id: number; sourceUrl: string; resultUrl: string | null; recipe: string; aspectRatio: string; style: string }) {
     const recipe = recipes.find((candidate) => candidate.id === item.recipe);
-    setUploadedImage(item.sourceUrl);
-    setResultImage(item.resultUrl ?? item.sourceUrl);
+    const sourceMediaUrl = privateMediaUrl(item.sourceUrl);
+    setUploadedImage(sourceMediaUrl);
+    setResultImage(privateMediaUrl(item.resultUrl ?? item.sourceUrl));
     setSelectedAspect(item.aspectRatio as OutputAspect);
     setSelectedStyle(item.style as AiStyle);
     if (recipe) { setSelectedRecipe(recipe); setSelectedCategory(recipe.category); }
@@ -277,7 +279,7 @@ export default function Home() {
     setIsRestoringHistorySource(true);
     scrollTo("studio");
     try {
-      const response = await fetch(item.sourceUrl);
+      const response = await fetch(sourceMediaUrl);
       if (!response.ok) throw new Error("source unavailable");
       const blob = await response.blob();
       const mimeType = (["image/jpeg", "image/png", "image/webp"] as string[]).includes(blob.type) ? blob.type as UploadPayload["mimeType"] : "image/jpeg";
@@ -304,7 +306,7 @@ export default function Home() {
   return (
     <main className="studio-shell">
       <aside className="rail" aria-label="Navigasi utama">
-        <button className="brand-badge" aria-label="Lensa Saku beranda"><img src={brand.iconUrl} alt="Ikon Lensa Saku" /></button>
+        <button className="brand-badge" aria-label="Lensa Saku beranda"><img src={publicMediaUrl(brand.iconUrl)} alt="Ikon Lensa Saku" /></button>
         <nav className="rail-nav">
           <button className="rail-nav-button is-active" aria-label="Studio" onClick={() => scrollTo("studio")}><Aperture size={19} strokeWidth={1.7} /><span>Studio</span></button>
           <button className="rail-nav-button" aria-label="Koleksi" onClick={() => scrollTo("gallery")}><History size={19} strokeWidth={1.7} /><span>Koleksi</span></button>
@@ -317,8 +319,8 @@ export default function Home() {
 
       <section className="page-content">
         <header className="topbar">
-          <div className="desktop-brand" aria-label="Lensa Saku Studio AI"><span className="desktop-brand-mark"><img src={brand.iconUrl} alt="Ikon Lensa Saku" /></span><span><strong>Lensa Saku</strong><small>STUDIO AI</small></span><img className="desktop-brand-lockup" src={brand.logoUrl} alt="Logo utama Lensa Saku" /></div>
-          <div className="mobile-brand"><span className="mobile-brand-mark"><img src={brand.iconUrl} alt="Logo Lensa Saku" /></span><div><strong>Lensa Saku</strong><span>Studio AI</span></div></div>
+          <div className="desktop-brand" aria-label="Lensa Saku Studio AI"><span className="desktop-brand-mark"><img src={publicMediaUrl(brand.iconUrl)} alt="Ikon Lensa Saku" /></span><span><strong>Lensa Saku</strong><small>STUDIO AI</small></span><img className="desktop-brand-lockup" src={publicMediaUrl(brand.logoUrl)} alt="Logo utama Lensa Saku" /></div>
+          <div className="mobile-brand"><span className="mobile-brand-mark"><img src={publicMediaUrl(brand.iconUrl)} alt="Logo Lensa Saku" /></span><div><strong>Lensa Saku</strong><span>Studio AI</span></div></div>
           <div className="eyebrow topbar-note"><span className="pulse-dot" /> {isAuthenticated ? "arsip visual pribadi aktif" : "masuk untuk menyimpan hasil"}</div>
           <div className="topbar-actions">
             {!authLoading && (isAuthenticated ? <Link href="/profil" className="text-button auth-action"><Palette size={14} /> Profilku</Link> : <button className="text-button auth-action" onClick={startLogin}><LogIn size={14} /> Masuk untuk simpan</button>)}
@@ -330,7 +332,7 @@ export default function Home() {
         {menuOpen && <div className="mobile-panel" role="dialog" aria-label="Menu aplikasi"><button onClick={() => scrollTo("studio")}>Studio kerja</button><button onClick={() => scrollTo("gallery")}>Koleksiku</button><Link href="/profil">Profil</Link><Link href="/komunitas">Ruang komunitas</Link><Link href="/kredit">Tambah kredit</Link><button onClick={() => toast.message("Pilih foto, pilih resep, lalu proses hasilnya.")}>Bantuan</button></div>}
 
         <section className="masthead">
-          <div className="masthead-copy"><div className="eyebrow">01 — meja kerja visual</div><img className="studio-brand-lockup" src={brand.logoUrl} alt="Logo utama Lensa Saku" /><h1>Satu foto masuk.<br /><em>Materi siap pakai</em> keluar.</h1><p>Ubah foto produk, potret, dan menu menjadi visual yang lebih rapi. Hasil transformasi asli disimpan ke galeri pribadi agar selalu mudah diunduh kembali.</p><div className="masthead-ctas"><button className="primary-action" onClick={() => scrollTo("studio")}>Mulai dari foto <ArrowRight size={17} /></button><div className="compact-proof"><span>AI</span><small>proses aman<br />hasil tersimpan</small></div></div></div>
+          <div className="masthead-copy"><div className="eyebrow">01 — meja kerja visual</div><img className="studio-brand-lockup" src={publicMediaUrl(brand.logoUrl)} alt="Logo utama Lensa Saku" /><h1>Satu foto masuk.<br /><em>Materi siap pakai</em> keluar.</h1><p>Ubah foto produk, potret, dan menu menjadi visual yang lebih rapi. Hasil transformasi asli disimpan ke galeri pribadi agar selalu mudah diunduh kembali.</p><div className="masthead-ctas"><button className="primary-action" onClick={() => scrollTo("studio")}>Mulai dari foto <ArrowRight size={17} /></button><div className="compact-proof"><span>AI</span><small>proses aman<br />hasil tersimpan</small></div></div></div>
           <div className="hero-visual"><div className="hero-image-frame"><img src={assets.hero} alt="Meja kerja studio kreatif dengan kamera dan contact sheet" /><span className="frame-number">N-024 / 36</span><span className="hero-stamp">TERHUBUNG KE AI</span></div><div className="hero-note"><Aperture size={16} /><span>foto biasa, arah yang lebih jelas</span></div></div>
         </section>
 
@@ -375,7 +377,7 @@ export default function Home() {
 
         <section className="history-section" id="gallery">
           <div className="section-heading"><div><span className="eyebrow">03 — koleksi pribadi</span><h2>Jejak frame-mu.</h2></div><p>{isAuthenticated ? "Semua hasil transformasi tersimpan privat di akunmu. Pilih kembali kapan pun untuk melihat atau mengunduh ulang." : "Masuk untuk membuat galeri personal yang menyimpan sumber dan hasil transformasi AI."}</p></div>
-          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyQuery.data?.length ? <div className="history-grid">{historyQuery.data.map((item) => <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><img src={item.resultUrl || item.sourceUrl} alt={`Hasil ${item.title}`} />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status.toUpperCase()}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? `${item.style} · ${item.aspectRatio} siap dilihat ulang.` : item.status === "failed" ? "Proses sebelumnya belum berhasil." : "Masih diproses di studio."}</p><div className="history-actions">{item.resultUrl && <button onClick={() => void restoreHistoryToStudio(item)}><Sparkles size={14} /> Bandingkan</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}{item.resultUrl && <button onClick={() => void shareImage(item.resultUrl ?? item.sourceUrl, item.title)}><Share2 size={14} /> Bagikan</button>}</div></div></article>)}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
+          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyQuery.data?.length ? <div className="history-grid">{historyQuery.data.map((item) => <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><img src={privateMediaUrl(item.resultUrl || item.sourceUrl)} alt={`Hasil ${item.title}`} />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status.toUpperCase()}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? `${item.style} · ${item.aspectRatio} siap dilihat ulang.` : item.status === "failed" ? "Proses sebelumnya belum berhasil." : "Masih diproses di studio."}</p><div className="history-actions">{item.resultUrl && <button onClick={() => void restoreHistoryToStudio(item)}><Sparkles size={14} /> Bandingkan</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}{item.resultUrl && <button onClick={() => void shareImage(item.resultUrl ?? item.sourceUrl, item.title)}><Share2 size={14} /> Bagikan</button>}</div></div></article>)}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
         </section>
 
         <section className="explore-section"><div className="section-heading compact-heading"><div><span className="eyebrow">04 — arah visual</span><h2>Untuk pekerjaan yang berbeda.</h2></div><button className="text-button" onClick={() => scrollTo("studio")}>Pilih resep <ArrowRight size={15} /></button></div><div className="contact-meta"><span>CONTACT SHEET / 04 FRAME</span><span>ARAH VISUAL TERPILIH</span></div><div className="explore-strip"><article className="explore-card"><img src={assets.headshot} alt="Contoh hasil portrait profesional" /><span className="explore-frame-no">01 / 04</span><div><span>PROFIL KERJA</span><strong>Rapi tanpa terasa kaku.</strong></div></article><article className="explore-card"><img src={assets.product} alt="Contoh foto produk katalog" /><span className="explore-frame-no">02 / 04</span><div><span>FOTO PRODUK</span><strong>Detail kecil ikut bicara.</strong></div></article><article className="explore-card"><img src={assets.food} alt="Contoh foto makanan editorial" /><span className="explore-frame-no">03 / 04</span><div><span>MENU & KULINER</span><strong>Warna hangat, fokus ke rasa.</strong></div></article><article className="explore-text-card"><span>RESEP BARU SETIAP PEKAN</span><p>Buka satu foto ke banyak kemungkinan baru.</p><button onClick={() => scrollTo("studio")}>Masuk studio <ArrowRight size={17} /></button></article></div></section>

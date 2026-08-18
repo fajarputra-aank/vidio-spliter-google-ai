@@ -1,4 +1,5 @@
 import { Slider } from "@/components/ui/slider";
+import { privateMediaUrl } from "@/lib/mediaUrl";
 import React, { useState } from "react";
 
 type BeforeAfterSliderProps = {
@@ -18,12 +19,14 @@ export function BeforeAfterSlider({
   afterLabel = "SESUDAH",
 }: BeforeAfterSliderProps) {
   const [reveal, setReveal] = useState(50);
+  const beforeImage = privateMediaUrl(before);
+  const afterImage = privateMediaUrl(after);
 
   return (
     <figure className="comparison-proof" style={{ aspectRatio }}>
-      <img className="comparison-after" src={after} alt="Hasil transformasi AI" />
+      <img className="comparison-after" src={afterImage} alt="Hasil transformasi AI" />
       <div className="comparison-before" style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}>
-        <img src={before} alt="Foto sebelum transformasi" />
+        <img src={beforeImage} alt="Foto sebelum transformasi" />
       </div>
       <span className="comparison-label comparison-before-label">{beforeLabel}</span>
       <span className="comparison-label comparison-after-label">{afterLabel}</span>

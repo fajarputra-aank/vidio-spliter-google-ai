@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { applyBrandIdentity } from "@/lib/brandRuntime";
+import { publicMediaUrl } from "@/lib/mediaUrl";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 type Brand = { logoUrl: string; iconUrl: string; updatedAt: Date | string | null };
@@ -17,7 +18,8 @@ const BrandContext = createContext<BrandContextValue>({ brand: fallbackBrand, ap
 export function BrandProvider({ children }: { children: ReactNode }) {
   const { data } = trpc.brand.get.useQuery();
   const [savedBrand, setSavedBrand] = useState<Brand | null>(null);
-  const brand = savedBrand ?? data ?? fallbackBrand;
+  const rawBrand = savedBrand ?? data ?? fallbackBrand;
+  const brand = { ...rawBrand, logoUrl: publicMediaUrl(rawBrand.logoUrl), iconUrl: publicMediaUrl(rawBrand.iconUrl) };
 
   useEffect(() => {
     applyBrandIdentity(brand, document);
