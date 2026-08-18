@@ -15,6 +15,8 @@ import Community from "./pages/Community";
 import Admin from "./pages/Admin";
 import NotificationSettings from "./pages/NotificationSettings";
 import ArchivedAlbums from "./pages/ArchivedAlbums";
+import BrandSettings from "./pages/BrandSettings";
+import { BrandProvider } from "./contexts/BrandContext";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -25,6 +27,7 @@ function Router() {
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />
       <Route path="/admin" component={Admin} />
+      <Route path="/admin/brand" component={BrandSettings} />
       <Route path="/pengaturan/notifikasi" component={NotificationSettings} />
       <Route path="/profil/album-terarsip" component={ArchivedAlbums} />
       <Route path="/404" component={NotFound} />
@@ -37,10 +40,10 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
-        <TooltipProvider>
+        <BrandProvider><TooltipProvider>
           <Toaster position="top-right" richColors />
           <Router />
-        </TooltipProvider>
+        </TooltipProvider></BrandProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

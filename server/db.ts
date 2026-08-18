@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
+import { adminAccessAudits, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -530,6 +530,47 @@ export async function getAdminDashboard() {
   };
 }
 
+const defaultBrand = {
+  logoUrl: "/manus-storage/fajar-nugroho-logo_8fa9d033.png",
+  iconUrl: "/manus-storage/fnp-brand-icon_17f8efb6.png",
+  updatedByUserId: null,
+  updatedAt: null as Date | null,
+};
+
+export async function getBrandSettings() {
+  const db = await getDb();
+  if (!db) return defaultBrand;
+  const records = await db.select().from(brandSettings).where(eq(brandSettings.id, 1)).limit(1);
+  return records[0] ?? defaultBrand;
+}
+
+export async function updateBrandSettings(actorUserId: number, input: { logoUrl?: string; iconUrl?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const current = await getBrandSettings();
+  const next = { logoUrl: input.logoUrl ?? current.logoUrl, iconUrl: input.iconUrl ?? current.iconUrl };
+  await db.insert(brandSettings).values({ id: 1, ...next, updatedByUserId: actorUserId }).onDuplicateKeyUpdate({ set: { ...next, updatedByUserId: actorUserId } });
+  return getBrandSettings();
+}
+
+async function writeAdminAccessAudit(input: { actorUserId: number; targetUserId: number; action: "role_changed" | "unlimited_access_changed"; previousRole: "user" | "admin"; nextRole: "user" | "admin"; previousUnlimitedTransforms: boolean; nextUnlimitedTransforms: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.insert(adminAccessAudits).values(input);
+}
+
+export async function listAdminAccessAudits() {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const records = await db.select().from(adminAccessAudits).orderBy(desc(adminAccessAudits.createdAt)).limit(48);
+  const identities = new Map<number, { name: string | null; email: string | null }>();
+  await Promise.all(Array.from(new Set(records.flatMap((record) => [record.actorUserId, record.targetUserId]))).map(async (userId) => {
+    const user = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+    if (user[0]) identities.set(userId, user[0]);
+  }));
+  return records.map((record) => ({ ...record, actorName: identities.get(record.actorUserId)?.name ?? "Administrator", actorEmail: identities.get(record.actorUserId)?.email ?? null, targetName: identities.get(record.targetUserId)?.name ?? "Pengguna", targetEmail: identities.get(record.targetUserId)?.email ?? null }));
+}
+
 export async function listUnlimitedTransformUsers(input: { search?: string; access?: "all" | "unlimited" | "standard" } = {}) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
@@ -551,4 +592,25 @@ export async function setUnlimitedTransformsByEmail(email: string, enabled: bool
   if (user.role === "admin") return { ...user, unlimitedTransforms: true, changed: false, isAdmin: true };
   await db.update(users).set({ unlimitedTransforms: enabled }).where(eq(users.id, user.id));
   return { ...user, unlimitedTransforms: enabled, changed: user.unlimitedTransforms !== enabled, isAdmin: false };
+}
+
+export async function setUnlimitedTransformsByAdmin(actorUserId: number, email: string, enabled: boolean) {
+  const result = await setUnlimitedTransformsByEmail(email, enabled);
+  if (result.changed) await writeAdminAccessAudit({ actorUserId, targetUserId: result.id, action: "unlimited_access_changed", previousRole: result.role, nextRole: result.role, previousUnlimitedTransforms: !enabled, nextUnlimitedTransforms: enabled });
+  return result;
+}
+
+export async function setUserRoleByEmail(actorUserId: number, email: string, role: "user" | "admin") {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const normalizedEmail = email.trim().toLowerCase();
+  const records = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role, unlimitedTransforms: users.unlimitedTransforms }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
+  const user = records[0];
+  if (!user) throw new Error("Akun belum ditemukan. Pengguna harus masuk setidaknya sekali terlebih dahulu.");
+  if (user.id === actorUserId) throw new Error("Untuk keamanan, ubah peran akunmu melalui administrator lain.");
+  const nextUnlimitedTransforms = role === "admin" ? true : user.unlimitedTransforms;
+  if (user.role === role && user.unlimitedTransforms === nextUnlimitedTransforms) return { ...user, changed: false };
+  await db.update(users).set({ role, unlimitedTransforms: nextUnlimitedTransforms }).where(eq(users.id, user.id));
+  await writeAdminAccessAudit({ actorUserId, targetUserId: user.id, action: "role_changed", previousRole: user.role, nextRole: role, previousUnlimitedTransforms: user.unlimitedTransforms, nextUnlimitedTransforms });
+  return { ...user, role, unlimitedTransforms: nextUnlimitedTransforms, changed: true };
 }

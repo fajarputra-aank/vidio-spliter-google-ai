@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { shareImageUrl } from "@/lib/share";
 import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
+import { useBrand } from "@/contexts/BrandContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
@@ -21,7 +22,6 @@ import { toast } from "sonner";
 import { Link } from "wouter";
 
 const assets = {
-  logo: "/manus-storage/fajar-nugroho-logo_8fa9d033.png",
   hero: "/manus-storage/lensa-saku-hero-studio_c48067d1.jpg",
   headshot: "/manus-storage/lensa-saku-headshot_7856b583.jpg",
   product: "/manus-storage/lensa-saku-product_3a89a43d.jpg",
@@ -93,6 +93,7 @@ async function shareImage(url: string, title: string) {
 }
 
 export default function Home() {
+  const { brand } = useBrand();
   const { user, loading: authLoading, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
   const historyQuery = trpc.photo.list.useQuery(undefined, { enabled: isAuthenticated });
@@ -303,7 +304,7 @@ export default function Home() {
   return (
     <main className="studio-shell">
       <aside className="rail" aria-label="Navigasi utama">
-        <button className="brand-badge" aria-label="Lensa Saku beranda"><img src={assets.logo} alt="Logo Fajar Nugroho" /></button>
+        <button className="brand-badge" aria-label="Lensa Saku beranda"><img src={brand.iconUrl} alt="Ikon Lensa Saku" /></button>
         <nav className="rail-nav">
           <button className="rail-nav-button is-active" aria-label="Studio" onClick={() => scrollTo("studio")}><Aperture size={19} strokeWidth={1.7} /><span>Studio</span></button>
           <button className="rail-nav-button" aria-label="Koleksi" onClick={() => scrollTo("gallery")}><History size={19} strokeWidth={1.7} /><span>Koleksi</span></button>
@@ -316,8 +317,8 @@ export default function Home() {
 
       <section className="page-content">
         <header className="topbar">
-          <div className="desktop-brand" aria-label="Lensa Saku Studio AI"><span className="desktop-brand-mark"><img src={assets.logo} alt="Logo Fajar Nugroho" /></span><span><strong>Lensa Saku</strong><small>STUDIO AI</small></span></div>
-          <div className="mobile-brand"><span className="mobile-brand-mark"><img src={assets.logo} alt="Logo Fajar Nugroho" /></span><div><strong>Lensa Saku</strong><span>Studio AI</span></div></div>
+          <div className="desktop-brand" aria-label="Lensa Saku Studio AI"><span className="desktop-brand-mark"><img src={brand.iconUrl} alt="Ikon Lensa Saku" /></span><span><strong>Lensa Saku</strong><small>STUDIO AI</small></span><img className="desktop-brand-lockup" src={brand.logoUrl} alt="Logo utama Lensa Saku" /></div>
+          <div className="mobile-brand"><span className="mobile-brand-mark"><img src={brand.iconUrl} alt="Logo Lensa Saku" /></span><div><strong>Lensa Saku</strong><span>Studio AI</span></div></div>
           <div className="eyebrow topbar-note"><span className="pulse-dot" /> {isAuthenticated ? "arsip visual pribadi aktif" : "masuk untuk menyimpan hasil"}</div>
           <div className="topbar-actions">
             {!authLoading && (isAuthenticated ? <Link href="/profil" className="text-button auth-action"><Palette size={14} /> Profilku</Link> : <button className="text-button auth-action" onClick={startLogin}><LogIn size={14} /> Masuk untuk simpan</button>)}
@@ -329,7 +330,7 @@ export default function Home() {
         {menuOpen && <div className="mobile-panel" role="dialog" aria-label="Menu aplikasi"><button onClick={() => scrollTo("studio")}>Studio kerja</button><button onClick={() => scrollTo("gallery")}>Koleksiku</button><Link href="/profil">Profil</Link><Link href="/komunitas">Ruang komunitas</Link><Link href="/kredit">Tambah kredit</Link><button onClick={() => toast.message("Pilih foto, pilih resep, lalu proses hasilnya.")}>Bantuan</button></div>}
 
         <section className="masthead">
-          <div className="masthead-copy"><div className="eyebrow">01 — meja kerja visual</div><h1>Satu foto masuk.<br /><em>Materi siap pakai</em> keluar.</h1><p>Ubah foto produk, potret, dan menu menjadi visual yang lebih rapi. Hasil transformasi asli disimpan ke galeri pribadi agar selalu mudah diunduh kembali.</p><div className="masthead-ctas"><button className="primary-action" onClick={() => scrollTo("studio")}>Mulai dari foto <ArrowRight size={17} /></button><div className="compact-proof"><span>AI</span><small>proses aman<br />hasil tersimpan</small></div></div></div>
+          <div className="masthead-copy"><div className="eyebrow">01 — meja kerja visual</div><img className="studio-brand-lockup" src={brand.logoUrl} alt="Logo utama Lensa Saku" /><h1>Satu foto masuk.<br /><em>Materi siap pakai</em> keluar.</h1><p>Ubah foto produk, potret, dan menu menjadi visual yang lebih rapi. Hasil transformasi asli disimpan ke galeri pribadi agar selalu mudah diunduh kembali.</p><div className="masthead-ctas"><button className="primary-action" onClick={() => scrollTo("studio")}>Mulai dari foto <ArrowRight size={17} /></button><div className="compact-proof"><span>AI</span><small>proses aman<br />hasil tersimpan</small></div></div></div>
           <div className="hero-visual"><div className="hero-image-frame"><img src={assets.hero} alt="Meja kerja studio kreatif dengan kamera dan contact sheet" /><span className="frame-number">N-024 / 36</span><span className="hero-stamp">TERHUBUNG KE AI</span></div><div className="hero-note"><Aperture size={16} /><span>foto biasa, arah yang lebih jelas</span></div></div>
         </section>
 

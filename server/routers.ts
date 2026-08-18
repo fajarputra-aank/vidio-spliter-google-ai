@@ -27,6 +27,16 @@ function safeFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(-120) || "photo";
 }
 
+const brandImageInput = z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(5_000_000) });
+
+async function storeBrandImage(kind: "logo" | "icon", image: z.infer<typeof brandImageInput>) {
+  const bytes = Buffer.from(image.sourceData, "base64");
+  if (!bytes.length || bytes.length > 3_500_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Berkas brand harus berupa gambar maksimal 3 MB." });
+  const extension = image.mimeType === "image/png" ? "png" : image.mimeType === "image/webp" ? "webp" : "jpg";
+  const stored = await storagePut(`brand/${kind}-${Date.now()}.${extension}`, bytes, image.mimeType);
+  return stored.url;
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -36,6 +46,9 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+  brand: router({
+    get: publicProcedure.query(() => db.getBrandSettings()),
   }),
   photo: router({
     list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(({ ctx, input }) => db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)),
@@ -151,7 +164,10 @@ export const appRouter = router({
   admin: router({
     dashboard: adminProcedure.query(() => db.getAdminDashboard()),
     unlimitedAccessList: adminProcedure.input(z.object({ search: z.string().trim().max(320).optional(), access: z.enum(["all", "unlimited", "standard"]).default("all") }).optional()).query(({ input }) => db.listUnlimitedTransformUsers(input)),
-    setUnlimitedAccess: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), enabled: z.boolean() })).mutation(({ input }) => db.setUnlimitedTransformsByEmail(input.email, input.enabled)),
+    setUnlimitedAccess: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), enabled: z.boolean() })).mutation(({ ctx, input }) => db.setUnlimitedTransformsByAdmin(ctx.user.id, input.email, input.enabled)),
+    setUserRole: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), role: z.enum(["user", "admin"]) })).mutation(({ ctx, input }) => db.setUserRoleByEmail(ctx.user.id, input.email, input.role)),
+    accessAudits: adminProcedure.query(() => db.listAdminAccessAudits()),
+    updateBrand: adminProcedure.input(z.object({ logo: brandImageInput.optional(), icon: brandImageInput.optional() }).refine((input) => input.logo || input.icon, { message: "Pilih logo atau ikon yang akan diperbarui." })).mutation(async ({ ctx, input }) => db.updateBrandSettings(ctx.user.id, { logoUrl: input.logo ? await storeBrandImage("logo", input.logo) : undefined, iconUrl: input.icon ? await storeBrandImage("icon", input.icon) : undefined })),
     moderationList: adminProcedure.query(() => db.listCommunityPosts()),
     moderateDeletePost: adminProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ input }) => db.moderateDeleteCommunityPost(input.postId)),
     reports: adminProcedure.query(() => db.listAdminCommunityReports()),

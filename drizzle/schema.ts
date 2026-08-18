@@ -14,6 +14,32 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
+/** Singleton brand identity. File bytes stay in object storage; this table only holds safe delivery URLs. */
+export const brandSettings = mysqlTable("brandSettings", {
+  id: int("id").primaryKey(),
+  logoUrl: text("logoUrl").notNull(),
+  iconUrl: text("iconUrl").notNull(),
+  updatedByUserId: int("updatedByUserId"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Append-only operational record for changes to roles and special transform access. */
+export const adminAccessAudits = mysqlTable(
+  "adminAccessAudits",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    actorUserId: int("actorUserId").notNull(),
+    targetUserId: int("targetUserId").notNull(),
+    action: mysqlEnum("action", ["role_changed", "unlimited_access_changed"]).notNull(),
+    previousRole: mysqlEnum("previousRole", ["user", "admin"]).notNull(),
+    nextRole: mysqlEnum("nextRole", ["user", "admin"]).notNull(),
+    previousUnlimitedTransforms: boolean("previousUnlimitedTransforms").notNull(),
+    nextUnlimitedTransforms: boolean("nextUnlimitedTransforms").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [index("adminAccessAudits_created_idx").on(table.createdAt), index("adminAccessAudits_target_created_idx").on(table.targetUserId, table.createdAt)]
+);
+
 /** A private record of one source image and its AI-produced result. */
 export const photoTransforms = mysqlTable(
   "photoTransforms",
