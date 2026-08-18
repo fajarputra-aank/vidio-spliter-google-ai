@@ -1,4 +1,5 @@
 import { Slider } from "@/components/ui/slider";
+import { MediaImage } from "@/components/MediaImage";
 import { privateMediaUrl } from "@/lib/mediaUrl";
 import React, { useState } from "react";
 
@@ -24,9 +25,9 @@ export function BeforeAfterSlider({
 
   return (
     <figure className="comparison-proof" style={{ aspectRatio }}>
-      <img className="comparison-after" src={afterImage} alt="Hasil transformasi AI" />
+      <MediaImage className="comparison-after" src={afterImage} alt="Hasil transformasi AI" fallbackLabel="Hasil tidak tersedia" />
       <div className="comparison-before" style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}>
-        <img src={beforeImage} alt="Foto sebelum transformasi" />
+        <MediaImage src={beforeImage} alt="Foto sebelum transformasi" fallbackLabel="Foto sumber tidak tersedia" />
       </div>
       <span className="comparison-label comparison-before-label">{beforeLabel}</span>
       <span className="comparison-label comparison-after-label">{afterLabel}</span>

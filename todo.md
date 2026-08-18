@@ -220,3 +220,7 @@
 - [x] Selidiki kegagalan pemuatan gambar sistem, thumbnail resep, dan hasil transformasi pada produksi.
 - [x] Perbaiki sumber URL atau proxy gambar agar aset produksi dapat dimuat kembali dengan aman.
 - [x] Uji pemuatan gambar produksi dan simpan checkpoint perbaikan.
+- [x] Uji unggah foto baru serta transformasi AI end-to-end dengan foto uji aman hingga pemanggilan provider; sumber tersimpan dan status gagal aman ketika kuota provider harian habis.
+- [x] Tambahkan fallback dan indikator galat yang jelas untuk gambar riwayat yang tidak berhasil dimuat.
+- [x] Tambahkan skeleton atau animasi pemuatan untuk gambar studio, hasil, album, dan riwayat.
+- [x] Uji interaksi gambar, transformasi, responsivitas, dan simpan checkpoint peningkatan pengalaman media.

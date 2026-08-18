@@ -62,6 +62,16 @@ button, input { font: inherit; }
 button { border: 0; }
 button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 
+.media-image { display: block; position: relative; width: 100%; height: 100%; overflow: hidden; background: #e8dfcf; }
+.media-image > img { width: 100%; height: 100%; display: block; object-fit: cover; transition: opacity 180ms cubic-bezier(.23,1,.32,1); }
+.media-image--loading > img { opacity: 0; }
+.media-image-skeleton, .media-image-fallback { position: absolute; inset: 0; display: grid; place-content: center; gap: 7px; text-align: center; z-index: 1; }
+.media-image-skeleton { color: #a95c19; background: linear-gradient(110deg, #e8dfcf 20%, #f9f5eb 38%, #e8dfcf 56%); background-size: 220% 100%; animation: media-shimmer 1.2s linear infinite; }
+.media-image-fallback { padding: 10px; color: #746b5d; background: repeating-linear-gradient(45deg, #eee7da, #eee7da 7px, #e6ddcf 7px, #e6ddcf 14px); }
+.media-image-fallback small { max-width: 12ch; font-size: 9px; font-weight: 800; line-height: 1.2; letter-spacing: .03em; }
+@keyframes media-shimmer { to { background-position: -220% 0; } }
+@media (prefers-reduced-motion: reduce) { .media-image-skeleton { animation: none; } }
+
 .studio-shell { min-height: 100vh; display: grid; grid-template-columns: 78px minmax(0, 1fr); background: #f6f1e7; }
 .rail { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; border-right: 1px solid #d9d0c1; background: #fbf8f0; z-index: 20; }
 .brand-badge { width: 52px; height: 52px; display: grid; place-items: center; overflow: hidden; background: #1b1b18; margin-top: 19px; transition: transform 160ms cubic-bezier(.23,1,.32,1); }
