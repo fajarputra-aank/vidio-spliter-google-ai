@@ -46,6 +46,9 @@ export async function resolveCoarseLocation(req: Request) {
 
 export async function registerActiveSession(userId: number, sessionVersion: number, req: Request) {
   const id = randomUUID();
-  await db.createUserActiveSession({ id, userId, sessionVersion, deviceLabel: describeDevice(req.headers["user-agent"]), locationLabel: await resolveCoarseLocation(req) });
-  return id;
+  const deviceLabel = describeDevice(req.headers["user-agent"]);
+  const locationLabel = await resolveCoarseLocation(req);
+  const isKnown = await db.hasKnownActiveSession(userId, deviceLabel, locationLabel);
+  await db.createUserActiveSession({ id, userId, sessionVersion, deviceLabel, locationLabel });
+  return { id, isKnown, deviceLabel, locationLabel };
 }

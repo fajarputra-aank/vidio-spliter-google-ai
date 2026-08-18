@@ -157,7 +157,7 @@ export async function clearFailedLogins(emailHash: string) {
   await db.delete(authLoginAttempts).where(eq(authLoginAttempts.emailHash, emailHash));
 }
 
-export type UserSecurityEventKind = "login" | "password_changed" | "password_reset" | "account_locked" | "all_sessions_signed_out";
+export type UserSecurityEventKind = "login" | "password_changed" | "password_reset" | "account_locked" | "all_sessions_signed_out" | "session_signed_out" | "new_device_login";
 
 export async function recordUserSecurityEvent(userId: number, kind: UserSecurityEventKind) {
   const db = await getDb();
@@ -202,6 +202,27 @@ export async function listUserActiveSessions(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(userActiveSessions).where(and(eq(userActiveSessions.userId, userId), isNull(userActiveSessions.revokedAt))).orderBy(desc(userActiveSessions.lastSeenAt), desc(userActiveSessions.createdAt)).limit(20);
+}
+
+export async function hasKnownActiveSession(userId: number, deviceLabel: string, locationLabel: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: userActiveSessions.id }).from(userActiveSessions).where(and(eq(userActiveSessions.userId, userId), eq(userActiveSessions.deviceLabel, deviceLabel), eq(userActiveSessions.locationLabel, locationLabel))).limit(1);
+  return rows.length > 0;
+}
+
+export async function isUserActiveSession(userId: number, sessionId: string, sessionVersion: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ id: userActiveSessions.id }).from(userActiveSessions).where(and(eq(userActiveSessions.id, sessionId), eq(userActiveSessions.userId, userId), eq(userActiveSessions.sessionVersion, sessionVersion), isNull(userActiveSessions.revokedAt))).limit(1);
+  return rows.length > 0;
+}
+
+export async function revokeUserActiveSession(userId: number, sessionId: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.update(userActiveSessions).set({ revokedAt: new Date() }).where(and(eq(userActiveSessions.id, sessionId), eq(userActiveSessions.userId, userId), isNull(userActiveSessions.revokedAt)));
+  return Number(result[0].affectedRows) > 0;
 }
 
 export async function createPhotoTransform(transform: InsertPhotoTransform) {

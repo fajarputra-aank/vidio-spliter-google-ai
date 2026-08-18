@@ -11,8 +11,13 @@ const mocks = vi.hoisted(() => ({
   getLoginLock: vi.fn(),
   getUserByEmail: vi.fn(),
   recordFailedLogin: vi.fn(),
+  clearFailedLogins: vi.fn(),
+  getUserSessionVersion: vi.fn(),
+  touchLocalSignIn: vi.fn(),
+  revokeUserActiveSession: vi.fn(),
   sendPasswordChangedEmail: vi.fn(),
   sendAccountLockedEmail: vi.fn(),
+  sendNewDeviceLoginEmail: vi.fn(),
   registerActiveSession: vi.fn(),
 }));
 
@@ -25,12 +30,17 @@ vi.mock("./db", () => ({
   getLoginLock: mocks.getLoginLock,
   getUserByEmail: mocks.getUserByEmail,
   recordFailedLogin: mocks.recordFailedLogin,
+  clearFailedLogins: mocks.clearFailedLogins,
+  getUserSessionVersion: mocks.getUserSessionVersion,
+  touchLocalSignIn: mocks.touchLocalSignIn,
+  revokeUserActiveSession: mocks.revokeUserActiveSession,
 }));
 
 vi.mock("./accountEmails", () => ({
   issueAccountEmail: vi.fn(),
   sendPasswordChangedEmail: mocks.sendPasswordChangedEmail,
   sendAccountLockedEmail: mocks.sendAccountLockedEmail,
+  sendNewDeviceLoginEmail: mocks.sendNewDeviceLoginEmail,
 }));
 
 vi.mock("./sessionMetadata", () => ({ registerActiveSession: mocks.registerActiveSession }));
@@ -63,7 +73,7 @@ describe("account security", () => {
     const { ctx, user } = await createContext();
     mocks.updateLocalPassword.mockResolvedValue(user);
     mocks.invalidateUserSessions.mockResolvedValue(1);
-    mocks.registerActiveSession.mockResolvedValue("current-session");
+    mocks.registerActiveSession.mockResolvedValue({ id: "current-session", isKnown: true, deviceLabel: "Windows · Chrome", locationLabel: "Jakarta, Indonesia" });
     mocks.sendPasswordChangedEmail.mockResolvedValue(true);
     const result = await appRouter.createCaller(ctx).auth.changePassword({ currentPassword: "kata-sandi-lama-aman", nextPassword: "kata-sandi-baru-aman" });
     expect(mocks.recordUserSecurityEvent).toHaveBeenCalledWith(88, "password_changed");
@@ -91,6 +101,19 @@ describe("account security", () => {
     expect(mocks.sendAccountLockedEmail).toHaveBeenCalledWith(user);
   });
 
+  it("emails the owner when a successful login comes from a new device or location", async () => {
+    const { ctx, user } = await createContext();
+    mocks.getLoginLock.mockResolvedValue(null);
+    mocks.getUserByEmail.mockResolvedValue(user);
+    mocks.getUserSessionVersion.mockResolvedValue(0);
+    const newSession = { id: "18e0fb45-0922-4a01-aa11-aeb6a9f9567f", isKnown: false, deviceLabel: "Mac · Safari", locationLabel: "Bandung, Indonesia" };
+    mocks.registerActiveSession.mockResolvedValue(newSession);
+    mocks.sendNewDeviceLoginEmail.mockResolvedValue(true);
+    await expect(appRouter.createCaller(ctx).auth.login({ email: user.email!, password: "kata-sandi-lama-aman" })).resolves.toMatchObject({ user });
+    expect(mocks.recordUserSecurityEvent).toHaveBeenCalledWith(88, "new_device_login");
+    expect(mocks.sendNewDeviceLoginEmail).toHaveBeenCalledWith(user, newSession);
+  });
+
   it("returns only the authenticated owner’s security history", async () => {
     const { ctx } = await createContext();
     mocks.listUserSecurityEvents.mockResolvedValue([{ id: 1, userId: 88, kind: "login", createdAt: new Date() }]);
@@ -108,5 +131,14 @@ describe("account security", () => {
     expect(mocks.listUserActiveSessions).toHaveBeenCalledWith(88);
     expect(result[0]).toMatchObject({ id: "current-session", isCurrent: true });
     expect(result[0]).not.toHaveProperty("userId");
+  });
+
+  it("revokes only the selected session belonging to the authenticated owner", async () => {
+    const { ctx } = await createContext();
+    mocks.revokeUserActiveSession.mockResolvedValue(true);
+    const sessionId = "18e0fb45-0922-4a01-aa11-aeb6a9f9567f";
+    await expect(appRouter.createCaller(ctx).auth.signOutSession({ sessionId })).resolves.toEqual({ success: true, signedOutCurrent: false });
+    expect(mocks.revokeUserActiveSession).toHaveBeenCalledWith(88, sessionId);
+    expect(mocks.recordUserSecurityEvent).toHaveBeenCalledWith(88, "session_signed_out");
   });
 });

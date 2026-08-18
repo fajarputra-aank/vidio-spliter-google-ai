@@ -13,7 +13,7 @@ import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
 import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
-import { issueAccountEmail, sendAccountLockedEmail, sendPasswordChangedEmail } from "./accountEmails";
+import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail } from "./accountEmails";
 import { registerActiveSession } from "./sessionMetadata";
 
 const imageInput = z.object({
@@ -59,8 +59,8 @@ export const appRouter = router({
       const user = await db.createLocalUser({ ...details, passwordHash: await hashPassword(input.password) });
       if (!user) throw new TRPCError({ code: "CONFLICT", message: "Email ini sudah terdaftar. Silakan masuk." });
       const sessionVersion = await db.getUserSessionVersion(user.id);
-      const sessionId = await registerActiveSession(user.id, sessionVersion, ctx.req);
-      const token = await sdk.createSessionToken(user.id, { sessionVersion, sessionId });
+      const session = await registerActiveSession(user.id, sessionVersion, ctx.req);
+      const token = await sdk.createSessionToken(user.id, { sessionVersion, sessionId: session.id });
       ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       let verificationSent = false;
       try { verificationSent = await issueAccountEmail(user, "email_verification"); } catch (error) { console.error("[Auth] Failed to send verification email", error); }
@@ -85,11 +85,15 @@ export const appRouter = router({
       }
       await db.clearFailedLogins(emailHash);
       const sessionVersion = await db.getUserSessionVersion(user.id);
-      const sessionId = await registerActiveSession(user.id, sessionVersion, ctx.req);
-      const token = await sdk.createSessionToken(user.id, { sessionVersion, sessionId });
+      const session = await registerActiveSession(user.id, sessionVersion, ctx.req);
+      const token = await sdk.createSessionToken(user.id, { sessionVersion, sessionId: session.id });
       ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       await db.touchLocalSignIn(user.id);
       try { await db.recordUserSecurityEvent(user.id, "login"); } catch (error) { console.error("[Auth] Failed to record login security event", error); }
+      if (!session.isKnown) {
+        try { await db.recordUserSecurityEvent(user.id, "new_device_login"); } catch (error) { console.error("[Auth] Failed to record new-device login event", error); }
+        try { await sendNewDeviceLoginEmail(user, session); } catch (error) { console.error("[Auth] Failed to send new-device login email", error); }
+      }
       return { user };
     }),
     requestPasswordReset: publicProcedure.input(z.object({ email: z.string().trim().min(3).max(320) })).mutation(async ({ input }) => {
@@ -128,8 +132,8 @@ export const appRouter = router({
       const user = await db.updateLocalPassword(ctx.user.id, await hashPassword(input.nextPassword), false);
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
       const sessionVersion = await db.invalidateUserSessions(user.id);
-      const sessionId = await registerActiveSession(user.id, sessionVersion, ctx.req);
-      const refreshedSession = await sdk.createSessionToken(user.id, { sessionVersion, sessionId });
+      const session = await registerActiveSession(user.id, sessionVersion, ctx.req);
+      const refreshedSession = await sdk.createSessionToken(user.id, { sessionVersion, sessionId: session.id });
       ctx.res.cookie(COOKIE_NAME, refreshedSession, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       try { await db.recordUserSecurityEvent(user.id, "password_changed"); } catch (error) { console.error("[Auth] Failed to record password change event", error); }
       let emailNoticeSent = false;
@@ -138,6 +142,14 @@ export const appRouter = router({
     }),
     securityHistory: protectedProcedure.query(({ ctx }) => db.listUserSecurityEvents(ctx.user.id)),
     activeSessions: protectedProcedure.query(async ({ ctx }) => (await db.listUserActiveSessions(ctx.user.id)).map(({ userId: _userId, ...session }) => ({ ...session, isCurrent: Boolean(ctx.sessionId && session.id === ctx.sessionId) }))),
+    signOutSession: protectedProcedure.input(z.object({ sessionId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+      const revoked = await db.revokeUserActiveSession(ctx.user.id, input.sessionId);
+      if (!revoked) throw new TRPCError({ code: "NOT_FOUND", message: "Sesi tidak ditemukan atau sudah berakhir." });
+      try { await db.recordUserSecurityEvent(ctx.user.id, "session_signed_out"); } catch (error) { console.error("[Auth] Failed to record single session sign-out", error); }
+      const signedOutCurrent = ctx.sessionId === input.sessionId;
+      if (signedOutCurrent) ctx.res.clearCookie(COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
+      return { success: true, signedOutCurrent } as const;
+    }),
     signOutAllSessions: signedInProcedure.mutation(async ({ ctx }) => {
       await db.invalidateUserSessions(ctx.user.id);
       try { await db.recordUserSecurityEvent(ctx.user.id, "all_sessions_signed_out"); } catch (error) { console.error("[Auth] Failed to record session sign-out event", error); }

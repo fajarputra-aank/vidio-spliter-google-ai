@@ -52,3 +52,16 @@ export async function sendAccountLockedEmail(user: Pick<User, "email">) {
   });
   return true;
 }
+
+export async function sendNewDeviceLoginEmail(user: Pick<User, "email">, session: { deviceLabel: string; locationLabel: string }) {
+  if (!user.email) return false;
+  await sendSecurityEmail({
+    to: user.email,
+    subject: "Login baru terdeteksi di Lensa Saku",
+    heading: "Kami mendeteksi perangkat atau lokasi baru.",
+    copy: `Login baru terdeteksi dari ${session.deviceLabel} di sekitar ${session.locationLabel}. Jika ini bukan kamu, keluarkan perangkat tersebut atau ubah kata sandi segera.`,
+    actionLabel: "Tinjau sesi aktif",
+    actionUrl: new URL("/pengaturan/profil", APP_ORIGIN).toString(),
+  });
+  return true;
+}

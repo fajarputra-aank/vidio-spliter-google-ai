@@ -281,6 +281,7 @@ class SDKServer {
       const user = await db.getUserById(session.userId);
       if (!user || !user.passwordHash) throw ForbiddenError("User not found");
       if (session.sessionVersion !== await db.getUserSessionVersion(user.id)) throw ForbiddenError("Sesi telah berakhir");
+      if (session.sessionId && !(await db.isUserActiveSession(user.id, session.sessionId, session.sessionVersion))) throw ForbiddenError("Sesi telah berakhir");
       await db.touchLocalSignIn(user.id);
       if (session.sessionId) await db.touchUserActiveSession(session.sessionId);
       return { ...user, sessionId: session.sessionId };

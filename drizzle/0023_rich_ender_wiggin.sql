@@ -1,0 +1,1 @@
+ALTER TABLE `userSecurityEvents` MODIFY COLUMN `kind` enum('login','password_changed','password_reset','account_locked','all_sessions_signed_out','session_signed_out','new_device_login') NOT NULL;
