@@ -170,3 +170,7 @@
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pembayaran manual dengan bukti dan notifikasi.
 - [x] Uji privasi bukti, notifikasi keputusan, filter admin, dan responsivitas.
 - [x] Simpan checkpoint rilis bukti transfer, notifikasi keputusan, dan filter admin.
+- [x] Tinjau alur autentikasi Manus saat ini dan kebutuhan migrasi akun pengguna.
+- [x] Tambahkan autentikasi email dan kata sandi yang aman tanpa mengarahkan pengguna ke Manus.
+- [x] Bangun halaman masuk, pendaftaran, sesi, serta jalur migrasi untuk pengguna yang sudah ada.
+- [x] Uji akses privat, sesi, responsivitas, dan simpan checkpoint rilis autentikasi akun aplikasi.

@@ -1,12 +1,14 @@
 import { boolean, index, int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
-/** Core identity table backing the OAuth session flow. */
+/** Core identity table for local, email-and-password application accounts. */
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
-  email: varchar("email", { length: 320 }),
+  email: varchar("email", { length: 320 }).unique(),
   loginMethod: varchar("loginMethod", { length: 64 }),
+  passwordHash: varchar("passwordHash", { length: 255 }),
+  mustChangePassword: boolean("mustChangePassword").notNull().default(false),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   unlimitedTransforms: boolean("unlimitedTransforms").notNull().default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

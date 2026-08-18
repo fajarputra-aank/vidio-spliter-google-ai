@@ -17,12 +17,16 @@ import NotificationSettings from "./pages/NotificationSettings";
 import ArchivedAlbums from "./pages/ArchivedAlbums";
 import BrandSettings from "./pages/BrandSettings";
 import { BrandProvider } from "./contexts/BrandContext";
+import Auth, { ChangePassword } from "./pages/Auth";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/masuk" component={Auth} />
+      <Route path="/daftar" component={Auth} />
+      <Route path="/ganti-kata-sandi" component={ChangePassword} />
       <Route path="/profil" component={Profile} />
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />

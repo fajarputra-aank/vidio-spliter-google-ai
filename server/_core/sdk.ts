@@ -18,25 +18,25 @@ import type {
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
-export type SessionPayload = {
+type LegacySessionPayload = {
   openId: string;
   appId: string;
   name: string;
 };
+
+type LocalSessionPayload = {
+  userId: number;
+  kind: "local";
+};
+
+export type SessionPayload = LegacySessionPayload | LocalSessionPayload;
 
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
 
 class OAuthService {
-  constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
-    }
-  }
+  constructor(private client: ReturnType<typeof axios.create>) {}
 
   private decodeState(state: string): string {
     return decodeOAuthState(state).redirectUri;
@@ -164,12 +164,13 @@ class SDKServer {
    * const sessionToken = await sdk.createSessionToken(userInfo.openId);
    */
   async createSessionToken(
-    openId: string,
+    userId: number | string,
     options: { expiresInMs?: number; name?: string } = {}
   ): Promise<string> {
+    if (typeof userId === "number") return this.signSession({ userId, kind: "local" }, options);
     return this.signSession(
       {
-        openId,
+        openId: userId,
         appId: ENV.appId,
         name: options.name || "",
       },
@@ -186,11 +187,7 @@ class SDKServer {
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
-    return new SignJWT({
-      openId: payload.openId,
-      appId: payload.appId,
-      name: payload.name,
-    })
+    return new SignJWT("userId" in payload ? { userId: payload.userId, kind: "local" } : { openId: payload.openId, appId: payload.appId, name: payload.name })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
@@ -198,7 +195,7 @@ class SDKServer {
 
   async verifySession(
     cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  ): Promise<SessionPayload | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
       return null;
@@ -209,7 +206,9 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { openId, appId, name, userId, kind } = payload as Record<string, unknown>;
+
+      if (kind === "local" && typeof userId === "number" && Number.isInteger(userId) && userId > 0) return { userId, kind: "local" };
 
       if (
         !isNonEmptyString(openId) ||
@@ -276,6 +275,13 @@ class SDKServer {
       throw ForbiddenError("Invalid session cookie");
     }
 
+    if ("userId" in session) {
+      const user = await db.getUserById(session.userId);
+      if (!user || !user.passwordHash) throw ForbiddenError("User not found");
+      await db.touchLocalSignIn(user.id);
+      return user;
+    }
+
     if (session.openId.startsWith(CRON_OPEN_ID_PREFIX)) {
       const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
       const taskUid = userInfo.taskUid ?? null;
@@ -285,38 +291,7 @@ class SDKServer {
       return buildCronUser(userInfo);
     }
 
-    const sessionUserId = session.openId;
-    const signedInAt = new Date();
-    let user = await db.getUserByOpenId(sessionUserId);
-
-    // If user not in DB, sync from OAuth server automatically
-    if (!user) {
-      try {
-        const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
-        await db.upsertUser({
-          openId: userInfo.openId,
-          name: userInfo.name || null,
-          email: userInfo.email ?? null,
-          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: signedInAt,
-        });
-        user = await db.getUserByOpenId(userInfo.openId);
-      } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
-        throw ForbiddenError("Failed to sync user info");
-      }
-    }
-
-    if (!user) {
-      throw ForbiddenError("User not found");
-    }
-
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
-
-    return user;
+    throw ForbiddenError("Sesi OAuth lama tidak lagi didukung.");
   }
 }
 
@@ -338,7 +313,10 @@ function buildCronUser(
     name: userInfo.name || "Manus Scheduled Task",
     email: null,
     loginMethod: null,
+    passwordHash: null,
+    mustChangePassword: false,
     role: "user",
+    unlimitedTransforms: false,
     createdAt: now,
     updatedAt: now,
     lastSignedIn: now,

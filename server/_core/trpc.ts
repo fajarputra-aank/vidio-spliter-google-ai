@@ -10,7 +10,7 @@ const t = initTRPC.context<TrpcContext>().create({
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
-const requireUser = t.middleware(async opts => {
+const requireSignedInUser = t.middleware(async opts => {
   const { ctx, next } = opts;
 
   if (!ctx.user) {
@@ -25,13 +25,22 @@ const requireUser = t.middleware(async opts => {
   });
 });
 
-export const protectedProcedure = t.procedure.use(requireUser);
+export const signedInProcedure = t.procedure.use(requireSignedInUser);
+
+const requirePasswordChangeCompletion = t.middleware(async opts => {
+  if (!opts.ctx.user || opts.ctx.user.mustChangePassword) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Ganti kata sandi sementara sebelum memakai studio." });
+  }
+  return opts.next();
+});
+
+export const protectedProcedure = signedInProcedure.use(requirePasswordChangeCompletion);
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user || ctx.user.role !== 'admin' || ctx.user.mustChangePassword) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 

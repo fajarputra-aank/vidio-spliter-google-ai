@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { adminAccessAudits, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
@@ -48,6 +49,53 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result[0];
+}
+
+export async function getUserById(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return result[0];
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result[0];
+}
+
+export async function createLocalUser(input: { name: string; email: string; passwordHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const existing = await getUserByEmail(input.email);
+  if (existing) return null;
+  const now = new Date();
+  const result = await db.insert(users).values({
+    openId: `local_${randomUUID()}`,
+    name: input.name,
+    email: input.email,
+    loginMethod: "password",
+    passwordHash: input.passwordHash,
+    mustChangePassword: false,
+    role: "user",
+    unlimitedTransforms: false,
+    lastSignedIn: now,
+  });
+  return getUserById(Number(result[0].insertId));
+}
+
+export async function updateLocalPassword(userId: number, passwordHash: string, mustChangePassword: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.update(users).set({ passwordHash, loginMethod: "password", mustChangePassword, lastSignedIn: new Date() }).where(eq(users.id, userId));
+  return getUserById(userId);
+}
+
+export async function touchLocalSignIn(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, userId));
 }
 
 export async function createPhotoTransform(transform: InsertPhotoTransform) {

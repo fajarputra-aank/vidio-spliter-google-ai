@@ -3,7 +3,7 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { generateImage } from "./_core/imageGeneration";
-import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router, signedInProcedure } from "./_core/trpc";
 import { systemRouter } from "./_core/systemRouter";
 import * as db from "./db";
 import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds, styleIds } from "./photoPrompts";
@@ -11,6 +11,8 @@ import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
 import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
+import { hashPassword, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
+import { sdk } from "./_core/sdk";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -49,6 +51,30 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+    register: publicProcedure.input(z.object({ name: z.string().trim().min(2).max(80), email: z.string().trim().min(3).max(320), password: z.string().min(12).max(128) })).mutation(async ({ ctx, input }) => {
+      let details: { name: string; email: string };
+      try { details = validateRegistrationInput(input.name, input.email, input.password); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Data pendaftaran belum valid." }); }
+      const user = await db.createLocalUser({ ...details, passwordHash: await hashPassword(input.password) });
+      if (!user) throw new TRPCError({ code: "CONFLICT", message: "Email ini sudah terdaftar. Silakan masuk." });
+      const token = await sdk.createSessionToken(user.id);
+      ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
+      return { user };
+    }),
+    login: publicProcedure.input(z.object({ email: z.string().trim().min(3).max(320), password: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => {
+      const user = await db.getUserByEmail(normalizeEmail(input.email));
+      if (!user || !(await verifyPassword(input.password, user.passwordHash))) throw new TRPCError({ code: "UNAUTHORIZED", message: "Email atau kata sandi tidak sesuai." });
+      const token = await sdk.createSessionToken(user.id);
+      ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
+      await db.touchLocalSignIn(user.id);
+      return { user };
+    }),
+    changePassword: signedInProcedure.input(z.object({ currentPassword: z.string().min(1).max(128), nextPassword: z.string().min(12).max(128) })).mutation(async ({ ctx, input }) => {
+      if (!(await verifyPassword(input.currentPassword, ctx.user.passwordHash))) throw new TRPCError({ code: "UNAUTHORIZED", message: "Kata sandi saat ini tidak sesuai." });
+      try { validatePassword(input.nextPassword); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Kata sandi belum valid." }); }
+      const user = await db.updateLocalPassword(ctx.user.id, await hashPassword(input.nextPassword), false);
+      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
+      return { user };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
