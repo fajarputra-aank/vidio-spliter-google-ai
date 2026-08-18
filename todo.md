@@ -187,3 +187,9 @@
 - [x] Tampilkan riwayat keamanan akun yang hanya dapat dilihat pemilik.
 - [x] Uji audit, kata sandi, notifikasi email, responsivitas, dan simpan checkpoint rilis.
 - [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk pola keamanan profil.
+- [x] Tinjau format sesi, pembatasan login, dan halaman pengaturan keamanan yang ada.
+- [x] Tambahkan konfirmasi kata sandi baru pada pengaturan profil dengan validasi yang jelas.
+- [x] Tambahkan aksi keluar dari semua perangkat yang menginvalidasi sesi lama secara aman.
+- [x] Kirim email pemberitahuan saat akun terkunci setelah percobaan login gagal berulang.
+- [x] Uji validasi, invalidasi sesi, email penguncian, responsivitas, dan simpan checkpoint rilis.
+- [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk kontrol sesi dan penguncian akun.

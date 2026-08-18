@@ -39,3 +39,16 @@ export async function sendPasswordChangedEmail(user: Pick<User, "email">) {
   });
   return true;
 }
+
+export async function sendAccountLockedEmail(user: Pick<User, "email">) {
+  if (!user.email) return false;
+  await sendSecurityEmail({
+    to: user.email,
+    subject: "Akun Lensa Saku dikunci sementara",
+    heading: "Kami mengunci akunmu sementara.",
+    copy: "Terlalu banyak percobaan masuk gagal terdeteksi. Akun akan dapat dicoba lagi dalam 15 menit. Jika ini bukan kamu, ubah kata sandi setelah dapat masuk kembali.",
+    actionLabel: "Amankan akun",
+    actionUrl: new URL("/lupa-kata-sandi", APP_ORIGIN).toString(),
+  });
+  return true;
+}

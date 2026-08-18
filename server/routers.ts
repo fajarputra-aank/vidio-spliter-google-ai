@@ -13,7 +13,7 @@ import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
 import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
-import { issueAccountEmail, sendPasswordChangedEmail } from "./accountEmails";
+import { issueAccountEmail, sendAccountLockedEmail, sendPasswordChangedEmail } from "./accountEmails";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -71,7 +71,13 @@ export const appRouter = router({
       const user = await db.getUserByEmail(email);
       if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
         const newLock = await db.recordFailedLogin(emailHash);
-        if (newLock) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Terlalu banyak percobaan masuk. Coba lagi setelah 15 menit." });
+        if (newLock) {
+          if (user?.passwordHash) {
+            try { await db.recordUserSecurityEvent(user.id, "account_locked"); } catch (error) { console.error("[Auth] Failed to record account lock event", error); }
+            try { await sendAccountLockedEmail(user); } catch (error) { console.error("[Auth] Failed to send account lock email", error); }
+          }
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Terlalu banyak percobaan masuk. Coba lagi setelah 15 menit." });
+        }
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Email atau kata sandi tidak sesuai." });
       }
       await db.clearFailedLogins(emailHash);
@@ -94,6 +100,7 @@ export const appRouter = router({
       if (!user) throw new TRPCError({ code: "BAD_REQUEST", message: "Tautan reset tidak valid atau sudah kedaluwarsa." });
       const updated = await db.updateLocalPassword(user.id, await hashPassword(input.password), false);
       if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
+      await db.invalidateUserSessions(updated.id);
       try { await db.recordUserSecurityEvent(updated.id, "password_reset"); } catch (error) { console.error("[Auth] Failed to record password reset event", error); }
       let emailNoticeSent = false;
       try { emailNoticeSent = await sendPasswordChangedEmail(updated); } catch (error) { console.error("[Auth] Failed to send password-change email", error); }
@@ -115,12 +122,22 @@ export const appRouter = router({
       try { validatePassword(input.nextPassword); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Kata sandi belum valid." }); }
       const user = await db.updateLocalPassword(ctx.user.id, await hashPassword(input.nextPassword), false);
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
+      const sessionVersion = await db.invalidateUserSessions(user.id);
+      const refreshedSession = await sdk.createSessionToken(user.id, { sessionVersion });
+      ctx.res.cookie(COOKIE_NAME, refreshedSession, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       try { await db.recordUserSecurityEvent(user.id, "password_changed"); } catch (error) { console.error("[Auth] Failed to record password change event", error); }
       let emailNoticeSent = false;
       try { emailNoticeSent = await sendPasswordChangedEmail(user); } catch (error) { console.error("[Auth] Failed to send password-change email", error); }
       return { user, emailNoticeSent };
     }),
     securityHistory: protectedProcedure.query(({ ctx }) => db.listUserSecurityEvents(ctx.user.id)),
+    signOutAllSessions: signedInProcedure.mutation(async ({ ctx }) => {
+      await db.invalidateUserSessions(ctx.user.id);
+      try { await db.recordUserSecurityEvent(ctx.user.id, "all_sessions_signed_out"); } catch (error) { console.error("[Auth] Failed to record session sign-out event", error); }
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true } as const;
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

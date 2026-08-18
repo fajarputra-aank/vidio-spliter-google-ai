@@ -8,6 +8,7 @@
 @import "./brand-admin.css";
 @import "./auth.css";
 @import "./profile-security.css";
+@import "./profile-security-actions.css";
 
 @custom-variant dark (&:is(.dark *));
 

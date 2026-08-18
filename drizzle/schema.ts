@@ -52,11 +52,18 @@ export const userSecurityEvents = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
-    kind: mysqlEnum("kind", ["login", "password_changed", "password_reset"]).notNull(),
+    kind: mysqlEnum("kind", ["login", "password_changed", "password_reset", "account_locked", "all_sessions_signed_out"]).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   (table) => [index("userSecurityEvents_user_created_idx").on(table.userId, table.createdAt)]
 );
+
+/** Monotonic version invalidates every local session issued before an account-security action. */
+export const userSessionVersions = mysqlTable("userSessionVersions", {
+  userId: int("userId").primaryKey(),
+  version: int("version").notNull().default(0),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
 
 /** Singleton brand identity. File bytes stay in object storage; this table only holds safe delivery URLs. */
 export const brandSettings = mysqlTable("brandSettings", {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNull, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, userSecurityEvents, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, userSecurityEvents, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -157,7 +157,7 @@ export async function clearFailedLogins(emailHash: string) {
   await db.delete(authLoginAttempts).where(eq(authLoginAttempts.emailHash, emailHash));
 }
 
-export type UserSecurityEventKind = "login" | "password_changed" | "password_reset";
+export type UserSecurityEventKind = "login" | "password_changed" | "password_reset" | "account_locked" | "all_sessions_signed_out";
 
 export async function recordUserSecurityEvent(userId: number, kind: UserSecurityEventKind) {
   const db = await getDb();
@@ -169,6 +169,20 @@ export async function listUserSecurityEvents(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(userSecurityEvents).where(eq(userSecurityEvents.userId, userId)).orderBy(desc(userSecurityEvents.createdAt), desc(userSecurityEvents.id)).limit(50);
+}
+
+export async function getUserSessionVersion(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const rows = await db.select({ version: userSessionVersions.version }).from(userSessionVersions).where(eq(userSessionVersions.userId, userId)).limit(1);
+  return rows[0]?.version ?? 0;
+}
+
+export async function invalidateUserSessions(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.insert(userSessionVersions).values({ userId, version: 1 }).onDuplicateKeyUpdate({ set: { version: sql`${userSessionVersions.version} + 1`, updatedAt: new Date() } });
+  return getUserSessionVersion(userId);
 }
 
 export async function createPhotoTransform(transform: InsertPhotoTransform) {

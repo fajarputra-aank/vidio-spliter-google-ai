@@ -27,6 +27,7 @@ type LegacySessionPayload = {
 type LocalSessionPayload = {
   userId: number;
   kind: "local";
+  sessionVersion: number;
 };
 
 export type SessionPayload = LegacySessionPayload | LocalSessionPayload;
@@ -165,9 +166,9 @@ class SDKServer {
    */
   async createSessionToken(
     userId: number | string,
-    options: { expiresInMs?: number; name?: string } = {}
+    options: { expiresInMs?: number; name?: string; sessionVersion?: number } = {}
   ): Promise<string> {
-    if (typeof userId === "number") return this.signSession({ userId, kind: "local" }, options);
+    if (typeof userId === "number") return this.signSession({ userId, kind: "local", sessionVersion: options.sessionVersion ?? await db.getUserSessionVersion(userId) }, options);
     return this.signSession(
       {
         openId: userId,
@@ -187,7 +188,7 @@ class SDKServer {
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
     const secretKey = this.getSessionSecret();
 
-    return new SignJWT("userId" in payload ? { userId: payload.userId, kind: "local" } : { openId: payload.openId, appId: payload.appId, name: payload.name })
+    return new SignJWT("userId" in payload ? { userId: payload.userId, kind: "local", sessionVersion: payload.sessionVersion } : { openId: payload.openId, appId: payload.appId, name: payload.name })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
@@ -206,9 +207,9 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name, userId, kind } = payload as Record<string, unknown>;
+      const { openId, appId, name, userId, kind, sessionVersion } = payload as Record<string, unknown>;
 
-      if (kind === "local" && typeof userId === "number" && Number.isInteger(userId) && userId > 0) return { userId, kind: "local" };
+      if (kind === "local" && typeof userId === "number" && Number.isInteger(userId) && userId > 0) return { userId, kind: "local", sessionVersion: typeof sessionVersion === "number" && Number.isInteger(sessionVersion) && sessionVersion >= 0 ? sessionVersion : 0 };
 
       if (
         !isNonEmptyString(openId) ||
@@ -278,6 +279,7 @@ class SDKServer {
     if ("userId" in session) {
       const user = await db.getUserById(session.userId);
       if (!user || !user.passwordHash) throw ForbiddenError("User not found");
+      if (session.sessionVersion !== await db.getUserSessionVersion(user.id)) throw ForbiddenError("Sesi telah berakhir");
       await db.touchLocalSignIn(user.id);
       return user;
     }
