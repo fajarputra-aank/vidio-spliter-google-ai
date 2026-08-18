@@ -1,51 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
-const mocks = vi.hoisted(() => ({ createSession: vi.fn() }));
-
-vi.mock("./stripe", () => ({
-  getStripe: () => ({ checkout: { sessions: { create: mocks.createSession } } }),
-}));
-
+const mocks = vi.hoisted(() => ({ createManualCreditOrder: vi.fn() }));
+vi.mock("./db", () => ({ createManualCreditOrder: mocks.createManualCreditOrder }));
 import { appRouter } from "./routers";
 
 function buyerContext(): TrpcContext {
-  return {
-    user: {
-      id: 7,
-      openId: "buyer-user",
-      name: "Frame Buyer",
-      email: "buyer@example.test",
-      loginMethod: "manus",
-      role: "user",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      lastSignedIn: new Date(),
-    },
-    req: { headers: { origin: "https://studio.example.test" }, protocol: "https" } as TrpcContext["req"],
-    res: {} as TrpcContext["res"],
-  };
+  return { user: { id: 7, openId: "buyer-user", name: "Frame Buyer", email: "buyer@example.test", loginMethod: "manus", role: "user", unlimitedTransforms: false, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: { headers: {}, protocol: "https" } as TrpcContext["req"], res: {} as TrpcContext["res"] };
 }
 
-describe("credit checkout", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.createSession.mockResolvedValue({ url: "https://checkout.stripe.test/session" });
-  });
+describe("manual BCA credit order", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
 
-  it("creates a server-priced checkout session bound to the authenticated user", async () => {
-    const caller = appRouter.createCaller(buyerContext());
-    const result = await caller.billing.checkout({ packId: "studio" });
-
-    expect(result.checkoutUrl).toBe("https://checkout.stripe.test/session");
-    expect(mocks.createSession).toHaveBeenCalledWith(expect.objectContaining({
-      mode: "payment",
-      client_reference_id: "7",
-      customer_email: "buyer@example.test",
-      allow_promotion_codes: true,
-      success_url: "https://studio.example.test/profil?checkout=success",
-      cancel_url: "https://studio.example.test/profil?checkout=cancelled",
-      metadata: expect.objectContaining({ user_id: "7", pack_id: "studio" }),
-    }));
+  it("creates a server-priced transfer request bound to the authenticated buyer", async () => {
+    mocks.createManualCreditOrder.mockResolvedValue({ id: 31, userId: 7, packId: "studio", credits: 25, amountIdr: 20_000, status: "pending" });
+    const result = await appRouter.createCaller(buyerContext()).billing.createManualOrder({ packId: "studio" });
+    expect(result).toMatchObject({ packId: "studio", amountIdr: 20_000, status: "pending" });
+    expect(mocks.createManualCreditOrder).toHaveBeenCalledWith(7, expect.objectContaining({ id: "studio", credits: 25, unitAmount: 20_000, currency: "idr" }));
   });
 });

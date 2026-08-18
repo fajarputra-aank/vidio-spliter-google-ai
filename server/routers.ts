@@ -9,7 +9,6 @@ import * as db from "./db";
 import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds, styleIds } from "./photoPrompts";
 import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
-import { getStripe } from "./stripe";
 import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
 
@@ -114,23 +113,11 @@ export const appRouter = router({
   }),
   billing: router({
     packs: publicProcedure.query(() => Object.values(creditPacks)),
-    balance: protectedProcedure.query(async ({ ctx }) => ({ credits: await db.getCreditBalance(ctx.user.id), purchases: await db.listCreditPurchases(ctx.user.id) })),
-    checkout: protectedProcedure.input(z.object({ packId: z.enum(["starter", "studio", "archive"]) })).mutation(async ({ ctx, input }) => {
+    balance: protectedProcedure.query(async ({ ctx }) => ({ credits: await db.getCreditBalance(ctx.user.id), purchases: await db.listCreditPurchases(ctx.user.id), manualOrders: await db.listManualCreditOrders(ctx.user.id) })),
+    createManualOrder: protectedProcedure.input(z.object({ packId: z.enum(["starter", "studio", "archive"]) })).mutation(async ({ ctx, input }) => {
       const pack = getCreditPack(input.packId);
       if (!pack) throw new TRPCError({ code: "NOT_FOUND", message: "Paket kredit tidak ditemukan." });
-      const origin = (ctx.req.headers.origin as string | undefined) ?? `${ctx.req.protocol}://${ctx.req.get("host")}`;
-      const session = await getStripe().checkout.sessions.create({
-        mode: "payment",
-        client_reference_id: String(ctx.user.id),
-        customer_email: ctx.user.email ?? undefined,
-        allow_promotion_codes: true,
-        success_url: `${origin}/profil?checkout=success`,
-        cancel_url: `${origin}/profil?checkout=cancelled`,
-        metadata: { user_id: String(ctx.user.id), pack_id: pack.id, customer_email: ctx.user.email ?? "", customer_name: ctx.user.name ?? "" },
-        line_items: [{ price_data: { currency: pack.currency, product_data: { name: `${pack.title} — ${pack.credits} Kredit Lensa Saku` }, unit_amount: pack.unitAmount }, quantity: 1 }],
-      });
-      if (!session.url) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Checkout belum dapat dibuat." });
-      return { checkoutUrl: session.url };
+      return db.createManualCreditOrder(ctx.user.id, pack);
     }),
   }),
   community: router({
@@ -168,6 +155,8 @@ export const appRouter = router({
     setUserRole: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), role: z.enum(["user", "admin"]) })).mutation(({ ctx, input }) => db.setUserRoleByEmail(ctx.user.id, input.email, input.role)),
     accessAudits: adminProcedure.query(() => db.listAdminAccessAudits()),
     updateBrand: adminProcedure.input(z.object({ logo: brandImageInput.optional(), icon: brandImageInput.optional() }).refine((input) => input.logo || input.icon, { message: "Pilih logo atau ikon yang akan diperbarui." })).mutation(async ({ ctx, input }) => db.updateBrandSettings(ctx.user.id, { logoUrl: input.logo ? await storeBrandImage("logo", input.logo) : undefined, iconUrl: input.icon ? await storeBrandImage("icon", input.icon) : undefined })),
+    manualCreditOrders: adminProcedure.query(() => db.listAdminManualCreditOrders()),
+    reviewManualCreditOrder: adminProcedure.input(z.object({ orderId: z.number().int().positive(), action: z.enum(["approve", "reject"]) })).mutation(({ ctx, input }) => db.reviewManualCreditOrder(input.orderId, ctx.user.id, input.action)),
     moderationList: adminProcedure.query(() => db.listCommunityPosts()),
     moderateDeletePost: adminProcedure.input(z.object({ postId: z.number().int().positive() })).mutation(({ input }) => db.moderateDeleteCommunityPost(input.postId)),
     reports: adminProcedure.query(() => db.listAdminCommunityReports()),

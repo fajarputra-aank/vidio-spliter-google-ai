@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
+import { adminAccessAudits, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -174,8 +174,43 @@ export async function fulfillCreditPurchase(input: { userId: number; pack: { id:
 
 export async function listCreditPurchases(userId: number) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) throw new Error("Basis data belum tersedia.");
   return db.select().from(creditPurchases).where(eq(creditPurchases.userId, userId)).orderBy(desc(creditPurchases.createdAt));
+}
+
+export async function createManualCreditOrder(userId: number, pack: { id: string; credits: number; unitAmount: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.insert(manualCreditOrders).values({ userId, packId: pack.id, credits: pack.credits, amountIdr: pack.unitAmount, status: "pending" });
+  const records = await db.select().from(manualCreditOrders).where(eq(manualCreditOrders.id, Number(result[0].insertId))).limit(1);
+  return records[0];
+}
+
+export async function listManualCreditOrders(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.select().from(manualCreditOrders).where(eq(manualCreditOrders.userId, userId)).orderBy(desc(manualCreditOrders.createdAt));
+}
+
+export async function listAdminManualCreditOrders() {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.select({ id: manualCreditOrders.id, packId: manualCreditOrders.packId, credits: manualCreditOrders.credits, amountIdr: manualCreditOrders.amountIdr, status: manualCreditOrders.status, createdAt: manualCreditOrders.createdAt, reviewedAt: manualCreditOrders.reviewedAt, userName: users.name, userEmail: users.email }).from(manualCreditOrders).innerJoin(users, eq(manualCreditOrders.userId, users.id)).orderBy(desc(manualCreditOrders.createdAt)).limit(48);
+}
+
+export async function reviewManualCreditOrder(orderId: number, reviewerUserId: number, action: "approve" | "reject") {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.transaction(async (tx) => {
+    const records = await tx.select().from(manualCreditOrders).where(eq(manualCreditOrders.id, orderId)).limit(1);
+    const order = records[0];
+    if (!order) throw new Error("Permintaan pembayaran tidak ditemukan.");
+    if (order.status !== "pending") return { ...order, changed: false };
+    const status = action === "approve" ? "approved" : "rejected";
+    await tx.update(manualCreditOrders).set({ status, reviewerUserId, reviewedAt: new Date() }).where(eq(manualCreditOrders.id, orderId));
+    if (action === "approve") await tx.insert(creditLedger).values({ userId: order.userId, credits: order.credits, reason: "purchase" });
+    return { ...order, status, reviewerUserId, changed: true };
+  });
 }
 
 export async function publishCommunityPost(userId: number, transformId: number, caption?: string) {

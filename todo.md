@@ -159,3 +159,9 @@
 - [x] Tambahkan bukti otomatis pembaruan identitas brand client-side setelah administrator menyimpan brand baru.
 - [x] Uji alur sukses penyimpanan brand: invalidasi data publik lalu terapkan logo dan ikon baru pada identitas aktif.
 - [x] Hubungkan hasil penyimpanan brand ke state aktif provider agar logo utama, ikon, dan favicon berubah langsung pada UI.
+- [x] Tinjau katalog kredit, checkout Stripe, dan halaman pembayaran sebelum beralih ke harga rupiah serta transfer BCA.
+- [x] Tetapkan paket 8 kredit Rp15.000, 25 kredit Rp20.000, dan 60 kredit Rp25.000 pada kontrak server dan antarmuka.
+- [x] Tambahkan instruksi transfer BCA 0132720728 a.n. Fajar Nugoho Putraningprang dengan pencatatan permintaan pembelian yang aman.
+- [x] Uji alur pembayaran rupiah, riwayat permintaan, dan responsivitas.
+- [x] Simpan checkpoint rilis pembayaran rupiah dan transfer BCA.
+- [x] Tambahkan bukti otomatis bahwa permintaan transfer baru langsung tampil sebagai pending di riwayat kredit.

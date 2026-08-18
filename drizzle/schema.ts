@@ -94,6 +94,23 @@ export const creditPurchases = mysqlTable(
   ]
 );
 
+/** User-submitted bank-transfer requests. Credits are issued only after an administrator approves. */
+export const manualCreditOrders = mysqlTable(
+  "manualCreditOrders",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    packId: varchar("packId", { length: 40 }).notNull(),
+    credits: int("credits").notNull(),
+    amountIdr: int("amountIdr").notNull(),
+    status: mysqlEnum("status", ["pending", "approved", "rejected"]).notNull().default("pending"),
+    reviewerUserId: int("reviewerUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    reviewedAt: timestamp("reviewedAt"),
+  },
+  (table) => [index("manualCreditOrders_user_created_idx").on(table.userId, table.createdAt), index("manualCreditOrders_status_created_idx").on(table.status, table.createdAt)]
+);
+
 /** Explicitly published result; source assets and private transforms remain private. */
 export const communityPosts = mysqlTable(
   "communityPosts",
