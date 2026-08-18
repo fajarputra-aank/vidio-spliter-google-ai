@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { Link } from "wouter";
 
 const assets = {
-  logo: "/manus-storage/lensa-saku-logo_25388856.png",
+  logo: "/manus-storage/fajar-nugroho-logo_8fa9d033.png",
   hero: "/manus-storage/lensa-saku-hero-studio_c48067d1.jpg",
   headshot: "/manus-storage/lensa-saku-headshot_7856b583.jpg",
   product: "/manus-storage/lensa-saku-product_3a89a43d.jpg",
@@ -303,7 +303,7 @@ export default function Home() {
   return (
     <main className="studio-shell">
       <aside className="rail" aria-label="Navigasi utama">
-        <button className="brand-badge" aria-label="Lensa Saku beranda" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><span className="aperture-mark" aria-hidden="true" /></button>
+        <button className="brand-badge" aria-label="Lensa Saku beranda"><img src={assets.logo} alt="Logo Fajar Nugroho" /></button>
         <nav className="rail-nav">
           <button className="rail-nav-button is-active" aria-label="Studio" onClick={() => scrollTo("studio")}><Aperture size={19} strokeWidth={1.7} /><span>Studio</span></button>
           <button className="rail-nav-button" aria-label="Koleksi" onClick={() => scrollTo("gallery")}><History size={19} strokeWidth={1.7} /><span>Koleksi</span></button>
@@ -316,8 +316,8 @@ export default function Home() {
 
       <section className="page-content">
         <header className="topbar">
-          <div className="desktop-brand" aria-label="Lensa Saku Studio AI"><span className="desktop-brand-mark"><span className="aperture-mark" aria-hidden="true" /></span><span><strong>Lensa Saku</strong><small>STUDIO AI</small></span></div>
-          <div className="mobile-brand"><span className="mobile-brand-mark"><span className="aperture-mark" aria-hidden="true" /></span><div><strong>Lensa Saku</strong><span>Studio AI</span></div></div>
+          <div className="desktop-brand" aria-label="Lensa Saku Studio AI"><span className="desktop-brand-mark"><img src={assets.logo} alt="Logo Fajar Nugroho" /></span><span><strong>Lensa Saku</strong><small>STUDIO AI</small></span></div>
+          <div className="mobile-brand"><span className="mobile-brand-mark"><img src={assets.logo} alt="Logo Fajar Nugroho" /></span><div><strong>Lensa Saku</strong><span>Studio AI</span></div></div>
           <div className="eyebrow topbar-note"><span className="pulse-dot" /> {isAuthenticated ? "arsip visual pribadi aktif" : "masuk untuk menyimpan hasil"}</div>
           <div className="topbar-actions">
             {!authLoading && (isAuthenticated ? <Link href="/profil" className="text-button auth-action"><Palette size={14} /> Profilku</Link> : <button className="text-button auth-action" onClick={startLogin}><LogIn size={14} /> Masuk untuk simpan</button>)}
