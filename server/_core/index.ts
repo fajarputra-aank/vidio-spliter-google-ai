@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripeWebhook";
 import { handleArchivedAlbumReminders } from "../scheduled/archivedAlbumReminders";
+import { handleSecuritySummaries } from "../scheduled/securitySummaries";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,6 +39,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   app.post("/api/scheduled/archived-album-reminders", handleArchivedAlbumReminders);
+  app.post("/api/scheduled/security-summaries", handleSecuritySummaries);
   // tRPC API
   app.use(
     "/api/trpc",

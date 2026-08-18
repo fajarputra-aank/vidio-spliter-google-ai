@@ -300,6 +300,19 @@ export const userNotificationPreferences = mysqlTable(
   (table) => [uniqueIndex("userNotificationPreferences_user_unique").on(table.userId)]
 );
 
+/** Per-user opt-in cadence for automatic security summaries; delivery is deduplicated by period key. */
+export const userSecuritySummaryPreferences = mysqlTable(
+  "userSecuritySummaryPreferences",
+  {
+    userId: int("userId").primaryKey(),
+    frequency: mysqlEnum("frequency", ["disabled", "daily", "weekly"]).notNull().default("disabled"),
+    lastSentAt: timestamp("lastSentAt"),
+    lastSentPeriodKey: varchar("lastSentPeriodKey", { length: 40 }),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [index("userSecuritySummaryPreferences_frequency_idx").on(table.frequency)]
+);
+
 /** Durable mapping for platform-managed project-level scheduled callbacks. */
 export const scheduledJobs = mysqlTable(
   "scheduledJobs",

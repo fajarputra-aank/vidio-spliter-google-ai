@@ -169,6 +169,13 @@
       "when": 1787040333560,
       "tag": "0023_rich_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1787042838956,
+      "tag": "0024_breezy_senator_kelly",
+      "breakpoints": true
     }
   ]
 }

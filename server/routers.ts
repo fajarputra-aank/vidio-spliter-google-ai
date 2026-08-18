@@ -142,6 +142,8 @@ export const appRouter = router({
       return { user, emailNoticeSent };
     }),
     securityHistory: protectedProcedure.query(({ ctx }) => db.listUserSecurityEvents(ctx.user.id)),
+    securitySummaryPreference: protectedProcedure.query(({ ctx }) => db.getUserSecuritySummaryPreference(ctx.user.id)),
+    updateSecuritySummaryPreference: protectedProcedure.input(z.object({ frequency: z.enum(["disabled", "daily", "weekly"]) })).mutation(({ ctx, input }) => db.updateUserSecuritySummaryPreference(ctx.user.id, input.frequency)),
     sendSecuritySummary: protectedProcedure.mutation(async ({ ctx }) => {
       const events = await db.listRecentUserSecurityEvents(ctx.user.id, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
       try {

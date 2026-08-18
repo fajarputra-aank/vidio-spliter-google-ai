@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
   sendNewDeviceLoginEmail: vi.fn(),
   sendSecuritySummaryEmail: vi.fn(),
   registerActiveSession: vi.fn(),
+  getUserSecuritySummaryPreference: vi.fn(),
+  updateUserSecuritySummaryPreference: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
@@ -39,6 +41,8 @@ vi.mock("./db", () => ({
   revokeUserActiveSession: mocks.revokeUserActiveSession,
   createAccountActivityNotification: mocks.createAccountActivityNotification,
   listRecentUserSecurityEvents: mocks.listRecentUserSecurityEvents,
+  getUserSecuritySummaryPreference: mocks.getUserSecuritySummaryPreference,
+  updateUserSecuritySummaryPreference: mocks.updateUserSecuritySummaryPreference,
 }));
 
 vi.mock("./accountEmails", () => ({
@@ -129,6 +133,16 @@ describe("account security", () => {
     await expect(appRouter.createCaller(ctx).auth.sendSecuritySummary()).resolves.toEqual({ sent: true, activityCount: 1 });
     expect(mocks.listRecentUserSecurityEvents).toHaveBeenCalledWith(88, expect.any(Date));
     expect(mocks.sendSecuritySummaryEmail).toHaveBeenCalledWith(user, events);
+  });
+
+  it("gets and updates only the authenticated user’s automatic summary preference", async () => {
+    const { ctx } = await createContext();
+    mocks.getUserSecuritySummaryPreference.mockResolvedValue({ userId: 88, frequency: "disabled" });
+    mocks.updateUserSecuritySummaryPreference.mockResolvedValue({ userId: 88, frequency: "weekly" });
+    await expect(appRouter.createCaller(ctx).auth.securitySummaryPreference()).resolves.toMatchObject({ frequency: "disabled" });
+    await expect(appRouter.createCaller(ctx).auth.updateSecuritySummaryPreference({ frequency: "weekly" })).resolves.toMatchObject({ frequency: "weekly" });
+    expect(mocks.getUserSecuritySummaryPreference).toHaveBeenCalledWith(88);
+    expect(mocks.updateUserSecuritySummaryPreference).toHaveBeenCalledWith(88, "weekly");
   });
 
   it("returns only the authenticated owner’s security history", async () => {

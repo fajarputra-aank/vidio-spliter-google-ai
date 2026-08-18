@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, gt, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -665,6 +665,35 @@ export async function getUserNotificationPreferences(userId: number) {
   if (!db) return { communityModeration: true, accountActivity: true, productUpdates: false };
   const preferences = await db.select().from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, userId)).limit(1);
   return preferences[0] ?? { communityModeration: true, accountActivity: true, productUpdates: false };
+}
+
+export type SecuritySummaryFrequency = "disabled" | "daily" | "weekly";
+
+export async function getUserSecuritySummaryPreference(userId: number) {
+  const db = await getDb();
+  if (!db) return { userId, frequency: "disabled" as const, lastSentAt: null, lastSentPeriodKey: null };
+  const rows = await db.select().from(userSecuritySummaryPreferences).where(eq(userSecuritySummaryPreferences.userId, userId)).limit(1);
+  return rows[0] ?? { userId, frequency: "disabled" as const, lastSentAt: null, lastSentPeriodKey: null };
+}
+
+export async function updateUserSecuritySummaryPreference(userId: number, frequency: SecuritySummaryFrequency) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.insert(userSecuritySummaryPreferences).values({ userId, frequency }).onDuplicateKeyUpdate({ set: { frequency } });
+  return getUserSecuritySummaryPreference(userId);
+}
+
+export async function listAutomaticSecuritySummaryRecipients() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({ userId: userSecuritySummaryPreferences.userId, email: users.email, frequency: userSecuritySummaryPreferences.frequency, lastSentPeriodKey: userSecuritySummaryPreferences.lastSentPeriodKey }).from(userSecuritySummaryPreferences).innerJoin(users, eq(users.id, userSecuritySummaryPreferences.userId)).where(and(ne(userSecuritySummaryPreferences.frequency, "disabled"), isNotNull(users.email)));
+}
+
+export async function claimSecuritySummaryPeriod(userId: number, periodKey: string, sentAt = new Date()) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.update(userSecuritySummaryPreferences).set({ lastSentPeriodKey: periodKey, lastSentAt: sentAt }).where(and(eq(userSecuritySummaryPreferences.userId, userId), or(isNull(userSecuritySummaryPreferences.lastSentPeriodKey), ne(userSecuritySummaryPreferences.lastSentPeriodKey, periodKey))));
+  return Number(result[0].affectedRows ?? 0) > 0;
 }
 
 export async function upsertScheduledJob(name: string, taskUid: string) {

@@ -209,3 +209,11 @@
 - [x] Tambahkan kontrol manual untuk mengirim ringkasan keamanan ke email pemilik akun.
 - [x] Uji notifikasi, ringkasan email, jadwal, responsivitas, dan simpan checkpoint rilis.
 - [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk ringkasan keamanan akun.
+- [x] Tinjau data riwayat keamanan, opsi ekspor PDF/CSV, serta pola ringkasan email terjadwal.
+- [x] Tambahkan ekspor CSV privat untuk riwayat keamanan pemilik akun.
+- [x] Tambahkan ekspor PDF privat untuk riwayat keamanan pemilik akun.
+- [x] Tambahkan pengaturan frekuensi ringkasan email keamanan otomatis di halaman profil.
+- [ ] Terapkan pengiriman ringkasan email terjadwal yang aman dan idempoten sesuai frekuensi pilihan.
+- [x] Menetapkan pemeriksaan harian terpusat untuk frekuensi ringkasan email pengguna.
+- [ ] Uji ekspor, preferensi frekuensi, jadwal, privasi, responsivitas, dan simpan checkpoint rilis.
+- [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk ekspor serta ringkasan keamanan terjadwal.
