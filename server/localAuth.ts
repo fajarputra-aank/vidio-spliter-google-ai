@@ -1,9 +1,12 @@
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
 const scrypt = promisify(scryptCallback);
 const HASH_PREFIX = "scrypt";
 const PASSWORD_MIN_LENGTH = 12;
+export const LOGIN_FAILURE_LIMIT = 5;
+export const LOGIN_FAILURE_WINDOW_MS = 15 * 60 * 1000;
+export const LOGIN_LOCK_MS = 15 * 60 * 1000;
 
 export function normalizeEmail(value: string) {
   return value.trim().toLocaleLowerCase("en-US");
@@ -20,6 +23,27 @@ export function validateRegistrationInput(name: string, email: string, password:
 
 export function validatePassword(password: string) {
   if (password.length < PASSWORD_MIN_LENGTH || password.length > 128) throw new Error("Kata sandi harus terdiri dari 12–128 karakter.");
+}
+
+export function hashSecurityToken(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function createSecurityToken() {
+  const token = randomBytes(32).toString("base64url");
+  return { token, tokenHash: hashSecurityToken(token) };
+}
+
+export function hashLoginEmail(email: string) {
+  return hashSecurityToken(normalizeEmail(email));
+}
+
+export function nextLoginAttempt(existing: { failedCount: number; windowStartedAt: Date; lockedUntil: Date | null } | undefined, now = new Date()) {
+  if (!existing) return { failedCount: 1, windowStartedAt: now, lockedUntil: null as Date | null };
+  if (existing.lockedUntil && existing.lockedUntil > now) return { failedCount: existing.failedCount, windowStartedAt: existing.windowStartedAt, lockedUntil: existing.lockedUntil };
+  const inWindow = now.getTime() - existing.windowStartedAt.getTime() < LOGIN_FAILURE_WINDOW_MS;
+  const failedCount = inWindow ? existing.failedCount + 1 : 1;
+  return { failedCount, windowStartedAt: inWindow ? existing.windowStartedAt : now, lockedUntil: failedCount >= LOGIN_FAILURE_LIMIT ? new Date(now.getTime() + LOGIN_LOCK_MS) : null as Date | null };
 }
 
 export async function hashPassword(password: string) {

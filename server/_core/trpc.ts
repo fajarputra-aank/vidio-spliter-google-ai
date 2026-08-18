@@ -34,13 +34,20 @@ const requirePasswordChangeCompletion = t.middleware(async opts => {
   return opts.next();
 });
 
-export const protectedProcedure = signedInProcedure.use(requirePasswordChangeCompletion);
+const requireVerifiedEmail = t.middleware(async opts => {
+  if (!opts.ctx.user || opts.ctx.user.emailVerifiedAt === null) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Verifikasi email sebelum memakai studio." });
+  }
+  return opts.next();
+});
+
+export const protectedProcedure = signedInProcedure.use(requirePasswordChangeCompletion).use(requireVerifiedEmail);
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin' || ctx.user.mustChangePassword) {
+    if (!ctx.user || ctx.user.role !== 'admin' || ctx.user.mustChangePassword || ctx.user.emailVerifiedAt === null) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 

@@ -174,3 +174,9 @@
 - [x] Tambahkan autentikasi email dan kata sandi yang aman tanpa mengarahkan pengguna ke Manus.
 - [x] Bangun halaman masuk, pendaftaran, sesi, serta jalur migrasi untuk pengguna yang sudah ada.
 - [x] Uji akses privat, sesi, responsivitas, dan simpan checkpoint rilis autentikasi akun aplikasi.
+- [x] Tinjau autentikasi lokal dan layanan email untuk reset kata sandi serta verifikasi pendaftaran.
+- [x] Konfigurasikan kredensial SMTP dan alamat pengirim terverifikasi untuk email transaksional.
+- [x] Tambahkan token reset kata sandi dan verifikasi email yang aman serta terbatas waktu.
+- [x] Terapkan pembatasan percobaan login gagal untuk mengurangi risiko brute force.
+- [x] Bangun halaman lupa/reset kata sandi, status verifikasi email, dan pengiriman email transaksional.
+- [x] Uji keamanan token, pembatasan login, alur email, responsivitas, dan simpan checkpoint rilis pengamanan akun.

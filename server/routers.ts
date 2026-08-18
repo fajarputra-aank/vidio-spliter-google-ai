@@ -11,8 +11,9 @@ import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
 import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
-import { hashPassword, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
+import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
+import { issueAccountEmail } from "./accountEmails";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -58,15 +59,52 @@ export const appRouter = router({
       if (!user) throw new TRPCError({ code: "CONFLICT", message: "Email ini sudah terdaftar. Silakan masuk." });
       const token = await sdk.createSessionToken(user.id);
       ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
-      return { user };
+      let verificationSent = false;
+      try { verificationSent = await issueAccountEmail(user, "email_verification"); } catch (error) { console.error("[Auth] Failed to send verification email", error); }
+      return { user, verificationSent };
     }),
     login: publicProcedure.input(z.object({ email: z.string().trim().min(3).max(320), password: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => {
-      const user = await db.getUserByEmail(normalizeEmail(input.email));
-      if (!user || !(await verifyPassword(input.password, user.passwordHash))) throw new TRPCError({ code: "UNAUTHORIZED", message: "Email atau kata sandi tidak sesuai." });
+      const email = normalizeEmail(input.email);
+      const emailHash = hashLoginEmail(email);
+      const lockedUntil = await db.getLoginLock(emailHash);
+      if (lockedUntil) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Terlalu banyak percobaan masuk. Coba lagi setelah 15 menit." });
+      const user = await db.getUserByEmail(email);
+      if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
+        const newLock = await db.recordFailedLogin(emailHash);
+        if (newLock) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Terlalu banyak percobaan masuk. Coba lagi setelah 15 menit." });
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Email atau kata sandi tidak sesuai." });
+      }
+      await db.clearFailedLogins(emailHash);
       const token = await sdk.createSessionToken(user.id);
       ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
       await db.touchLocalSignIn(user.id);
       return { user };
+    }),
+    requestPasswordReset: publicProcedure.input(z.object({ email: z.string().trim().min(3).max(320) })).mutation(async ({ input }) => {
+      const user = await db.getUserByEmail(normalizeEmail(input.email));
+      if (user?.passwordHash) {
+        try { await issueAccountEmail(user, "password_reset"); } catch (error) { console.error("[Auth] Failed to send password reset email", error); }
+      }
+      return { success: true } as const;
+    }),
+    resetPassword: publicProcedure.input(z.object({ token: z.string().trim().min(40).max(200), password: z.string().min(12).max(128) })).mutation(async ({ input }) => {
+      try { validatePassword(input.password); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Kata sandi belum valid." }); }
+      const user = await db.consumeAuthEmailToken(hashSecurityToken(input.token), "password_reset");
+      if (!user) throw new TRPCError({ code: "BAD_REQUEST", message: "Tautan reset tidak valid atau sudah kedaluwarsa." });
+      const updated = await db.updateLocalPassword(user.id, await hashPassword(input.password), false);
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
+      return { success: true } as const;
+    }),
+    verifyEmail: publicProcedure.input(z.object({ token: z.string().trim().min(40).max(200) })).mutation(async ({ input }) => {
+      const user = await db.consumeAuthEmailToken(hashSecurityToken(input.token), "email_verification");
+      if (!user) throw new TRPCError({ code: "BAD_REQUEST", message: "Tautan verifikasi tidak valid atau sudah kedaluwarsa." });
+      const updated = await db.markEmailVerified(user.id);
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
+      return { user: updated };
+    }),
+    resendVerification: signedInProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.emailVerifiedAt) return { alreadyVerified: true, sent: false } as const;
+      try { return { alreadyVerified: false, sent: await issueAccountEmail(ctx.user, "email_verification") } as const; } catch (error) { console.error("[Auth] Failed to resend verification email", error); throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Email verifikasi belum dapat dikirim. Coba lagi nanti." }); }
     }),
     changePassword: signedInProcedure.input(z.object({ currentPassword: z.string().min(1).max(128), nextPassword: z.string().min(12).max(128) })).mutation(async ({ ctx, input }) => {
       if (!(await verifyPassword(input.currentPassword, ctx.user.passwordHash))) throw new TRPCError({ code: "UNAUTHORIZED", message: "Kata sandi saat ini tidak sesuai." });

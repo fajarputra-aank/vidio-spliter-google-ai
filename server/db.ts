@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, isNull, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userNotificationPreferences, userNotifications, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
+import { nextLoginAttempt } from "./localAuth";
 import { shouldCreateArchivedAlbumReminder } from "./archivedAlbumReminderPolicy";
 import { getManualTransferNotification } from "./manualTransferNotifications";
 
@@ -96,6 +97,64 @@ export async function touchLocalSignIn(userId: number) {
   const db = await getDb();
   if (!db) return;
   await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, userId));
+}
+
+type AuthEmailTokenPurpose = "email_verification" | "password_reset";
+
+export async function createAuthEmailToken(input: { userId: number; purpose: AuthEmailTokenPurpose; tokenHash: string; expiresAt: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const last = await db.select({ createdAt: authEmailTokens.createdAt }).from(authEmailTokens).where(and(eq(authEmailTokens.userId, input.userId), eq(authEmailTokens.purpose, input.purpose), isNull(authEmailTokens.consumedAt))).orderBy(desc(authEmailTokens.createdAt)).limit(1);
+  if (last[0]?.createdAt && Date.now() - last[0].createdAt.getTime() < 60_000) return false;
+  await db.delete(authEmailTokens).where(and(eq(authEmailTokens.userId, input.userId), eq(authEmailTokens.purpose, input.purpose), isNull(authEmailTokens.consumedAt)));
+  await db.insert(authEmailTokens).values(input);
+  return true;
+}
+
+export async function consumeAuthEmailToken(tokenHash: string, purpose: AuthEmailTokenPurpose) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const now = new Date();
+  const found = await db.select().from(authEmailTokens).where(and(eq(authEmailTokens.tokenHash, tokenHash), eq(authEmailTokens.purpose, purpose), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now))).limit(1);
+  const token = found[0];
+  if (!token) return undefined;
+  const result = await db.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.id, token.id), isNull(authEmailTokens.consumedAt)));
+  if (Number(result[0].affectedRows ?? 0) !== 1) return undefined;
+  return getUserById(token.userId);
+}
+
+export async function markEmailVerified(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, userId));
+  return getUserById(userId);
+}
+
+export async function getLoginLock(emailHash: string, now = new Date()) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select({ lockedUntil: authLoginAttempts.lockedUntil }).from(authLoginAttempts).where(eq(authLoginAttempts.emailHash, emailHash)).limit(1);
+  return rows[0]?.lockedUntil && rows[0].lockedUntil > now ? rows[0].lockedUntil : null;
+}
+
+export async function recordFailedLogin(emailHash: string, now = new Date()) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(authLoginAttempts).where(eq(authLoginAttempts.emailHash, emailHash)).limit(1);
+  const existing = rows[0];
+  if (!existing) {
+    await db.insert(authLoginAttempts).values({ emailHash, failedCount: 1, windowStartedAt: now, lockedUntil: null });
+    return null;
+  }
+  const next = nextLoginAttempt(existing, now);
+  await db.update(authLoginAttempts).set(next).where(eq(authLoginAttempts.id, existing.id));
+  return next.lockedUntil;
+}
+
+export async function clearFailedLogins(emailHash: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(authLoginAttempts).where(eq(authLoginAttempts.emailHash, emailHash));
 }
 
 export async function createPhotoTransform(transform: InsertPhotoTransform) {

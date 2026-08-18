@@ -9,12 +9,42 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   passwordHash: varchar("passwordHash", { length: 255 }),
   mustChangePassword: boolean("mustChangePassword").notNull().default(false),
+  emailVerifiedAt: timestamp("emailVerifiedAt"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   unlimitedTransforms: boolean("unlimitedTransforms").notNull().default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
+
+/** One-time, hashed security links; browser-facing tokens are never persisted in plaintext. */
+export const authEmailTokens = mysqlTable(
+  "authEmailTokens",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    purpose: mysqlEnum("purpose", ["email_verification", "password_reset"]).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    consumedAt: timestamp("consumedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("authEmailTokens_hash_unique").on(table.tokenHash), index("authEmailTokens_user_purpose_created_idx").on(table.userId, table.purpose, table.createdAt)]
+);
+
+/** Minimal, hashed-email state for short-term login throttling. */
+export const authLoginAttempts = mysqlTable(
+  "authLoginAttempts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    emailHash: varchar("emailHash", { length: 64 }).notNull(),
+    failedCount: int("failedCount").notNull().default(0),
+    windowStartedAt: timestamp("windowStartedAt").notNull(),
+    lockedUntil: timestamp("lockedUntil"),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("authLoginAttempts_email_hash_unique").on(table.emailHash), index("authLoginAttempts_locked_until_idx").on(table.lockedUntil)]
+);
 
 /** Singleton brand identity. File bytes stay in object storage; this table only holds safe delivery URLs. */
 export const brandSettings = mysqlTable("brandSettings", {

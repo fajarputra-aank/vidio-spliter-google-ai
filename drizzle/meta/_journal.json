@@ -134,6 +134,13 @@
       "when": 1787032980273,
       "tag": "0018_tidy_magdalene",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1787037119818,
+      "tag": "0019_hot_ghost_rider",
+      "breakpoints": true
     }
   ]
 }
