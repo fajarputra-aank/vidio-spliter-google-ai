@@ -13,7 +13,7 @@ import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
 import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
-import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail } from "./accountEmails";
+import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail, sendSecuritySummaryEmail } from "./accountEmails";
 import { registerActiveSession } from "./sessionMetadata";
 
 const imageInput = z.object({
@@ -92,6 +92,7 @@ export const appRouter = router({
       try { await db.recordUserSecurityEvent(user.id, "login"); } catch (error) { console.error("[Auth] Failed to record login security event", error); }
       if (!session.isKnown) {
         try { await db.recordUserSecurityEvent(user.id, "new_device_login"); } catch (error) { console.error("[Auth] Failed to record new-device login event", error); }
+        try { await db.createAccountActivityNotification(user.id, "Login baru terdeteksi", `${session.deviceLabel} di sekitar ${session.locationLabel}. Tinjau sesi aktif bila ini bukan kamu.`); } catch (error) { console.error("[Auth] Failed to create new-device notification", error); }
         try { await sendNewDeviceLoginEmail(user, session); } catch (error) { console.error("[Auth] Failed to send new-device login email", error); }
       }
       return { user };
@@ -141,6 +142,17 @@ export const appRouter = router({
       return { user, emailNoticeSent };
     }),
     securityHistory: protectedProcedure.query(({ ctx }) => db.listUserSecurityEvents(ctx.user.id)),
+    sendSecuritySummary: protectedProcedure.mutation(async ({ ctx }) => {
+      const events = await db.listRecentUserSecurityEvents(ctx.user.id, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+      try {
+        const sent = await sendSecuritySummaryEmail(ctx.user, events);
+        if (!sent) throw new Error("Alamat email akun belum tersedia.");
+        return { sent: true, activityCount: events.length } as const;
+      } catch (error) {
+        console.error("[Auth] Failed to send manual security summary", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Ringkasan keamanan belum dapat dikirim. Coba lagi nanti." });
+      }
+    }),
     activeSessions: protectedProcedure.query(async ({ ctx }) => (await db.listUserActiveSessions(ctx.user.id)).map(({ userId: _userId, ...session }) => ({ ...session, isCurrent: Boolean(ctx.sessionId && session.id === ctx.sessionId) }))),
     signOutSession: protectedProcedure.input(z.object({ sessionId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
       const revoked = await db.revokeUserActiveSession(ctx.user.id, input.sessionId);

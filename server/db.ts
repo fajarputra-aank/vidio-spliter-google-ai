@@ -171,6 +171,21 @@ export async function listUserSecurityEvents(userId: number) {
   return db.select().from(userSecurityEvents).where(eq(userSecurityEvents.userId, userId)).orderBy(desc(userSecurityEvents.createdAt), desc(userSecurityEvents.id)).limit(50);
 }
 
+export async function listRecentUserSecurityEvents(userId: number, since: Date) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(userSecurityEvents).where(and(eq(userSecurityEvents.userId, userId), gte(userSecurityEvents.createdAt, since))).orderBy(desc(userSecurityEvents.createdAt), desc(userSecurityEvents.id)).limit(100);
+}
+
+export async function createAccountActivityNotification(userId: number, title: string, content: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const preferences = await db.select({ accountActivity: userNotificationPreferences.accountActivity }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, userId)).limit(1);
+  if (!(preferences[0]?.accountActivity ?? true)) return false;
+  await db.insert(userNotifications).values({ userId, kind: "account_activity", title, content, relatedPostId: null });
+  return true;
+}
+
 export async function getUserSessionVersion(userId: number) {
   const db = await getDb();
   if (!db) return 0;

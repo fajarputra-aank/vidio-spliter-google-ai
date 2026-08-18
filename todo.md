@@ -202,3 +202,10 @@
 - [x] Kirim email peringatan otomatis pada login dari perangkat atau lokasi yang belum dikenal.
 - [x] Uji pencabutan sesi, deteksi login baru, pengiriman email, responsivitas, dan simpan checkpoint rilis.
 - [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk kontrol sesi spesifik dan peringatan login.
+- [x] Tinjau notifikasi akun, aktivitas keamanan, SMTP, dan kebutuhan jadwal ringkasan mingguan.
+- [x] Buat notifikasi dalam aplikasi privat saat login dari perangkat atau lokasi baru terdeteksi.
+- [x] Buat ringkasan keamanan mingguan per pengguna untuk aktivitas login dan perubahan pengaturan akun.
+- [x] Menetapkan pengiriman ringkasan keamanan secara manual tanpa pekerjaan terjadwal.
+- [x] Tambahkan kontrol manual untuk mengirim ringkasan keamanan ke email pemilik akun.
+- [x] Uji notifikasi, ringkasan email, jadwal, responsivitas, dan simpan checkpoint rilis.
+- [x] Perbarui, validasi, dan serahkan skill ai-photo-studio-fullstack untuk ringkasan keamanan akun.

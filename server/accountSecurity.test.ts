@@ -15,9 +15,12 @@ const mocks = vi.hoisted(() => ({
   getUserSessionVersion: vi.fn(),
   touchLocalSignIn: vi.fn(),
   revokeUserActiveSession: vi.fn(),
+  createAccountActivityNotification: vi.fn(),
+  listRecentUserSecurityEvents: vi.fn(),
   sendPasswordChangedEmail: vi.fn(),
   sendAccountLockedEmail: vi.fn(),
   sendNewDeviceLoginEmail: vi.fn(),
+  sendSecuritySummaryEmail: vi.fn(),
   registerActiveSession: vi.fn(),
 }));
 
@@ -34,6 +37,8 @@ vi.mock("./db", () => ({
   getUserSessionVersion: mocks.getUserSessionVersion,
   touchLocalSignIn: mocks.touchLocalSignIn,
   revokeUserActiveSession: mocks.revokeUserActiveSession,
+  createAccountActivityNotification: mocks.createAccountActivityNotification,
+  listRecentUserSecurityEvents: mocks.listRecentUserSecurityEvents,
 }));
 
 vi.mock("./accountEmails", () => ({
@@ -41,6 +46,7 @@ vi.mock("./accountEmails", () => ({
   sendPasswordChangedEmail: mocks.sendPasswordChangedEmail,
   sendAccountLockedEmail: mocks.sendAccountLockedEmail,
   sendNewDeviceLoginEmail: mocks.sendNewDeviceLoginEmail,
+  sendSecuritySummaryEmail: mocks.sendSecuritySummaryEmail,
 }));
 
 vi.mock("./sessionMetadata", () => ({ registerActiveSession: mocks.registerActiveSession }));
@@ -111,7 +117,18 @@ describe("account security", () => {
     mocks.sendNewDeviceLoginEmail.mockResolvedValue(true);
     await expect(appRouter.createCaller(ctx).auth.login({ email: user.email!, password: "kata-sandi-lama-aman" })).resolves.toMatchObject({ user });
     expect(mocks.recordUserSecurityEvent).toHaveBeenCalledWith(88, "new_device_login");
+    expect(mocks.createAccountActivityNotification).toHaveBeenCalledWith(88, "Login baru terdeteksi", expect.stringContaining("Mac · Safari"));
     expect(mocks.sendNewDeviceLoginEmail).toHaveBeenCalledWith(user, newSession);
+  });
+
+  it("sends a manual seven-day security summary only to its authenticated owner", async () => {
+    const { ctx, user } = await createContext();
+    const events = [{ id: 9, userId: 88, kind: "login", createdAt: new Date() }];
+    mocks.listRecentUserSecurityEvents.mockResolvedValue(events);
+    mocks.sendSecuritySummaryEmail.mockResolvedValue(true);
+    await expect(appRouter.createCaller(ctx).auth.sendSecuritySummary()).resolves.toEqual({ sent: true, activityCount: 1 });
+    expect(mocks.listRecentUserSecurityEvents).toHaveBeenCalledWith(88, expect.any(Date));
+    expect(mocks.sendSecuritySummaryEmail).toHaveBeenCalledWith(user, events);
   });
 
   it("returns only the authenticated owner’s security history", async () => {

@@ -65,3 +65,27 @@ export async function sendNewDeviceLoginEmail(user: Pick<User, "email">, session
   });
   return true;
 }
+
+const securityEventLabels: Record<string, string> = {
+  login: "Login berhasil",
+  password_changed: "Kata sandi diubah",
+  password_reset: "Kata sandi diatur ulang",
+  account_locked: "Akun dikunci sementara",
+  all_sessions_signed_out: "Semua perangkat dikeluarkan",
+  session_signed_out: "Sesi perangkat dikeluarkan",
+  new_device_login: "Login dari perangkat atau lokasi baru",
+};
+
+export async function sendSecuritySummaryEmail(user: Pick<User, "email">, events: Array<{ kind: string; createdAt: Date }>) {
+  if (!user.email) return false;
+  const activities = events.length ? events.slice(0, 12).map((event) => `${securityEventLabels[event.kind] ?? "Aktivitas keamanan"} · ${new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(event.createdAt)}`).join("\n") : "Tidak ada aktivitas keamanan yang tercatat dalam 7 hari terakhir.";
+  await sendSecurityEmail({
+    to: user.email,
+    subject: "Ringkasan keamanan Lensa Saku",
+    heading: "Ringkasan keamanan 7 hari terakhir.",
+    copy: `Berikut aktivitas keamanan pada akunmu:\n\n${activities}`,
+    actionLabel: "Tinjau keamanan akun",
+    actionUrl: new URL("/pengaturan/profil", APP_ORIGIN).toString(),
+  });
+  return true;
+}
