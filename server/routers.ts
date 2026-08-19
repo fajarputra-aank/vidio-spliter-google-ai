@@ -29,6 +29,21 @@ const imageInput = z.object({
   requestId: z.string().uuid().optional(),
 });
 
+const seasonalCollectionFields = z.object({
+  slug: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{3,48}$/),
+  name: z.string().trim().min(3).max(80),
+  season: z.enum(["ramadan", "lebaran"]),
+  description: z.string().trim().min(10).max(240),
+  recipeIds: z.array(z.string().trim().min(1).max(64)).min(1).max(20),
+  isActive: z.boolean().default(true),
+});
+
+const seasonalCollectionInput = seasonalCollectionFields.superRefine((input, ctx) => {
+  input.recipeIds.forEach((recipeId, index) => {
+    if (!recipeIds.includes(recipeId as (typeof recipeIds)[number])) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["recipeIds", index], message: "Resep tidak termasuk katalog tervalidasi." });
+  });
+});
+
 function safeFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(-120) || "photo";
 }
@@ -304,6 +319,12 @@ export const appRouter = router({
     create: protectedProcedure.input(z.object({ recipeId: z.enum(recipeIds) })).mutation(({ ctx, input }) => db.createPhotoRecipeFavorite(ctx.user.id, input.recipeId)),
     delete: protectedProcedure.input(z.object({ recipeId: z.enum(recipeIds) })).mutation(({ ctx, input }) => db.deletePhotoRecipeFavorite(ctx.user.id, input.recipeId)),
   }),
+  recipeCatalog: router({
+    popularity: publicProcedure.query(() => db.getRecipePopularity()),
+    personalUsage: protectedProcedure.query(({ ctx }) => db.getRecipePopularity(ctx.user.id)),
+    seasonalCollections: publicProcedure.query(() => db.listActiveSeasonalRecipeCollections()),
+    definitions: publicProcedure.query(() => recipeIds.map((id) => ({ id, title: photoRecipes[id].title }))),
+  }),
   billing: router({
     packs: publicProcedure.query(() => Object.values(creditPacks)),
     balance: protectedProcedure.query(async ({ ctx }) => ({ credits: await db.getCreditBalance(ctx.user.id), purchases: await db.listCreditPurchases(ctx.user.id), manualOrders: await db.listManualCreditOrders(ctx.user.id) })),
@@ -348,6 +369,9 @@ export const appRouter = router({
     setUserRole: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), role: z.enum(["user", "admin"]) })).mutation(({ ctx, input }) => db.setUserRoleByEmail(ctx.user.id, input.email, input.role)),
     accessAudits: adminProcedure.query(() => db.listAdminAccessAudits()),
     updateBrand: adminProcedure.input(z.object({ logo: brandImageInput.optional(), icon: brandImageInput.optional() }).refine((input) => input.logo || input.icon, { message: "Pilih logo atau ikon yang akan diperbarui." })).mutation(async ({ ctx, input }) => db.updateBrandSettings(ctx.user.id, { logoUrl: input.logo ? await storeBrandImage("logo", input.logo) : undefined, iconUrl: input.icon ? await storeBrandImage("icon", input.icon) : undefined })),
+    seasonalCollections: adminProcedure.query(() => db.listAdminSeasonalRecipeCollections()),
+    createSeasonalCollection: adminProcedure.input(seasonalCollectionInput).mutation(({ input }) => db.createSeasonalRecipeCollection(input)),
+    updateSeasonalCollection: adminProcedure.input(z.object({ id: z.number().int().positive() }).and(seasonalCollectionInput)).mutation(({ input }) => db.updateSeasonalRecipeCollection(input.id, input)),
     manualCreditOrders: adminProcedure.input(z.object({ search: z.string().trim().max(320).optional(), status: z.enum(["all", "pending", "approved", "rejected"]).default("all") }).optional()).query(({ input }) => db.listAdminManualCreditOrders(input)),
     reviewManualCreditOrder: adminProcedure.input(z.object({ orderId: z.number().int().positive(), action: z.enum(["approve", "reject"]) })).mutation(({ ctx, input }) => db.reviewManualCreditOrder(input.orderId, ctx.user.id, input.action)),
     moderationList: adminProcedure.query(() => db.listCommunityPosts()),

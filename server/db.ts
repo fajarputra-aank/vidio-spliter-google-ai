@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoRecipeFavorites, photoTransforms, scheduledJobs, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoRecipeFavorites, photoTransforms, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -707,6 +707,62 @@ export async function deletePhotoRecipeFavorite(userId: number, recipeId: string
   if (!db) throw new Error("Basis data belum tersedia.");
   const result = await db.delete(photoRecipeFavorites).where(and(eq(photoRecipeFavorites.userId, userId), eq(photoRecipeFavorites.recipeId, recipeId)));
   return { success: Number(result[0].affectedRows ?? 0) > 0 };
+}
+
+type SeasonalCollectionInput = { slug: string; name: string; season: "ramadan" | "lebaran"; description: string; recipeIds: string[]; isActive: boolean };
+
+function parseSeasonalRecipeIds(value: string) {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function toSeasonalCollection(record: typeof seasonalRecipeCollections.$inferSelect) {
+  return { ...record, recipeIds: parseSeasonalRecipeIds(record.recipeIds) };
+}
+
+export async function listActiveSeasonalRecipeCollections() {
+  const db = await getDb();
+  if (!db) return [];
+  const records = await db.select().from(seasonalRecipeCollections).where(eq(seasonalRecipeCollections.isActive, true)).orderBy(desc(seasonalRecipeCollections.updatedAt));
+  return records.map(toSeasonalCollection);
+}
+
+export async function listAdminSeasonalRecipeCollections() {
+  const db = await getDb();
+  if (!db) return [];
+  const records = await db.select().from(seasonalRecipeCollections).orderBy(desc(seasonalRecipeCollections.updatedAt));
+  return records.map(toSeasonalCollection);
+}
+
+export async function createSeasonalRecipeCollection(input: SeasonalCollectionInput) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const inserted = await db.insert(seasonalRecipeCollections).values({ ...input, recipeIds: JSON.stringify(Array.from(new Set(input.recipeIds))) });
+  const records = await db.select().from(seasonalRecipeCollections).where(eq(seasonalRecipeCollections.id, Number(inserted[0].insertId))).limit(1);
+  if (!records[0]) throw new Error("Koleksi musiman belum dapat disimpan.");
+  return toSeasonalCollection(records[0]);
+}
+
+export async function updateSeasonalRecipeCollection(id: number, input: Omit<SeasonalCollectionInput, "slug"> & { slug: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.update(seasonalRecipeCollections).set({ ...input, recipeIds: JSON.stringify(Array.from(new Set(input.recipeIds))) }).where(eq(seasonalRecipeCollections.id, id));
+  const records = await db.select().from(seasonalRecipeCollections).where(eq(seasonalRecipeCollections.id, id)).limit(1);
+  if (!records[0]) throw new Error("Koleksi musiman tidak ditemukan.");
+  return toSeasonalCollection(records[0]);
+}
+
+export async function getRecipePopularity(userId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(photoTransforms.status, "completed")];
+  if (userId) conditions.push(eq(photoTransforms.userId, userId));
+  const records = await db.select({ recipeId: photoTransforms.recipe, uses: count(photoTransforms.id) }).from(photoTransforms).where(and(...conditions)).groupBy(photoTransforms.recipe).orderBy(desc(count(photoTransforms.id))).limit(80);
+  return records.map((record) => ({ recipeId: record.recipeId, uses: Number(record.uses) }));
 }
 
 export async function listUserNotifications(userId: number) {

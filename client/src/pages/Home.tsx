@@ -11,7 +11,7 @@ import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
 import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
 import { formatProcessDuration } from "@/lib/processDuration";
-import { filterRecipeCatalog, type RecipeCollectionFilter } from "@/lib/recipeCatalog";
+import { filterRecipeCatalog, recommendPersonalRecipes, sortRecipeCatalog, type RecipeCollectionFilter, type RecipeSort } from "@/lib/recipeCatalog";
 import { useBrand } from "@/contexts/BrandContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -83,7 +83,7 @@ const recipes: Recipe[] = [
 ];
 
 const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }, { name: "Fashion", icon: Palette }, { name: "Ruang", icon: Camera }, { name: "Restorasi", icon: WandSparkles }, { name: "Dokumen", icon: FileText }, { name: "Musiman", icon: Sparkles }, { name: "Kreatif", icon: Aperture }];
-const recipeCollections: Array<{ id: RecipeCollectionFilter; label: string }> = [{ id: "all", label: "Semua koleksi" }, { id: "favorites", label: "Favoritku" }, { id: "ramadan", label: "Ramadan" }, { id: "lebaran", label: "Lebaran" }];
+const defaultRecipeCollections: Array<{ id: RecipeCollectionFilter; label: string }> = [{ id: "all", label: "Semua koleksi" }, { id: "favorites", label: "Favoritku" }, { id: "ramadan", label: "Ramadan" }, { id: "lebaran", label: "Lebaran" }];
 const progressStages = ["Mengunci foto sumber", "Menyiapkan arah visual", "Merender transformasi AI", "Menyimpan hasil ke galeri"];
 const aspectOptions: Array<{ value: OutputAspect; title: string; note: string }> = [
   { value: "1:1", title: "1:1", note: "kotak" },
@@ -140,9 +140,13 @@ export default function Home() {
   const queueStatusQuery = trpc.photo.queueStatus.useQuery(undefined, { enabled: false });
   const promptFavoritesQuery = trpc.promptFavorites.list.useQuery(undefined, { enabled: isAuthenticated });
   const recipeFavoritesQuery = trpc.recipeFavorites.list.useQuery(undefined, { enabled: isAuthenticated });
+  const recipePopularityQuery = trpc.recipeCatalog.popularity.useQuery();
+  const personalRecipeUsageQuery = trpc.recipeCatalog.personalUsage.useQuery(undefined, { enabled: isAuthenticated });
+  const seasonalCollectionsQuery = trpc.recipeCatalog.seasonalCollections.useQuery();
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [selectedRecipeCollection, setSelectedRecipeCollection] = useState<RecipeCollectionFilter>("all");
   const [recipeSearch, setRecipeSearch] = useState("");
+  const [recipeSort, setRecipeSort] = useState<RecipeSort>("curated");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe>(recipes[0]);
   const [selectedAspect, setSelectedAspect] = useState<OutputAspect>("1:1");
   const [selectedStyle, setSelectedStyle] = useState<AiStyle>("editorial");
@@ -169,7 +173,11 @@ export default function Home() {
   const hasUnlimitedStudioAccess = user?.role === "admin" || quotaQuery.data?.isUnlimited === true;
 
   const favoriteRecipeIds = useMemo(() => new Set(recipeFavoritesQuery.data?.map((favorite) => favorite.recipeId) ?? []), [recipeFavoritesQuery.data]);
-  const shownRecipes = useMemo(() => filterRecipeCatalog(recipes, { query: recipeSearch, category: selectedCategory, collection: selectedRecipeCollection, favoriteIds: favoriteRecipeIds }), [favoriteRecipeIds, recipeSearch, selectedCategory, selectedRecipeCollection]);
+  const collectionRecipeIds = useMemo(() => new Map((seasonalCollectionsQuery.data ?? []).map((collection) => [`collection:${collection.slug}`, new Set(collection.recipeIds)])), [seasonalCollectionsQuery.data]);
+  const recipeCollections = useMemo(() => [...defaultRecipeCollections, ...(seasonalCollectionsQuery.data ?? []).map((collection) => ({ id: `collection:${collection.slug}` as RecipeCollectionFilter, label: collection.name }))], [seasonalCollectionsQuery.data]);
+  const visibleRecipeUsage = recipeSort === "frequent" ? personalRecipeUsageQuery.data ?? [] : recipePopularityQuery.data ?? [];
+  const shownRecipes = useMemo(() => sortRecipeCatalog(filterRecipeCatalog(recipes, { query: recipeSearch, category: selectedCategory, collection: selectedRecipeCollection, favoriteIds: favoriteRecipeIds, collectionRecipeIds }), recipeSort, visibleRecipeUsage), [collectionRecipeIds, favoriteRecipeIds, recipeSearch, recipeSort, selectedCategory, selectedRecipeCollection, visibleRecipeUsage]);
+  const personalRecipeRecommendations = useMemo(() => recommendPersonalRecipes(recipes, favoriteRecipeIds, personalRecipeUsageQuery.data ?? [], recipePopularityQuery.data ?? []), [favoriteRecipeIds, personalRecipeUsageQuery.data, recipePopularityQuery.data]);
   const previewImage = resultImage ?? uploadedImage ?? selectedRecipe.image;
   const historyItems = historyQuery.data ?? [];
   const shownHistoryItems = historyFilter === "failed" ? historyItems.filter((item) => item.status === "failed") : historyItems;
@@ -485,6 +493,8 @@ export default function Home() {
               <div className="category-tabs" aria-label="Kategori resep">{categories.map((category) => { const Icon = category.icon; return <button key={category.name} className={selectedCategory === category.name ? "is-selected" : ""} onClick={() => setSelectedCategory(category.name)}><Icon size={15} />{category.name}</button>; })}</div>
               <div className="recipe-search"><label htmlFor="recipe-search">CARI RESEP</label><input id="recipe-search" type="search" value={recipeSearch} onChange={(event) => setRecipeSearch(event.target.value)} placeholder="Contoh: hampers, menu, properti…" /></div>
               <div className="recipe-collections" aria-label="Koleksi resep">{recipeCollections.map((collection) => <button type="button" key={collection.id} className={selectedRecipeCollection === collection.id ? "is-selected" : ""} onClick={() => setSelectedRecipeCollection(collection.id)}>{collection.id === "favorites" && <Heart size={12} fill={selectedRecipeCollection === "favorites" ? "currentColor" : "none"} />}{collection.label}</button>)}</div>
+              <div className="recipe-sort" aria-label="Urutkan resep"><span>URUTKAN</span><button type="button" className={recipeSort === "curated" ? "is-selected" : ""} onClick={() => setRecipeSort("curated")}>Kurasi</button><button type="button" className={recipeSort === "frequent" ? "is-selected" : ""} onClick={() => { if (!isAuthenticated) { toast.message("Masuk untuk melihat resep yang paling sering kamu gunakan."); startLogin(); return; } setRecipeSort("frequent"); }}>Paling sering</button><button type="button" className={recipeSort === "popular" ? "is-selected" : ""} onClick={() => setRecipeSort("popular")}>Paling populer</button></div>
+              {isAuthenticated && favoriteRecipeIds.size > 0 && personalRecipeRecommendations.length > 0 && <div className="personal-recipe-recommendations" aria-label="Rekomendasi dari favorit pengguna"><div><span><Sparkles size={13} /> UNTUKMU</span><small>Dari favorit dan kebiasaan meracikmu</small></div><section>{personalRecipeRecommendations.map(({ recipe, reason }) => <button type="button" key={recipe.id} onClick={() => { chooseRecipe(recipe); setSelectedCategory(recipe.category); toast.message(`${recipe.name} dipilih dari rekomendasi pribadi.`); }}><strong>{recipe.name}</strong><small>{reason}</small><ArrowRight size={13} /></button>)}</section></div>}
               {recommendationMutation.isPending && <div className="recipe-recommendation is-loading"><Sparkles size={15} /><span>Menganalisis jenis foto untuk mencari resep yang cocok…</span></div>}
               {recommendationStatus === "login" && <button className="recipe-recommendation is-login" onClick={startLogin}><LogIn size={15} /><span><small>REKOMENDASI AI</small><strong>Masuk untuk analisis otomatis</strong><em>Analisis jenis foto berjalan privat setelah kamu masuk ke studio.</em></span><ArrowRight size={15} /></button>}
               {recommendationStatus === "error" && <div className="recipe-recommendation is-loading"><X size={15} /><span>Analisis foto belum tersedia. Kamu tetap dapat memilih resep secara manual.</span></div>}

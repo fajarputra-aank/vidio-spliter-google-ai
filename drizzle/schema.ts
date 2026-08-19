@@ -287,6 +287,23 @@ export const photoRecipeFavorites = mysqlTable(
   (table) => [uniqueIndex("photoRecipeFavorites_user_recipe_unique").on(table.userId, table.recipeId), index("photoRecipeFavorites_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+/** Administrator-managed recipe groups; recipe IDs stay server-validated. */
+export const seasonalRecipeCollections = mysqlTable(
+  "seasonalRecipeCollections",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    slug: varchar("slug", { length: 48 }).notNull().unique(),
+    name: varchar("name", { length: 80 }).notNull(),
+    season: mysqlEnum("season", ["ramadan", "lebaran"]).notNull(),
+    description: varchar("description", { length: 240 }).notNull(),
+    recipeIds: text("recipeIds").notNull(),
+    isActive: boolean("isActive").notNull().default(true),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [index("seasonalRecipeCollections_active_updated_idx").on(table.isActive, table.updatedAt)]
+);
+
 /** Private in-app events, including actions performed by community moderators. */
 export const userNotifications = mysqlTable(
   "userNotifications",

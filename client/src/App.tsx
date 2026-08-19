@@ -20,6 +20,7 @@ import { BrandProvider } from "./contexts/BrandContext";
 import Auth, { ChangePassword, EmailVerification, ForgotPassword, ResetPassword } from "./pages/Auth";
 import ProfileSettings from "./pages/ProfileSettings";
 import TransformDetail from "./pages/TransformDetail";
+import SeasonalCollectionsAdmin from "./pages/SeasonalCollectionsAdmin";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/komunitas" component={Community} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/brand" component={BrandSettings} />
+      <Route path="/admin/koleksi-musiman" component={SeasonalCollectionsAdmin} />
       <Route path="/pengaturan/notifikasi" component={NotificationSettings} />
       <Route path="/pengaturan/profil" component={ProfileSettings} />
       <Route path="/profil/album-terarsip" component={ArchivedAlbums} />

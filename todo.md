@@ -263,3 +263,8 @@
 - [x] Implementasikan tombol favorit pada setiap resep, daftar akses cepat resep favorit, serta prosedur penyimpanan privat yang tervalidasi.
 - [x] Tambahkan resep Ramadan dan Lebaran ke katalog studio, validasi server, dan prompt preservasi subjek/produk/label.
 - [x] Uji pencarian, filter, favorit, koleksi musiman, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang metrik penggunaan/popularitas resep, model koleksi musiman yang dapat dikelola admin, dan aturan rekomendasi yang memakai favorit tanpa membocorkan data pengguna.
+- [x] Tambahkan tabel, migrasi, helper, dan prosedur admin untuk membuat, memperbarui, mengaktifkan, serta menonaktifkan koleksi resep musiman.
+- [x] Bangun halaman admin koleksi musiman dengan validasi prompt, kategori, musim, dan status aktif yang jelas.
+- [x] Tambahkan urutan resep Paling sering/Paling populer serta rekomendasi personal berdasarkan favorit di studio pengguna.
+- [x] Uji penggunaan, popularitas, otorisasi admin, rekomendasi privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
