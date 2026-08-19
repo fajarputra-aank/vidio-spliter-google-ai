@@ -298,10 +298,12 @@ export const seasonalRecipeCollections = mysqlTable(
     description: varchar("description", { length: 240 }).notNull(),
     recipeIds: text("recipeIds").notNull(),
     isActive: boolean("isActive").notNull().default(true),
+    startsAt: timestamp("startsAt"),
+    endsAt: timestamp("endsAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
-  (table) => [index("seasonalRecipeCollections_active_updated_idx").on(table.isActive, table.updatedAt)]
+  (table) => [index("seasonalRecipeCollections_active_updated_idx").on(table.isActive, table.updatedAt), index("seasonalRecipeCollections_active_schedule_idx").on(table.isActive, table.startsAt, table.endsAt)]
 );
 
 /** Private in-app events, including actions performed by community moderators. */

@@ -28,4 +28,10 @@ describe("koleksi resep musiman", () => {
     expect(mocks.createSeasonalRecipeCollection).toHaveBeenCalledWith(expect.objectContaining({ slug: "hampers-ramadan", recipeIds: ["ramadan_hampers"] }));
     await expect(appRouter.createCaller(context("user")).admin.createSeasonalCollection({ slug: "hampers-ramadan", name: "Hampers Ramadan", season: "ramadan", description: "Pilihan hamper yang rapi untuk katalog promosi toko.", recipeIds: ["ramadan_hampers"], isActive: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("menolak jadwal koleksi dengan waktu akhir sebelum waktu mulai", async () => {
+    const admin = appRouter.createCaller(context("admin"));
+    await expect(admin.admin.createSeasonalCollection({ slug: "promo-terbatas", name: "Promo Terbatas", season: "lebaran", description: "Koleksi promosi Lebaran yang hanya tampil pada rentang tertentu.", recipeIds: ["lebaran_promo"], isActive: true, startsAt: new Date("2026-04-01T09:00:00Z"), endsAt: new Date("2026-04-01T08:00:00Z") })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(mocks.createSeasonalRecipeCollection).not.toHaveBeenCalledWith(expect.objectContaining({ slug: "promo-terbatas" }));
+  });
 });

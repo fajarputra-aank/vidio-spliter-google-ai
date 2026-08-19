@@ -36,12 +36,15 @@ const seasonalCollectionFields = z.object({
   description: z.string().trim().min(10).max(240),
   recipeIds: z.array(z.string().trim().min(1).max(64)).min(1).max(20),
   isActive: z.boolean().default(true),
+  startsAt: z.date().nullable().optional().default(null),
+  endsAt: z.date().nullable().optional().default(null),
 });
 
 const seasonalCollectionInput = seasonalCollectionFields.superRefine((input, ctx) => {
   input.recipeIds.forEach((recipeId, index) => {
     if (!recipeIds.includes(recipeId as (typeof recipeIds)[number])) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["recipeIds", index], message: "Resep tidak termasuk katalog tervalidasi." });
   });
+  if (input.startsAt && input.endsAt && input.endsAt <= input.startsAt) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endsAt"], message: "Tanggal berakhir harus setelah tanggal mulai." });
 });
 
 function safeFileName(value: string) {

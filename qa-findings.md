@@ -5,3 +5,5 @@
 - Pengujian interaksi data tetap dicakup oleh unit test; pemeriksaan visual dilakukan pada keadaan belum masuk, sehingga daftar favorit privat tidak menampilkan data pengguna pada tangkapan layar.
 
 Pemeriksaan terbaru memperlihatkan kontrol urutan resep tetap berada dalam kolom pemilih tanpa menutupi kartu resep pada desktop. Pada layar seluler, kelompok urutan beralih menjadi susunan vertikal dan koleksi tetap dapat digulir; tata letak tidak menunjukkan tumpang tindih. Halaman pengelolaan koleksi memerlukan sesi administrator, sehingga otorisasi dan penyimpanan divalidasi melalui pengujian prosedur server.
+
+Pemeriksaan desktop dan seluler setelah penambahan state rekomendasi memastikan area pemilih tetap stabil ketika skeleton dan transisi siap ditampilkan. Screenshot dilakukan tanpa sesi pengguna sehingga tidak memicu rekomendasi pribadi atau analisis foto; perilaku asinkron, aksesibilitas live region, dan rentang jadwal tervalidasi melalui kode serta pengujian unit.

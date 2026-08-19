@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoRecipeFavorites, photoTransforms, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
@@ -709,7 +709,7 @@ export async function deletePhotoRecipeFavorite(userId: number, recipeId: string
   return { success: Number(result[0].affectedRows ?? 0) > 0 };
 }
 
-type SeasonalCollectionInput = { slug: string; name: string; season: "ramadan" | "lebaran"; description: string; recipeIds: string[]; isActive: boolean };
+type SeasonalCollectionInput = { slug: string; name: string; season: "ramadan" | "lebaran"; description: string; recipeIds: string[]; isActive: boolean; startsAt: Date | null; endsAt: Date | null };
 
 function parseSeasonalRecipeIds(value: string) {
   try {
@@ -727,7 +727,8 @@ function toSeasonalCollection(record: typeof seasonalRecipeCollections.$inferSel
 export async function listActiveSeasonalRecipeCollections() {
   const db = await getDb();
   if (!db) return [];
-  const records = await db.select().from(seasonalRecipeCollections).where(eq(seasonalRecipeCollections.isActive, true)).orderBy(desc(seasonalRecipeCollections.updatedAt));
+  const now = new Date();
+  const records = await db.select().from(seasonalRecipeCollections).where(and(eq(seasonalRecipeCollections.isActive, true), or(isNull(seasonalRecipeCollections.startsAt), lte(seasonalRecipeCollections.startsAt, now)), or(isNull(seasonalRecipeCollections.endsAt), gt(seasonalRecipeCollections.endsAt, now)))).orderBy(desc(seasonalRecipeCollections.updatedAt));
   return records.map(toSeasonalCollection);
 }
 

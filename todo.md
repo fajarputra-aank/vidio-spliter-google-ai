@@ -268,3 +268,8 @@
 - [x] Bangun halaman admin koleksi musiman dengan validasi prompt, kategori, musim, dan status aktif yang jelas.
 - [x] Tambahkan urutan resep Paling sering/Paling populer serta rekomendasi personal berdasarkan favorit di studio pengguna.
 - [x] Uji penggunaan, popularitas, otorisasi admin, rekomendasi privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang status pemuatan rekomendasi yang aksesibel, pratinjau koleksi admin, dan aturan jadwal aktif berbasis waktu server.
+- [x] Tambahkan kolom jadwal, migrasi, validasi server, dan query koleksi musiman agar tampil hanya dalam jendela jadwal aktif.
+- [x] Tambahkan pratinjau interaktif di halaman admin yang merefleksikan draf koleksi sebelum disimpan atau diterbitkan.
+- [x] Tambahkan skeleton, transisi halus, dan feedback status saat rekomendasi resep dimuat pada studio.
+- [x] Uji penjadwalan, pratinjau, status pemuatan, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
