@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   failPhotoTransform: vi.fn(),
   getOwnedPhotoTransform: vi.fn(),
   cancelPhotoTransform: vi.fn(),
+  getProcessingQueueStatus: vi.fn(),
+  markPhotoTransformAutoRetry: vi.fn(),
   storagePut: vi.fn(),
   generateImage: vi.fn(),
 }));
@@ -23,6 +25,8 @@ vi.mock("./db", () => ({
   failPhotoTransform: mocks.failPhotoTransform,
   getOwnedPhotoTransform: mocks.getOwnedPhotoTransform,
   cancelPhotoTransform: mocks.cancelPhotoTransform,
+  getProcessingQueueStatus: mocks.getProcessingQueueStatus,
+  markPhotoTransformAutoRetry: mocks.markPhotoTransformAutoRetry,
 }));
 
 vi.mock("./storage", () => ({ storagePut: mocks.storagePut }));
@@ -77,6 +81,7 @@ describe("admin photo transforms", () => {
     mocks.completePhotoTransform.mockResolvedValue({ id: 42, resultUrl: "/manus-storage/results/admin.png", status: "completed" });
     mocks.getOwnedPhotoTransform.mockResolvedValue({ id: 11, status: "failed" });
     mocks.cancelPhotoTransform.mockResolvedValue({ cancelled: true });
+    mocks.getProcessingQueueStatus.mockResolvedValue({ activeCount: 2, position: 3 });
   });
 
   it("bypasses an exhausted daily quota without consuming purchased credit", async () => {
@@ -138,5 +143,25 @@ describe("admin photo transforms", () => {
     const caller = appRouter.createCaller(adminContext());
 
     await expect(caller.photo.aiQuotaStatus()).resolves.toMatchObject({ status: "estimate_only", retryEstimate: expect.any(String), checkedAt: expect.any(Date) });
+  });
+
+  it("reports a queue estimate and retries one temporary provider failure", async () => {
+    mocks.generateImage.mockRejectedValueOnce(new Error("Image generation request failed (503 Service Unavailable)")).mockResolvedValueOnce({ url: "/manus-storage/results/retried.png" });
+    const caller = appRouter.createCaller(adminContext());
+    const sourceData = Buffer.from("temporary provider failure").toString("base64");
+
+    await expect(caller.photo.transform({ recipe: "headshot", aspectRatio: "1:1", style: "editorial", fileName: "retry-provider.png", mimeType: "image/png", sourceData })).resolves.toMatchObject({ status: "completed" });
+    expect(mocks.getProcessingQueueStatus).toHaveBeenCalled();
+    expect(mocks.createPhotoTransform).toHaveBeenCalledWith(expect.objectContaining({ queuePosition: 3, status: "processing" }));
+    expect(mocks.markPhotoTransformAutoRetry).toHaveBeenCalledWith(42);
+    expect(mocks.generateImage).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a transform detail only when it belongs to the caller", async () => {
+    mocks.getOwnedPhotoTransform.mockResolvedValueOnce({ id: 19, userId: 1, sourceUrl: "/manus-storage/source.png", resultUrl: null, status: "failed" });
+    const caller = appRouter.createCaller(adminContext());
+
+    await expect(caller.photo.getById({ transformId: 19 })).resolves.toMatchObject({ id: 19, status: "failed" });
+    expect(mocks.getOwnedPhotoTransform).toHaveBeenCalledWith(1, 19);
   });
 });

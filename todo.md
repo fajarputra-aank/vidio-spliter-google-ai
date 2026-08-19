@@ -244,3 +244,8 @@
 - [x] Berikan notifikasi jelas ketika hasil yang dibatalkan diproses ulang.
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk durasi, konfirmasi pembatalan, dan notifikasi ulang.
 - [x] Uji migrasi, durasi, dialog pembatalan, notifikasi ulang, responsivitas, dan simpan checkpoint rilis.
+- [x] Tambahkan indikator posisi antrean AI yang jujur pada transformasi aktif.
+- [x] Tambahkan pengulangan otomatis maksimal satu kali untuk gangguan sementara yang aman.
+- [x] Buat halaman detail aktivitas privat untuk setiap transformasi.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk antrean, pengulangan otomatis, dan detail aktivitas.
+- [x] Uji migrasi, antrean, pengulangan otomatis, detail aktivitas, responsivitas, dan simpan checkpoint rilis.

@@ -74,6 +74,12 @@ function activeTransformKey(userId: number, requestId: string) {
   return `${userId}:${requestId}`;
 }
 
+function isTemporaryProviderFailure(error: unknown) {
+  if (error instanceof DOMException && error.name === "AbortError") return false;
+  const message = error instanceof Error ? error.message : String(error);
+  return /network|fetch|timeout|timed out|temporar|service unavailable|\b502\b|\b503\b|\b504\b/i.test(message);
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -209,6 +215,12 @@ export const appRouter = router({
     list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => (await db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)).map(withPrivatePhotoMedia)),
     setHidden: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), isHidden: z.boolean() })).mutation(({ ctx, input }) => db.setPhotoTransformHidden(ctx.user.id, input.transformId, input.isHidden)),
     quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user) })),
+    queueStatus: protectedProcedure.query(() => db.getProcessingQueueStatus()),
+    getById: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+      const transform = await db.getOwnedPhotoTransform(ctx.user.id, input.transformId);
+      if (!transform) throw new TRPCError({ code: "NOT_FOUND", message: "Transformasi tidak ditemukan." });
+      return withPrivatePhotoMedia(transform);
+    }),
     aiQuotaStatus: protectedProcedure.query(() => ({ checkedAt: new Date(), retryEstimate: aiQuotaRetryEstimate(), status: "estimate_only" as const })),
     cancelTransform: protectedProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
       const result = await db.cancelPhotoTransform(ctx.user.id, input.requestId);
@@ -254,16 +266,20 @@ export const appRouter = router({
       }
       try {
         const source = await storagePut(`originals/${ctx.user.id}/${Date.now()}-${safeFileName(input.fileName)}`, sourceBuffer, input.mimeType);
-        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: input.recipe, aspectRatio: input.aspectRatio, style: input.style, title: photoRecipes[input.recipe].title, sourceKey: source.key, sourceUrl: source.url, retryOfTransformId: input.retryOfTransformId, requestId: input.requestId, retryInstruction: input.retryOfTransformId ? input.customInstruction ?? null : null, status: "processing" });
+        const queue = await db.getProcessingQueueStatus();
+        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: input.recipe, aspectRatio: input.aspectRatio, style: input.style, title: photoRecipes[input.recipe].title, sourceKey: source.key, sourceUrl: source.url, retryOfTransformId: input.retryOfTransformId, requestId: input.requestId, retryInstruction: input.retryOfTransformId ? input.customInstruction ?? null : null, queuePosition: queue.position, status: "processing" });
         transformId = transform.id;
         const aborter = input.requestId ? new AbortController() : null;
         if (aborter && input.requestId) activeTransformAborters.set(activeTransformKey(ctx.user.id, input.requestId), aborter);
-        const result = await generateImage({
-          prompt: buildTransformPrompt(input.recipe, input.aspectRatio, input.style, input.customInstruction),
-          originalImages: [{ b64Json: input.sourceData, mimeType: input.mimeType }],
-          quality: "medium",
-          signal: aborter?.signal,
-        });
+        const options = { prompt: buildTransformPrompt(input.recipe, input.aspectRatio, input.style, input.customInstruction), originalImages: [{ b64Json: input.sourceData, mimeType: input.mimeType }], quality: "medium", signal: aborter?.signal };
+        let result;
+        try {
+          result = await generateImage(options);
+        } catch (firstError) {
+          if (!isTemporaryProviderFailure(firstError)) throw firstError;
+          await db.markPhotoTransformAutoRetry(transform.id);
+          result = await generateImage(options);
+        }
         if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
         return withPrivatePhotoMedia(await db.completePhotoTransform(transform.id, result.url));
       } catch (error) {

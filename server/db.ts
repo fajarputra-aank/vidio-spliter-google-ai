@@ -256,6 +256,20 @@ export async function getOwnedPhotoTransform(userId: number, transformId: number
   return rows[0] ?? null;
 }
 
+export async function getProcessingQueueStatus() {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const rows = await db.select({ activeCount: count() }).from(photoTransforms).where(eq(photoTransforms.status, "processing"));
+  const activeCount = Number(rows[0]?.activeCount ?? 0);
+  return { activeCount, position: activeCount + 1 };
+}
+
+export async function markPhotoTransformAutoRetry(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(photoTransforms).set({ providerAttemptCount: 2, autoRetryAt: new Date() }).where(and(eq(photoTransforms.id, id), eq(photoTransforms.status, "processing")));
+}
+
 export async function completePhotoTransform(id: number, resultUrl: string) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");

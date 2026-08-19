@@ -19,6 +19,7 @@ import BrandSettings from "./pages/BrandSettings";
 import { BrandProvider } from "./contexts/BrandContext";
 import Auth, { ChangePassword, EmailVerification, ForgotPassword, ResetPassword } from "./pages/Auth";
 import ProfileSettings from "./pages/ProfileSettings";
+import TransformDetail from "./pages/TransformDetail";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/reset-kata-sandi" component={ResetPassword} />
       <Route path="/verifikasi-email" component={EmailVerification} />
       <Route path="/profil" component={Profile} />
+      <Route path="/koleksi/:id" component={TransformDetail} />
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />
       <Route path="/admin" component={Admin} />
