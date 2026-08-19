@@ -269,6 +269,7 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .history-grid { max-width: 1450px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
 .history-card { min-width: 0; display: flex; flex-direction: column; background: #fffdf8; border: 1px solid #c9bdaa; }
 .history-card.failed { opacity: .76; }
+.history-card.cancelled { border-color: #cda991; }
 .history-thumb { height: 182px; position: relative; overflow: hidden; background: #d9d0c1; }
 .history-thumb::before { content: "PRIVATE PROOF"; position: absolute; z-index: 3; left: 9px; top: 9px; padding: 4px 5px; color: #fffdf8; background: rgba(27,27,24,.75); font-size: 6px; font-weight: 800; letter-spacing: .1em; }
 .history-thumb::after { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(255,255,255,.55); pointer-events: none; }
@@ -277,6 +278,7 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .history-card.failed .history-thumb span { color: #fffdf8; background: #6f4630; }
 .history-info { padding: 13px; }
 .history-info small { display: block; color: #90887d; font-size: 8px; }
+.process-duration { display: block; margin-top: 4px; color: #7a4a2e; font-size: 8px; font-weight: 800; letter-spacing: .03em; }
 .history-info strong { display: block; margin-top: 5px; font-size: 12px; }
 .history-info p { min-height: 28px; margin: 5px 0 11px; color: #746d62; font-size: 9px; line-height: 1.45; }
 .retry-history { margin: -3px 0 10px; padding: 7px 8px; border-left: 2px solid #b8611c; background: #f2eadf; }
@@ -331,6 +333,7 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .instruction-field > p { margin: 7px 0 0; color: #7a7266; font-size: 8px; line-height: 1.45; }
 .retry-instruction-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 7px; padding: 7px; border-left: 2px solid #b8611c; background: #f5e8d7; color: #704934; font-size: 8px; line-height: 1.4; }
 .retry-instruction-note svg { flex: 0 0 auto; color: #a95115; }
+.cancel-dialog-confirm { background: #8c4a2c !important; color: #fffdf8 !important; }
 .instruction-favorites { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #cfc3b2; }
 .favorite-heading button { min-height: 25px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; background: #1b1b18; color: #fffdf8; font-size: 8px; font-weight: 800; letter-spacing: .02em; }
 .favorite-heading button:disabled { opacity: .5; cursor: not-allowed; }

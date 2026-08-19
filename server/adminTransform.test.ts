@@ -117,6 +117,15 @@ describe("admin photo transforms", () => {
     expect(mocks.createPhotoTransform).toHaveBeenCalledWith(expect.objectContaining({ retryOfTransformId: 11, retryInstruction: "Pertahankan label produk dan cerahkan latar.", userId: 1 }));
   });
 
+  it("allows the owner to reprocess a cancelled transform", async () => {
+    mocks.getOwnedPhotoTransform.mockResolvedValueOnce({ id: 13, status: "cancelled" });
+    const caller = appRouter.createCaller(adminContext());
+    const sourceData = Buffer.from("cancelled retry image payload").toString("base64");
+
+    await expect(caller.photo.transform({ recipe: "headshot", aspectRatio: "1:1", style: "editorial", fileName: "retry-cancelled.png", mimeType: "image/png", sourceData, retryOfTransformId: 13 })).resolves.toMatchObject({ status: "completed" });
+    expect(mocks.getOwnedPhotoTransform).toHaveBeenCalledWith(1, 13);
+  });
+
   it("cancels only the active transform request belonging to the caller", async () => {
     const caller = appRouter.createCaller(adminContext());
     const requestId = "244f9d54-2c2d-4fde-ab6d-2cc2d62ee5d2";

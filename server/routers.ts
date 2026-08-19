@@ -250,7 +250,7 @@ export const appRouter = router({
       }
       if (input.retryOfTransformId) {
         const previous = await db.getOwnedPhotoTransform(ctx.user.id, input.retryOfTransformId);
-        if (!previous || previous.status !== "failed") throw new TRPCError({ code: "BAD_REQUEST", message: "Transformasi yang ingin diulang tidak tersedia." });
+        if (!previous || (previous.status !== "failed" && previous.status !== "cancelled")) throw new TRPCError({ code: "BAD_REQUEST", message: "Transformasi yang ingin diulang tidak tersedia." });
       }
       try {
         const source = await storagePut(`originals/${ctx.user.id}/${Date.now()}-${safeFileName(input.fileName)}`, sourceBuffer, input.mimeType);

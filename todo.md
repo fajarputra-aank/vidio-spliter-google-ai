@@ -239,3 +239,8 @@
 - [x] Tambahkan tombol muat ulang status kuota AI pada pesan peringatan pengguna.
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pembatalan, instruksi ulang, dan penyegaran kuota.
 - [x] Uji pembatalan, instruksi ulang, penyegaran kuota, responsivitas, dan simpan checkpoint rilis.
+- [x] Rekam dan tampilkan durasi proses aktual untuk setiap transformasi privat.
+- [x] Tambahkan dialog konfirmasi sebelum membatalkan transformasi yang aktif.
+- [x] Berikan notifikasi jelas ketika hasil yang dibatalkan diproses ulang.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk durasi, konfirmasi pembatalan, dan notifikasi ulang.
+- [x] Uji migrasi, durasi, dialog pembatalan, notifikasi ulang, responsivitas, dan simpan checkpoint rilis.
