@@ -291,6 +291,19 @@ export const photoPromptFavorites = mysqlTable(
   (table) => [uniqueIndex("photoPromptFavorites_user_instruction_unique").on(table.userId, table.instruction), index("photoPromptFavorites_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+/** Reusable private social captions; never exposed in community metadata or activity exports. */
+export const photoCaptionTemplates = mysqlTable(
+  "photoCaptionTemplates",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    name: varchar("name", { length: 60 }).notNull(),
+    caption: varchar("caption", { length: 500 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("photoCaptionTemplates_user_name_unique").on(table.userId, table.name), index("photoCaptionTemplates_user_created_idx").on(table.userId, table.createdAt)]
+);
+
 /** Saved recipe IDs are private shortcuts and never exposed in community metadata. */
 export const photoRecipeFavorites = mysqlTable(
   "photoRecipeFavorites",

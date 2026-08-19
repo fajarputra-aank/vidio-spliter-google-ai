@@ -285,3 +285,8 @@
 - [x] Bangun pembuatan caption yang berbeda untuk platform pilihan dan watermark kustom pada salinan yang dibagikan tanpa mengubah hasil asli.
 - [x] Tampilkan kontrol caption/watermark sebelum berbagi serta riwayat aktivitas berbagi pada hasil foto.
 - [x] Uji caption, watermark, privasi riwayat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang model template caption favorit owner-scoped, konfigurasi posisi/ukuran/font watermark, dan CSV riwayat berbagi metadata-only.
+- [x] Tambahkan tabel, migrasi, helper, dan prosedur privat untuk menyimpan, memakai, serta menghapus template caption favorit.
+- [x] Terapkan posisi, ukuran, dan font watermark pada salinan canvas sebelum berbagi tanpa mengubah hasil asli.
+- [x] Tambahkan kontrol template caption, pengaturan watermark, dan ekspor CSV riwayat berbagi di studio/detail hasil.
+- [x] Uji template, konfigurasi watermark, ekspor CSV, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

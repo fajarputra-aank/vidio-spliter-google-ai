@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -271,6 +271,28 @@ export async function listPhotoShareEvents(userId: number, transformId: number) 
   const db = await getDb();
   if (!db) return [];
   return db.select().from(photoShareEvents).where(and(eq(photoShareEvents.userId, userId), eq(photoShareEvents.transformId, transformId))).orderBy(desc(photoShareEvents.createdAt)).limit(30);
+}
+
+export async function listPhotoCaptionTemplates(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(photoCaptionTemplates).where(eq(photoCaptionTemplates.userId, userId)).orderBy(desc(photoCaptionTemplates.createdAt)).limit(30);
+}
+
+export async function createPhotoCaptionTemplate(userId: number, name: string, caption: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.insert(photoCaptionTemplates).values({ userId, name: name.trim(), caption: caption.trim() });
+  const records = await db.select().from(photoCaptionTemplates).where(eq(photoCaptionTemplates.id, Number(result[0].insertId))).limit(1);
+  if (!records[0]) throw new Error("Template caption belum dapat disimpan.");
+  return records[0];
+}
+
+export async function deletePhotoCaptionTemplate(userId: number, templateId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.delete(photoCaptionTemplates).where(and(eq(photoCaptionTemplates.id, templateId), eq(photoCaptionTemplates.userId, userId)));
+  return Number(result[0].affectedRows ?? 0) > 0;
 }
 
 export async function getProcessingQueueStatus() {

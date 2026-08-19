@@ -319,6 +319,15 @@ export const appRouter = router({
     create: protectedProcedure.input(z.object({ instruction: z.string().trim().min(3).max(360) })).mutation(({ ctx, input }) => db.createPhotoPromptFavorite(ctx.user.id, input.instruction)),
     delete: protectedProcedure.input(z.object({ favoriteId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deletePhotoPromptFavorite(ctx.user.id, input.favoriteId)),
   }),
+  captionTemplates: router({
+    list: protectedProcedure.query(({ ctx }) => db.listPhotoCaptionTemplates(ctx.user.id)),
+    create: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(60), caption: z.string().trim().min(3).max(500) })).mutation(({ ctx, input }) => db.createPhotoCaptionTemplate(ctx.user.id, input.name, input.caption)),
+    delete: protectedProcedure.input(z.object({ templateId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      const deleted = await db.deletePhotoCaptionTemplate(ctx.user.id, input.templateId);
+      if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Template caption tidak ditemukan." });
+      return { deleted: true } as const;
+    }),
+  }),
   recipeFavorites: router({
     list: protectedProcedure.query(({ ctx }) => db.listPhotoRecipeFavorites(ctx.user.id)),
     create: protectedProcedure.input(z.object({ recipeId: z.enum(recipeIds) })).mutation(({ ctx, input }) => db.createPhotoRecipeFavorite(ctx.user.id, input.recipeId)),
