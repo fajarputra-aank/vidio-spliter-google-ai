@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { photoCollaborationBrandLogos, photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
+import { collaborationShareRoleLimits, photoCollaborationBrandLogos, photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
 import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
@@ -315,13 +315,32 @@ export async function listPhotoCollaborationProjects(userId: number, filters: { 
   return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(...conditions)).orderBy(desc(photoTransforms.createdAt)).limit(100);
 }
 
-export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date, watermarkText: string | null, watermarkLogoId: number | null, allowUnlimitedActiveLinks = false) {
+export type CollaborationShareRole = "user" | "admin";
+
+export async function getCollaborationShareRoleLimits() {
+  const db = await getDb();
+  const defaults = { user: 3, admin: null } as Record<CollaborationShareRole, number | null>;
+  if (!db) return defaults;
+  const rows = await db.select().from(collaborationShareRoleLimits);
+  for (const row of rows) defaults[row.role] = row.maxActiveLinks;
+  return defaults;
+}
+
+export async function updateCollaborationShareRoleLimit(role: CollaborationShareRole, maxActiveLinks: number | null) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.insert(collaborationShareRoleLimits).values({ role, maxActiveLinks }).onDuplicateKeyUpdate({ set: { maxActiveLinks } });
+  return { role, maxActiveLinks };
+}
+
+export async function createPhotoCollaborationShareLink(userId: number, role: CollaborationShareRole, transformId: number, tokenHash: string, expiresAt: Date, watermarkText: string | null, watermarkLogoId: number | null) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
   const transform = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
   if (!transform[0]) throw new Error("Hanya hasil Kolaborasi Foto yang selesai dapat dibagikan.");
   const active = await db.select({ total: count() }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date())));
-  if (!allowUnlimitedActiveLinks && Number(active[0]?.total ?? 0) >= 3) throw new Error("Maksimal tiga tautan berbagi aktif untuk setiap hasil. Cabut atau tunggu salah satunya berakhir.");
+  const maxActiveLinks = (await getCollaborationShareRoleLimits())[role];
+  if (maxActiveLinks !== null && Number(active[0]?.total ?? 0) >= maxActiveLinks) throw new Error(`Maksimal ${maxActiveLinks} tautan berbagi aktif untuk setiap hasil. Cabut atau tunggu salah satunya berakhir.`);
   if (watermarkLogoId) { const logo = await db.select({ id: photoCollaborationBrandLogos.id }).from(photoCollaborationBrandLogos).where(and(eq(photoCollaborationBrandLogos.id, watermarkLogoId), eq(photoCollaborationBrandLogos.userId, userId))).limit(1); if (!logo[0]) throw new Error("Logo watermark tidak ditemukan."); }
   const result = await db.insert(photoCollaborationShareLinks).values({ userId, transformId, tokenHash, expiresAt, watermarkText: watermarkText?.trim() || null, watermarkLogoId });
   const rows = await db.select().from(photoCollaborationShareLinks).where(eq(photoCollaborationShareLinks.id, Number(result[0].insertId))).limit(1);
@@ -340,6 +359,23 @@ export async function revokePhotoCollaborationShareLink(userId: number, shareLin
   const result = await db.update(photoCollaborationShareLinks).set({ revokedAt: new Date() }).where(and(eq(photoCollaborationShareLinks.id, shareLinkId), eq(photoCollaborationShareLinks.userId, userId), isNull(photoCollaborationShareLinks.revokedAt)));
   if (!Number(result[0].affectedRows)) throw new Error("Tautan tidak dapat dicabut.");
   return { success: true };
+}
+
+export async function revokeAllActivePhotoCollaborationShareLinks(transformId: number, ownerId?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const conditions = [eq(photoTransforms.id, transformId), eq(photoTransforms.recipe, "collaboration")];
+  if (ownerId !== undefined) conditions.push(eq(photoTransforms.userId, ownerId));
+  const transform = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(...conditions)).limit(1);
+  if (!transform[0]) throw new Error("Hasil Kolaborasi Foto tidak ditemukan atau tidak dapat dikelola.");
+  const result = await db.update(photoCollaborationShareLinks).set({ revokedAt: new Date() }).where(and(eq(photoCollaborationShareLinks.transformId, transformId), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date())));
+  return { revokedCount: Number(result[0].affectedRows || 0) };
+}
+
+export async function listAdminActivePhotoCollaborationShareLinks() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({ id: photoCollaborationShareLinks.id, transformId: photoCollaborationShareLinks.transformId, ownerId: photoCollaborationShareLinks.userId, ownerName: users.name, ownerEmail: users.email, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, expiresAt: photoCollaborationShareLinks.expiresAt, createdAt: photoCollaborationShareLinks.createdAt, accessCount: photoCollaborationShareLinks.accessCount, lastAccessedAt: photoCollaborationShareLinks.lastAccessedAt, watermarkText: photoCollaborationShareLinks.watermarkText, watermarkLogoId: photoCollaborationShareLinks.watermarkLogoId }).from(photoCollaborationShareLinks).innerJoin(photoTransforms, eq(photoTransforms.id, photoCollaborationShareLinks.transformId)).leftJoin(users, eq(users.id, photoCollaborationShareLinks.userId)).where(and(isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date()), eq(photoTransforms.recipe, "collaboration"))).orderBy(desc(photoCollaborationShareLinks.createdAt)).limit(200);
 }
 
 export async function getPhotoCollaborationShareByTokenHash(tokenHash: string) {

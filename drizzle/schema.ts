@@ -180,6 +180,13 @@ export const photoCollaborationShareLinks = mysqlTable(
   (table) => [index("photoCollaborationShareLinks_user_transform_created_idx").on(table.userId, table.transformId, table.createdAt), index("photoCollaborationShareLinks_token_expiry_idx").on(table.tokenHash, table.expiresAt)]
 );
 
+/** Administrator-configurable caps for active collaboration share links. A null cap is unlimited. */
+export const collaborationShareRoleLimits = mysqlTable("collaborationShareRoleLimits", {
+  role: mysqlEnum("role", ["user", "admin"]).primaryKey(),
+  maxActiveLinks: int("maxActiveLinks"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 /** Owner-scoped image assets used only as optional overlays on shared collaboration copies. */
 export const photoCollaborationBrandLogos = mysqlTable(
   "photoCollaborationBrandLogos",

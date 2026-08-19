@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasUnlimitedCollaborationShareLinks, hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
+import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 
 describe("unlimited transform access", () => {
   it("grants unlimited transformations to admins or an explicit special-access flag", () => {
@@ -13,8 +13,4 @@ describe("unlimited transform access", () => {
     expect(hasUnlimitedHdExports("user")).toBe(false);
   });
 
-  it("keeps unlimited collaboration share links exclusive to administrators", () => {
-    expect(hasUnlimitedCollaborationShareLinks("admin")).toBe(true);
-    expect(hasUnlimitedCollaborationShareLinks("user")).toBe(false);
-  });
 });

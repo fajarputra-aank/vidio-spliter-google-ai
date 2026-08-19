@@ -24,6 +24,7 @@ import SeasonalCollectionsAdmin from "./pages/SeasonalCollectionsAdmin";
 import Collaboration from "./pages/Collaboration";
 import CollaborationHistory from "./pages/CollaborationHistory";
 import CollaborationShare from "./pages/CollaborationShare";
+import AdminCollaborationShares from "./pages/AdminCollaborationShares";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />
       <Route path="/admin" component={Admin} />
+      <Route path="/admin/kolaborasi" component={AdminCollaborationShares} />
       <Route path="/admin/brand" component={BrandSettings} />
       <Route path="/admin/koleksi-musiman" component={SeasonalCollectionsAdmin} />
       <Route path="/pengaturan/notifikasi" component={NotificationSettings} />

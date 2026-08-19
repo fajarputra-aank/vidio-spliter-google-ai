@@ -340,3 +340,7 @@
 - [x] Audit pembatas Kolaborasi dan cakupan akses tanpa batas untuk fajar.spco@gmail.com serta fajar.putra86@gmail.com.
 - [x] Terapkan pengecualian Kolaborasi tanpa batas khusus administrator tanpa melonggarkan batas pengguna lain.
 - [x] Tambahkan pengujian otorisasi, perbarui skill ai-photo-studio-fullstack, validasi, dan simpan checkpoint.
+- [x] Audit tautan Kolaborasi aktif dan rancang pengaturan batas berdasarkan peran pengguna.
+- [x] Tambahkan skema, migrasi, prosedur admin, dan pencabutan semua tautan aktif per hasil secara aman.
+- [x] Bangun panel admin dan halaman pengaturan batas tautan Kolaborasi berbasis peran.
+- [x] Uji otorisasi, batas peran, pencabutan massal, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.

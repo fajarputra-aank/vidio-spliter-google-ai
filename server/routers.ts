@@ -9,7 +9,7 @@ import * as db from "./db";
 import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds, styleIds } from "./photoPrompts";
 import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
-import { hasUnlimitedCollaborationShareLinks, hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
+import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
 import { createSecurityToken, hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
@@ -262,11 +262,13 @@ export const appRouter = router({
     collaborationInvites: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationInvites(ctx.user.id)),
     collaborationProjects: protectedProcedure.input(z.object({ template: z.enum(collaborationTemplateIds).optional(), status: z.enum(["processing", "completed", "failed", "cancelled"]).optional() }).optional()).query(async ({ ctx, input }) => (await db.listPhotoCollaborationProjects(ctx.user.id, input)).map((project) => ({ ...project, resultUrl: privateMediaUrl(project.resultUrl) }))),
     collaborationShareLinks: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(({ ctx, input }) => db.listPhotoCollaborationShareLinks(ctx.user.id, input.transformId)),
-    createCollaborationShareLink: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), expiresInHours: z.union([z.literal(1), z.literal(24), z.literal(72)]), watermarkText: z.string().trim().max(72).optional(), watermarkLogoId: z.number().int().positive().optional() })).mutation(async ({ ctx, input }) => { const { token, tokenHash } = createSecurityToken(); const link = await db.createPhotoCollaborationShareLink(ctx.user.id, input.transformId, tokenHash, new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000), input.watermarkText?.trim() || null, input.watermarkLogoId ?? null, hasUnlimitedCollaborationShareLinks(ctx.user.role)); return { id: link.id, token, expiresAt: link.expiresAt }; }),
+    collaborationShareLimit: protectedProcedure.query(async ({ ctx }) => ({ maxActiveLinks: (await db.getCollaborationShareRoleLimits())[ctx.user.role === "admin" ? "admin" : "user"] })),
+    createCollaborationShareLink: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), expiresInHours: z.union([z.literal(1), z.literal(24), z.literal(72)]), watermarkText: z.string().trim().max(72).optional(), watermarkLogoId: z.number().int().positive().optional() })).mutation(async ({ ctx, input }) => { const { token, tokenHash } = createSecurityToken(); const role = ctx.user.role === "admin" ? "admin" : "user"; const link = await db.createPhotoCollaborationShareLink(ctx.user.id, role, input.transformId, tokenHash, new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000), input.watermarkText?.trim() || null, input.watermarkLogoId ?? null); return { id: link.id, token, expiresAt: link.expiresAt }; }),
     collaborationBrandLogos: protectedProcedure.query(async ({ ctx }) => db.listPhotoCollaborationBrandLogos(ctx.user.id)),
     uploadCollaborationBrandLogo: protectedProcedure.input(collaborationBrandLogoInput).mutation(async ({ ctx, input }) => db.createPhotoCollaborationBrandLogo(ctx.user.id, input.name, await storeCollaborationBrandLogo(ctx.user.id, input))),
     deleteCollaborationBrandLogo: protectedProcedure.input(z.object({ logoId: z.number().int().positive() })).mutation(async ({ ctx, input }) => db.deletePhotoCollaborationBrandLogo(ctx.user.id, input.logoId)),
     revokeCollaborationShareLink: protectedProcedure.input(z.object({ shareLinkId: z.number().int().positive() })).mutation(({ ctx, input }) => db.revokePhotoCollaborationShareLink(ctx.user.id, input.shareLinkId)),
+    revokeAllCollaborationShareLinks: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).mutation(({ ctx, input }) => db.revokeAllActivePhotoCollaborationShareLinks(input.transformId, ctx.user.id)),
     collaborationSharePreview: publicProcedure.input(z.object({ token: z.string().min(32).max(100) })).query(async ({ input }) => { const shared = await db.getPhotoCollaborationShareByTokenHash(hashSecurityToken(input.token)); if (!shared) throw new TRPCError({ code: "NOT_FOUND", message: "Tautan berbagi tidak tersedia atau telah berakhir." }); return { title: shared.title, template: shared.template, aspectRatio: shared.aspectRatio, hasWatermark: Boolean(shared.watermarkText || shared.logoStorageKey), expiresAt: shared.expiresAt }; }),
     collaborationLayoutPresets: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationLayoutPresets(ctx.user.id)),
     createCollaborationLayoutPreset: protectedProcedure.input(z.object({ name: z.string().trim().min(1).max(48), layout: collaborationLayoutInput })).mutation(({ ctx, input }) => db.createPhotoCollaborationLayoutPreset(ctx.user.id, input.name, JSON.stringify(input.layout))),
@@ -453,6 +455,10 @@ export const appRouter = router({
   }),
   admin: router({
     dashboard: adminProcedure.query(() => db.getAdminDashboard()),
+    collaborationShareRoleLimits: adminProcedure.query(() => db.getCollaborationShareRoleLimits()),
+    updateCollaborationShareRoleLimit: adminProcedure.input(z.object({ role: z.enum(["user", "admin"]), maxActiveLinks: z.number().int().min(0).max(100).nullable() })).mutation(({ input }) => db.updateCollaborationShareRoleLimit(input.role, input.maxActiveLinks)),
+    activeCollaborationShareLinks: adminProcedure.query(() => db.listAdminActivePhotoCollaborationShareLinks()),
+    revokeAllActiveCollaborationShareLinks: adminProcedure.input(z.object({ transformId: z.number().int().positive() })).mutation(({ input }) => db.revokeAllActivePhotoCollaborationShareLinks(input.transformId)),
     unlimitedAccessList: adminProcedure.input(z.object({ search: z.string().trim().max(320).optional(), access: z.enum(["all", "unlimited", "standard"]).default("all") }).optional()).query(({ input }) => db.listUnlimitedTransformUsers(input)),
     setUnlimitedAccess: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), enabled: z.boolean() })).mutation(({ ctx, input }) => db.setUnlimitedTransformsByAdmin(ctx.user.id, input.email, input.enabled)),
     setUserRole: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), role: z.enum(["user", "admin"]) })).mutation(({ ctx, input }) => db.setUserRoleByEmail(ctx.user.id, input.email, input.role)),
