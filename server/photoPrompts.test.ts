@@ -22,7 +22,7 @@ describe("photo transform prompts", () => {
   });
 
   it("covers the expanded 35-recipe catalog with specialized and safe directions", () => {
-    expect(recipeIds).toHaveLength(35);
+    expect(recipeIds).toHaveLength(40);
     expect(buildTransformPrompt("portrait_window")).toContain("window-light editorial");
     expect(buildTransformPrompt("marketplace")).toContain("marketplace-ready");
     expect(buildTransformPrompt("beverage")).toContain("drinks campaign");
@@ -30,6 +30,14 @@ describe("photo transform prompts", () => {
     expect(buildTransformPrompt("document")).toContain("exactly as captured");
     expect(buildTransformPrompt("document")).toContain("Do not add text, remove text, change text");
     expect(buildTransformPrompt("duotone")).toContain("two-tone graphic");
+  });
+
+  it("membatasi arah Ramadan dan Lebaran pada perayaan yang setia pada sumber", () => {
+    expect(buildTransformPrompt("ramadan_iftar")).toContain("Ramadan food");
+    expect(buildTransformPrompt("ramadan_hampers")).toContain("exact boxes, packaging, products, labels");
+    expect(buildTransformPrompt("lebaran_family")).toContain("every person's exact identity");
+    expect(buildTransformPrompt("lebaran_promo")).toContain("Do not add text, prices, discount claims");
+    expect(buildTransformPrompt("lebaran_product")).toContain("gift product photograph");
   });
 
   it("adds a clear compositional direction for every supported output ratio", () => {

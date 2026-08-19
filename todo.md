@@ -258,3 +258,8 @@
 - [x] Tambahkan resep baru ke katalog studio, kontrak validasi server, dan komposisi prompt transformasi AI.
 - [x] Perbarui pemilih resep studio agar kategori dan deskripsi resep tambahan tetap mudah ditelusuri pada desktop dan seluler.
 - [x] Tambahkan pengujian untuk resep serta prompt baru, perbarui/validasi skill ai-photo-studio-fullstack, lalu jalankan pemeriksaan rilis.
+- [x] Rancang model favorit resep owner-scoped dan koleksi musiman Ramadan/Lebaran dengan arah foto perayaan serta promo toko yang aman.
+- [x] Tambahkan pencarian kata kunci dan filter kategori/koleksi pada pemilih resep studio, termasuk state kosong dan navigasi seluler.
+- [x] Implementasikan tombol favorit pada setiap resep, daftar akses cepat resep favorit, serta prosedur penyimpanan privat yang tervalidasi.
+- [x] Tambahkan resep Ramadan dan Lebaran ke katalog studio, validasi server, dan prompt preservasi subjek/produk/label.
+- [x] Uji pencarian, filter, favorit, koleksi musiman, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

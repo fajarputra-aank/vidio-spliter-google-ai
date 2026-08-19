@@ -275,6 +275,18 @@ export const photoPromptFavorites = mysqlTable(
   (table) => [uniqueIndex("photoPromptFavorites_user_instruction_unique").on(table.userId, table.instruction), index("photoPromptFavorites_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+/** Saved recipe IDs are private shortcuts and never exposed in community metadata. */
+export const photoRecipeFavorites = mysqlTable(
+  "photoRecipeFavorites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    recipeId: varchar("recipeId", { length: 64 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("photoRecipeFavorites_user_recipe_unique").on(table.userId, table.recipeId), index("photoRecipeFavorites_user_created_idx").on(table.userId, table.createdAt)]
+);
+
 /** Private in-app events, including actions performed by community moderators. */
 export const userNotifications = mysqlTable(
   "userNotifications",

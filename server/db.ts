@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoTransforms, scheduledJobs, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoRecipeFavorites, photoTransforms, scheduledJobs, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -683,6 +683,29 @@ export async function deletePhotoPromptFavorite(userId: number, favoriteId: numb
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
   const result = await db.delete(photoPromptFavorites).where(and(eq(photoPromptFavorites.id, favoriteId), eq(photoPromptFavorites.userId, userId)));
+  return { success: Number(result[0].affectedRows ?? 0) > 0 };
+}
+
+export async function listPhotoRecipeFavorites(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(photoRecipeFavorites).where(eq(photoRecipeFavorites.userId, userId)).orderBy(desc(photoRecipeFavorites.createdAt)).limit(80);
+}
+
+export async function createPhotoRecipeFavorite(userId: number, recipeId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const existing = await db.select().from(photoRecipeFavorites).where(and(eq(photoRecipeFavorites.userId, userId), eq(photoRecipeFavorites.recipeId, recipeId))).limit(1);
+  if (existing[0]) return existing[0];
+  const inserted = await db.insert(photoRecipeFavorites).values({ userId, recipeId });
+  const records = await db.select().from(photoRecipeFavorites).where(eq(photoRecipeFavorites.id, Number(inserted[0].insertId))).limit(1);
+  return records[0];
+}
+
+export async function deletePhotoRecipeFavorite(userId: number, recipeId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.delete(photoRecipeFavorites).where(and(eq(photoRecipeFavorites.userId, userId), eq(photoRecipeFavorites.recipeId, recipeId)));
   return { success: Number(result[0].affectedRows ?? 0) > 0 };
 }
 

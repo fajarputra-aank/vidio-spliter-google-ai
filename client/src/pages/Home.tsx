@@ -11,6 +11,7 @@ import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
 import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
 import { formatProcessDuration } from "@/lib/processDuration";
+import { filterRecipeCatalog, type RecipeCollectionFilter } from "@/lib/recipeCatalog";
 import { useBrand } from "@/contexts/BrandContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +21,7 @@ import { MediaImage } from "@/components/MediaImage";
 import {
   Aperture, ArrowRight, BookmarkPlus, Camera, Check, ChevronRight, Clock3, Download,
   FileText, Globe2, History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
-  Palette, Ratio, RotateCcw, ScanFace, Share2, Sparkles, Trash2, Utensils, WandSparkles, X,
+  Heart, Palette, Ratio, RotateCcw, ScanFace, Share2, Sparkles, Trash2, Utensils, WandSparkles, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -32,7 +33,7 @@ const assets = {
   food: publicMediaUrl("/manus-storage/lensa-saku-food_26a6ef7f.jpg"),
 };
 
-type Recipe = { id: "headshot" | "beauty" | "portrait_window" | "family" | "graduation" | "background" | "product" | "marketplace" | "flatlay" | "cosmetic" | "jewelry" | "food" | "beverage" | "bakery" | "food_moody" | "social" | "reels_cover" | "creator_frame" | "fashion" | "lookbook" | "accessory" | "interior" | "light" | "listing" | "workspace" | "restore" | "detail" | "old_color" | "scan_clean" | "document" | "travel" | "night" | "sketch" | "film_analog" | "duotone"; name: string; category: string; label: string; description: string; image: string; prompt: string };
+type Recipe = { id: "headshot" | "beauty" | "portrait_window" | "family" | "graduation" | "background" | "product" | "marketplace" | "flatlay" | "cosmetic" | "jewelry" | "food" | "beverage" | "bakery" | "food_moody" | "social" | "reels_cover" | "creator_frame" | "fashion" | "lookbook" | "accessory" | "interior" | "light" | "listing" | "workspace" | "restore" | "detail" | "old_color" | "scan_clean" | "document" | "travel" | "night" | "sketch" | "film_analog" | "duotone" | "ramadan_iftar" | "ramadan_hampers" | "lebaran_family" | "lebaran_promo" | "lebaran_product"; name: string; category: string; label: string; description: string; image: string; prompt: string; season?: "ramadan" | "lebaran" };
 type UploadPayload = { base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; fileName: string };
 type OutputAspect = "1:1" | "16:9" | "9:16";
 type AiStyle = "editorial" | "realistic" | "anime" | "cinematic" | "vintage" | "pastel" | "minimal" | "monochrome" | "neon" | "watercolor";
@@ -69,6 +70,11 @@ const recipes: Recipe[] = [
   { id: "old_color", name: "Pulih warna lama", category: "Restorasi", label: "Arsip", description: "Seimbangkan warna foto lama sambil mempertahankan karakter historisnya.", image: assets.food, prompt: "warna arsip seimbang" },
   { id: "scan_clean", name: "Hasil pindai bersih", category: "Restorasi", label: "Dokumentasi", description: "Kurangi debu dan bayangan hasil pindai tanpa mengarang detail baru.", image: assets.product, prompt: "hasil pindai bersih" },
   { id: "document", name: "Dokumen terbaca", category: "Dokumen", label: "Presisi", description: "Rapikan kontras dan perspektif sambil menjaga setiap teks tetap persis sama.", image: assets.product, prompt: "dokumen jelas presisi" },
+  { id: "ramadan_iftar", name: "Menu berbuka hangat", category: "Musiman", label: "Ramadan", description: "Buat menu berbuka terasa hangat dan menggoda tanpa mengubah hidangan asli.", image: assets.food, prompt: "menu berbuka hangat" , season: "ramadan" },
+  { id: "ramadan_hampers", name: "Hampers Ramadan", category: "Musiman", label: "Ramadan", description: "Perjelas kemasan hampers, produk, dan dekorasi yang sudah ada untuk promosi toko.", image: assets.product, prompt: "hampers ramadan premium", season: "ramadan" },
+  { id: "lebaran_family", name: "Momen Lebaran keluarga", category: "Musiman", label: "Lebaran", description: "Rapikan cahaya momen silaturahmi tanpa mengubah wajah, busana, atau jumlah orang.", image: assets.headshot, prompt: "potret keluarga lebaran", season: "lebaran" },
+  { id: "lebaran_promo", name: "Promo Lebaran toko", category: "Musiman", label: "Lebaran", description: "Tonjolkan produk dan suasana perayaan sambil membiarkan teks promo ditambahkan sendiri nanti.", image: assets.product, prompt: "promo toko lebaran", season: "lebaran" },
+  { id: "lebaran_product", name: "Produk hadiah Lebaran", category: "Musiman", label: "Lebaran", description: "Susun produk hadiah lebih elegan tanpa mengganti kemasan, label, atau isi paket.", image: assets.product, prompt: "produk hadiah lebaran", season: "lebaran" },
   { id: "travel", name: "Perjalanan berkesan", category: "Kreatif", label: "Destinasi", description: "Perjelas atmosfer perjalanan tanpa mengubah lokasi atau momenmu.", image: assets.product, prompt: "travel editorial" },
   { id: "night", name: "Malam sinematik", category: "Kreatif", label: "Atmosfer", description: "Kontras malam dengan cahaya praktis yang realistis.", image: assets.product, prompt: "grade malam sinematik" },
   { id: "sketch", name: "Sketsa editorial", category: "Kreatif", label: "Ilustrasi", description: "Ubah momen menjadi sketsa orisinal yang tetap setia pada subjek.", image: assets.headshot, prompt: "sketsa kontemporer" },
@@ -76,7 +82,8 @@ const recipes: Recipe[] = [
   { id: "duotone", name: "Grafis dua warna", category: "Kreatif", label: "Grafis", description: "Arah grafis sederhana yang mempertahankan bentuk utama tanpa teks baru.", image: assets.headshot, prompt: "grafis dua warna kontemporer" },
 ];
 
-const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }, { name: "Fashion", icon: Palette }, { name: "Ruang", icon: Camera }, { name: "Restorasi", icon: WandSparkles }, { name: "Dokumen", icon: FileText }, { name: "Kreatif", icon: Aperture }];
+const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }, { name: "Fashion", icon: Palette }, { name: "Ruang", icon: Camera }, { name: "Restorasi", icon: WandSparkles }, { name: "Dokumen", icon: FileText }, { name: "Musiman", icon: Sparkles }, { name: "Kreatif", icon: Aperture }];
+const recipeCollections: Array<{ id: RecipeCollectionFilter; label: string }> = [{ id: "all", label: "Semua koleksi" }, { id: "favorites", label: "Favoritku" }, { id: "ramadan", label: "Ramadan" }, { id: "lebaran", label: "Lebaran" }];
 const progressStages = ["Mengunci foto sumber", "Menyiapkan arah visual", "Merender transformasi AI", "Menyimpan hasil ke galeri"];
 const aspectOptions: Array<{ value: OutputAspect; title: string; note: string }> = [
   { value: "1:1", title: "1:1", note: "kotak" },
@@ -132,7 +139,10 @@ export default function Home() {
   const aiQuotaStatusQuery = trpc.photo.aiQuotaStatus.useQuery(undefined, { enabled: false });
   const queueStatusQuery = trpc.photo.queueStatus.useQuery(undefined, { enabled: false });
   const promptFavoritesQuery = trpc.promptFavorites.list.useQuery(undefined, { enabled: isAuthenticated });
+  const recipeFavoritesQuery = trpc.recipeFavorites.list.useQuery(undefined, { enabled: isAuthenticated });
   const [selectedCategory, setSelectedCategory] = useState("Semua");
+  const [selectedRecipeCollection, setSelectedRecipeCollection] = useState<RecipeCollectionFilter>("all");
+  const [recipeSearch, setRecipeSearch] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe>(recipes[0]);
   const [selectedAspect, setSelectedAspect] = useState<OutputAspect>("1:1");
   const [selectedStyle, setSelectedStyle] = useState<AiStyle>("editorial");
@@ -158,7 +168,8 @@ export default function Home() {
   const cancelledRequestIds = useRef(new Set<string>());
   const hasUnlimitedStudioAccess = user?.role === "admin" || quotaQuery.data?.isUnlimited === true;
 
-  const shownRecipes = selectedCategory === "Semua" ? recipes : recipes.filter((recipe) => recipe.category === selectedCategory);
+  const favoriteRecipeIds = useMemo(() => new Set(recipeFavoritesQuery.data?.map((favorite) => favorite.recipeId) ?? []), [recipeFavoritesQuery.data]);
+  const shownRecipes = useMemo(() => filterRecipeCatalog(recipes, { query: recipeSearch, category: selectedCategory, collection: selectedRecipeCollection, favoriteIds: favoriteRecipeIds }), [favoriteRecipeIds, recipeSearch, selectedCategory, selectedRecipeCollection]);
   const previewImage = resultImage ?? uploadedImage ?? selectedRecipe.image;
   const historyItems = historyQuery.data ?? [];
   const shownHistoryItems = historyFilter === "failed" ? historyItems.filter((item) => item.status === "failed") : historyItems;
@@ -248,6 +259,14 @@ export default function Home() {
     onSuccess: () => { void utils.promptFavorites.list.invalidate(); toast.success("Arahan dihapus dari favorit."); },
     onError: (error) => toast.error(error.message),
   });
+  const createRecipeFavoriteMutation = trpc.recipeFavorites.create.useMutation({
+    onSuccess: () => { void utils.recipeFavorites.list.invalidate(); toast.success("Resep disimpan ke favorit privat."); },
+    onError: (error) => toast.error(error.message),
+  });
+  const deleteRecipeFavoriteMutation = trpc.recipeFavorites.delete.useMutation({
+    onSuccess: () => { void utils.recipeFavorites.list.invalidate(); toast.success("Resep dihapus dari favorit."); },
+    onError: (error) => toast.error(error.message),
+  });
 
   function readImage(file: File) {
     if (!(["image/jpeg", "image/png", "image/webp"] as string[]).includes(file.type)) {
@@ -334,6 +353,16 @@ export default function Home() {
     setSelectedRecipe(recipe);
     setResultImage(null);
     setProgress(0);
+  }
+
+  function toggleRecipeFavorite(recipe: Recipe) {
+    if (!isAuthenticated) {
+      toast.message("Masuk dulu untuk menyimpan resep ke favorit privat.");
+      startLogin();
+      return;
+    }
+    if (favoriteRecipeIds.has(recipe.id)) deleteRecipeFavoriteMutation.mutate({ recipeId: recipe.id });
+    else createRecipeFavoriteMutation.mutate({ recipeId: recipe.id });
   }
 
   function chooseAspect(aspect: OutputAspect) {
@@ -454,11 +483,14 @@ export default function Home() {
             <section className="recipe-column">
               <div className="column-label"><span>PILIH RESEP</span><span>{shownRecipes.length} tersedia</span></div>
               <div className="category-tabs" aria-label="Kategori resep">{categories.map((category) => { const Icon = category.icon; return <button key={category.name} className={selectedCategory === category.name ? "is-selected" : ""} onClick={() => setSelectedCategory(category.name)}><Icon size={15} />{category.name}</button>; })}</div>
+              <div className="recipe-search"><label htmlFor="recipe-search">CARI RESEP</label><input id="recipe-search" type="search" value={recipeSearch} onChange={(event) => setRecipeSearch(event.target.value)} placeholder="Contoh: hampers, menu, properti…" /></div>
+              <div className="recipe-collections" aria-label="Koleksi resep">{recipeCollections.map((collection) => <button type="button" key={collection.id} className={selectedRecipeCollection === collection.id ? "is-selected" : ""} onClick={() => setSelectedRecipeCollection(collection.id)}>{collection.id === "favorites" && <Heart size={12} fill={selectedRecipeCollection === "favorites" ? "currentColor" : "none"} />}{collection.label}</button>)}</div>
               {recommendationMutation.isPending && <div className="recipe-recommendation is-loading"><Sparkles size={15} /><span>Menganalisis jenis foto untuk mencari resep yang cocok…</span></div>}
               {recommendationStatus === "login" && <button className="recipe-recommendation is-login" onClick={startLogin}><LogIn size={15} /><span><small>REKOMENDASI AI</small><strong>Masuk untuk analisis otomatis</strong><em>Analisis jenis foto berjalan privat setelah kamu masuk ke studio.</em></span><ArrowRight size={15} /></button>}
               {recommendationStatus === "error" && <div className="recipe-recommendation is-loading"><X size={15} /><span>Analisis foto belum tersedia. Kamu tetap dapat memilih resep secara manual.</span></div>}
               {recommendations.length > 0 && !recommendationMutation.isPending && <div className="recipe-recommendation-list" aria-label="Tiga rekomendasi resep AI">{recommendations.map((recommendation, index) => <button className="recipe-recommendation" key={recommendation.recipe} onClick={() => { const recipe = recipes.find((item) => item.id === recommendation.recipe); if (recipe) { chooseRecipe(recipe); setSelectedCategory(recipe.category); toast.message(`${recipe.name} dipilih. Foto sumber tetap sama.`); } }}><Sparkles size={15} /><span><small>REKOMENDASI AI {String(index + 1).padStart(2, "0")} · {recommendation.confidence === "high" ? "TINGGI" : recommendation.confidence === "medium" ? "SEDANG" : "EKSPLORASI"}</small><strong>Coba {recipes.find((item) => item.id === recommendation.recipe)?.name ?? "Konten sosial"}</strong><em>{recommendation.reason}</em></span><ArrowRight size={15} /></button>)}</div>}
-              <div className="recipe-list">{shownRecipes.map((recipe, index) => <button key={recipe.id} className={`recipe-card ${selectedRecipe.id === recipe.id ? "is-selected" : ""}`} onClick={() => chooseRecipe(recipe)}><span className="recipe-image"><MediaImage src={recipe.image} alt="" fallbackLabel="Pratinjau resep" /><i>R-{String(index + 1).padStart(2, "0")}</i></span><div><span className="recipe-label">{recipe.label}</span><strong>{recipe.name}</strong><p>{recipe.description}</p></div><span className="recipe-check">{selectedRecipe.id === recipe.id && <Check size={15} />}</span></button>)}</div>
+              <div className="recipe-list">{shownRecipes.map((recipe, index) => { const isFavorite = favoriteRecipeIds.has(recipe.id); return <article key={recipe.id} className={`recipe-card ${selectedRecipe.id === recipe.id ? "is-selected" : ""}`}><button type="button" className="recipe-select" onClick={() => chooseRecipe(recipe)}><span className="recipe-image"><MediaImage src={recipe.image} alt="" fallbackLabel="Pratinjau resep" /><i>R-{String(index + 1).padStart(2, "0")}</i></span><span><span className="recipe-label">{recipe.label}{recipe.season ? ` · ${recipe.season === "ramadan" ? "RAMADAN" : "LEBARAN"}` : ""}</span><strong>{recipe.name}</strong><p>{recipe.description}</p></span><span className="recipe-check">{selectedRecipe.id === recipe.id && <Check size={15} />}</span></button><button type="button" className={`recipe-favorite ${isFavorite ? "is-saved" : ""}`} aria-label={isFavorite ? `Hapus ${recipe.name} dari favorit` : `Simpan ${recipe.name} ke favorit`} aria-pressed={isFavorite} onClick={() => toggleRecipeFavorite(recipe)} disabled={createRecipeFavoriteMutation.isPending || deleteRecipeFavoriteMutation.isPending}><Heart size={14} fill={isFavorite ? "currentColor" : "none"} /></button></article>; })}</div>
+              {!shownRecipes.length && <div className="recipe-empty"><strong>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Masuk untuk melihat favoritmu." : "Resep belum ditemukan."}</strong><p>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Favorit resep tersimpan privat di akunmu." : "Coba kata kunci lain atau longgarkan kategori/koleksi yang dipilih."}</p>{(recipeSearch || selectedCategory !== "Semua" || selectedRecipeCollection !== "all") && <button type="button" onClick={() => { setRecipeSearch(""); setSelectedCategory("Semua"); setSelectedRecipeCollection("all"); }}>Atur ulang filter</button>}</div>}
               <div className="style-picker"><div><span className="eyebrow"><Palette size={13} /> GAYA AI</span><p>Pilih bahasa visual untuk hasilmu.</p></div><div className="style-options">{styleOptions.map((style) => <button key={style.value} className={selectedStyle === style.value ? "is-selected" : ""} onClick={() => chooseStyle(style.value)}><strong>{style.title}</strong><small>{style.note}</small></button>)}</div></div>
               <div className="aspect-picker"><div><span className="eyebrow"><Ratio size={13} /> RASIO KELUARAN</span><p>AI menata komposisi sesuai frame pilihanmu.</p></div><Select value={selectedAspect} onValueChange={(value) => chooseAspect(value as OutputAspect)}><SelectTrigger size="sm" className="aspect-select"><SelectValue /></SelectTrigger><SelectContent>{aspectOptions.map((aspect) => <SelectItem key={aspect.value} value={aspect.value}>{aspect.title} · {aspect.note}</SelectItem>)}</SelectContent></Select></div>
               <div className="selected-recipe-note"><WandSparkles size={16} /><span>Resep dipilih: <strong>{selectedRecipe.name}</strong> · {selectedRecipe.prompt}</span></div>

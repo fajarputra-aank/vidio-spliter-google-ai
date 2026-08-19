@@ -299,6 +299,11 @@ export const appRouter = router({
     create: protectedProcedure.input(z.object({ instruction: z.string().trim().min(3).max(360) })).mutation(({ ctx, input }) => db.createPhotoPromptFavorite(ctx.user.id, input.instruction)),
     delete: protectedProcedure.input(z.object({ favoriteId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deletePhotoPromptFavorite(ctx.user.id, input.favoriteId)),
   }),
+  recipeFavorites: router({
+    list: protectedProcedure.query(({ ctx }) => db.listPhotoRecipeFavorites(ctx.user.id)),
+    create: protectedProcedure.input(z.object({ recipeId: z.enum(recipeIds) })).mutation(({ ctx, input }) => db.createPhotoRecipeFavorite(ctx.user.id, input.recipeId)),
+    delete: protectedProcedure.input(z.object({ recipeId: z.enum(recipeIds) })).mutation(({ ctx, input }) => db.deletePhotoRecipeFavorite(ctx.user.id, input.recipeId)),
+  }),
   billing: router({
     packs: publicProcedure.query(() => Object.values(creditPacks)),
     balance: protectedProcedure.query(async ({ ctx }) => ({ credits: await db.getCreditBalance(ctx.user.id), purchases: await db.listCreditPurchases(ctx.user.id), manualOrders: await db.listManualCreditOrders(ctx.user.id) })),
