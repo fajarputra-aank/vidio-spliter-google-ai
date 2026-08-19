@@ -254,3 +254,7 @@
 - [x] Tambahkan ekspor CSV owner-scoped untuk riwayat aktivitas transformasi.
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk estimasi antrean, notifikasi retry, dan ekspor aktivitas.
 - [x] Uji estimasi, notifikasi retry, ekspor CSV, responsivitas, dan simpan checkpoint rilis.
+- [x] Rancang kelompok resep baru yang mencakup katalog produk, konten sosial, makanan, potret, properti, dokumen, dan pemulihan foto dengan instruksi preservasi subjek.
+- [x] Tambahkan resep baru ke katalog studio, kontrak validasi server, dan komposisi prompt transformasi AI.
+- [x] Perbarui pemilih resep studio agar kategori dan deskripsi resep tambahan tetap mudah ditelusuri pada desktop dan seluler.
+- [x] Tambahkan pengujian untuk resep serta prompt baru, perbarui/validasi skill ai-photo-studio-fullstack, lalu jalankan pemeriksaan rilis.

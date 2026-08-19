@@ -21,6 +21,17 @@ describe("photo transform prompts", () => {
     expect(buildTransformPrompt("travel")).toContain("destination editorial");
   });
 
+  it("covers the expanded 35-recipe catalog with specialized and safe directions", () => {
+    expect(recipeIds).toHaveLength(35);
+    expect(buildTransformPrompt("portrait_window")).toContain("window-light editorial");
+    expect(buildTransformPrompt("marketplace")).toContain("marketplace-ready");
+    expect(buildTransformPrompt("beverage")).toContain("drinks campaign");
+    expect(buildTransformPrompt("listing")).toContain("real-estate listing");
+    expect(buildTransformPrompt("document")).toContain("exactly as captured");
+    expect(buildTransformPrompt("document")).toContain("Do not add text, remove text, change text");
+    expect(buildTransformPrompt("duotone")).toContain("two-tone graphic");
+  });
+
   it("adds a clear compositional direction for every supported output ratio", () => {
     expect(buildTransformPrompt("product", "1:1")).toContain("1:1 square");
     expect(buildTransformPrompt("product", "16:9")).toContain("16:9 horizontal");
