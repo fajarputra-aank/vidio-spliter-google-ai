@@ -348,3 +348,7 @@
 - [x] Perketat prompt server dan kualitas pemrosesan Kolaborasi tanpa melonggarkan privasi sumber.
 - [x] Perjelas panduan antarmuka tentang penggabungan dua foto dengan wajah tetap terjaga.
 - [x] Uji kontrak preservasi identitas, perbarui skill ai-photo-studio-fullstack, validasi, dan simpan checkpoint.
+- [x] Audit alur Kolaborasi untuk proses ulang, penggantian latar aman, dan pemeriksaan kesiapan wajah.
+- [x] Tambahkan kontrak server untuk proses ulang sumber asli, latar belakang terpilih, dan penilaian kualitas wajah tanpa menyimpan analitik biometrik.
+- [x] Bangun kontrol proses ulang, pemilihan latar, serta pemeriksaan kesiapan wajah sebelum penggabungan.
+- [x] Uji privasi, preservasi subjek, proses ulang, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.

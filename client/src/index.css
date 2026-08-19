@@ -19,6 +19,8 @@
 @import "./collaboration-share.css";
 @import "./collaboration-admin.css";
 @import "./collaboration-identity.css";
+@import "./collaboration-advanced-controls.css";
+@import "./collaboration-face-readiness.css";
 
 @custom-variant dark (&:is(.dark *));
 
