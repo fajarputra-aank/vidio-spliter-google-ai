@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { shareImageUrl } from "@/lib/share";
+import { shareResultImage } from "@/lib/share";
 import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
 import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
@@ -16,6 +16,7 @@ import { useBrand } from "@/contexts/BrandContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import { MediaImage } from "@/components/MediaImage";
 import {
@@ -121,8 +122,8 @@ function formatQueueTime(seconds: number) {
 
 async function shareImage(url: string, title: string) {
   try {
-    const outcome = await shareImageUrl(url, title, window.location.origin, navigator);
-    toast.success(outcome === "native" ? "Pilihan berbagi sudah dibuka." : "Tautan hasil sudah disalin.");
+    const outcome = await shareResultImage(url, title, window.location.origin, navigator);
+    toast.success(outcome === "native_image" ? "Pilih aplikasi sosial dari lembar berbagi perangkat." : outcome === "native" ? "Pilih aplikasi sosial dari lembar berbagi perangkat." : "Tautan hasil sudah disalin.");
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return;
     toast.error("Tautan belum dapat dibagikan. Coba unduh hasilnya.");
@@ -157,6 +158,7 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [remixNote, setRemixNote] = useState<string | null>(null);
   const [customInstruction, setCustomInstruction] = useState("");
   const [recommendations, setRecommendations] = useState<PhotoRecommendation[]>([]);
@@ -514,7 +516,7 @@ export default function Home() {
               <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? `Hasil ${selectedStyle} ${selectedAspect} sudah tersimpan. Geser garis pembanding untuk melihat perubahan.` : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : `Unggah foto asli lalu terapkan resep serta gaya ${selectedStyle} untuk membuat hasil ${selectedAspect}.`}</p></div>
               {isProcessing && <div className="queue-status" role="status"><span>ANTREAN AI</span><strong>{queuePosition ? `Perkiraan giliran #${queuePosition}` : "Menghitung perkiraan giliran…"}</strong>{queueEstimate && <p>Waktu tunggu {formatQueueTime(queueEstimate.waitSeconds)} · hasil sekitar {formatQueueTime(queueEstimate.completionSeconds)}.</p>}<small>Ini estimasi dari {queueEstimate?.sampleSize ? `${queueEstimate.sampleSize} proses terakhir` : "durasi standar"}; posisi dapat berubah saat pekerjaan lain masuk atau selesai.</small></div>}
               {quotaWarning && <div className="ai-quota-warning" role="status"><div><strong>STATUS KUOTA AI</strong><p>{quotaWarning}</p></div><button type="button" onClick={() => void refreshAiQuotaStatus()} disabled={aiQuotaStatusQuery.isFetching}>{aiQuotaStatusQuery.isFetching ? "Memeriksa…" : "Muat ulang status kuota"}</button></div>}
-              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button><button className="share-action retry-action" onClick={tryAnotherRecipe} disabled={isRestoringHistorySource}><RotateCcw size={16} /> {isRestoringHistorySource ? "Menyiapkan sumber…" : "Coba resep lain"}</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!hasUnlimitedStudioAccess && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : hasUnlimitedStudioAccess ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
+              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><Dialog open={shareOpen} onOpenChange={setShareOpen}><DialogTrigger asChild><button className="share-action"><Share2 size={16} /> Bagikan</button></DialogTrigger><DialogContent className="share-result-dialog"><DialogHeader><DialogTitle>Bagikan hasil ke aplikasi sosial</DialogTitle><DialogDescription>Pilih aplikasi yang tersedia di perangkatmu melalui lembar berbagi. Foto hasil dikirim sebagai berkas bila perangkat mendukungnya.</DialogDescription></DialogHeader><div className="share-app-hints"><span>WhatsApp</span><span>Instagram</span><span>Facebook</span><span>TikTok</span><span>dan lainnya</span></div><button className="primary-action share-everywhere" onClick={() => { void shareImage(resultImage, selectedRecipe.name); setShareOpen(false); }}><Share2 size={16} /> Bagikan ke semua aplikasi</button><button className="secondary-action share-download-fallback" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.message("Unduh hasil lalu unggah ke aplikasi pilihanmu."); setShareOpen(false); }}><Download size={15} /> Unduh untuk dibagikan manual</button></DialogContent></Dialog><button className="share-action retry-action" onClick={tryAnotherRecipe} disabled={isRestoringHistorySource}><RotateCcw size={16} /> {isRestoringHistorySource ? "Menyiapkan sumber…" : "Coba resep lain"}</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!hasUnlimitedStudioAccess && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : hasUnlimitedStudioAccess ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
               {isProcessing && activeRequestId && <AlertDialog><AlertDialogTrigger asChild><button type="button" className="cancel-transform" disabled={cancelTransformMutation.isPending}>{cancelTransformMutation.isPending ? "Membatalkan…" : "Batalkan transformasi"}</button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Batalkan transformasi ini?</AlertDialogTitle><AlertDialogDescription>Proses AI yang sedang berjalan akan dihentikan. Foto sumber tetap aman di riwayat privat dan dapat diproses ulang kapan saja.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Teruskan proses</AlertDialogCancel><AlertDialogAction className="cancel-dialog-confirm" onClick={() => cancelTransformMutation.mutate({ requestId: activeRequestId })}>Ya, batalkan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
             </section>
           </div>

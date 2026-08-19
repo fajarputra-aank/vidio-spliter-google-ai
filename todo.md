@@ -277,3 +277,6 @@
 - [x] Tambahkan prosedur administrator untuk menggandakan koleksi ke draf baru dengan slug unik dan jadwal kosong.
 - [x] Bangun kalender interaktif serta peringatan masa berakhir pada halaman admin koleksi musiman.
 - [x] Uji kalender, duplikasi, peringatan jadwal, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang tindakan berbagi hasil foto yang menggunakan lembar berbagi perangkat, tautan aplikasi sosial, dan fallback salin tautan tanpa mengklaim dukungan aplikasi yang tidak tersedia.
+- [x] Tambahkan tombol berbagi lintas media sosial pada hasil foto dengan fallback aman untuk perangkat/browser yang tidak mendukung berbagi native.
+- [x] Uji alur berbagi, pembaruan skill ai-photo-studio-fullstack, pemeriksaan rilis, dan simpan checkpoint.
