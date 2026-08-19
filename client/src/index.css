@@ -10,6 +10,7 @@
 @import "./profile-security.css";
 @import "./profile-security-actions.css";
 @import "./profile-active-sessions.css";
+@import "./share-global-watermark.css";
 
 @custom-variant dark (&:is(.dark *));
 

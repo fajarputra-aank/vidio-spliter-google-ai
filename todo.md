@@ -295,3 +295,8 @@
 - [x] Tambahkan filter server owner-scoped berdasarkan tanggal dan platform pada pembacaan riwayat berbagi.
 - [x] Tampilkan pratinjau watermark, pemilih preset, serta filter tanggal/platform pada dialog dan detail hasil.
 - [x] Uji preset, pratinjau, filter riwayat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang preset watermark global berbasis branding yang dikelola admin, tetap hanya dibaca publik pada dialog berbagi, serta pencarian caption yang selalu owner-scoped.
+- [x] Tambahkan model, migrasi, helper, dan prosedur admin untuk membuat, memperbarui, serta menonaktifkan preset watermark global.
+- [x] Tambahkan pencarian teks tervalidasi pada query riwayat berbagi privat tanpa melepas filter transformasi atau pemilik.
+- [x] Tampilkan pemilih preset branding global di dialog berbagi dan pencarian caption pada riwayat hasil.
+- [x] Uji akses admin, preset global, pencarian privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

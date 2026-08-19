@@ -1,0 +1,8 @@
+.global-watermark-presets { margin-top: 9px; padding: 8px; border-left: 3px solid #ef8f2f; background: #f5ede0; }
+.global-watermark-presets > span { color: #6d542f; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+.global-watermark-presets p { margin: 3px 0 0; color: #756a5c; font-size: 8px; line-height: 1.45; }
+.share-history-filters { grid-template-columns: minmax(0,1.35fr) minmax(92px,.85fr) minmax(0,.8fr) minmax(0,.8fr); }
+.share-history span b, .share-history span em { display: block; }
+.share-history span b { color: #315447; font-size: 8px; }
+.share-history span em { margin: 2px 0; overflow: hidden; color: #665c51; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .share-history-filters { grid-template-columns: 1fr; } }

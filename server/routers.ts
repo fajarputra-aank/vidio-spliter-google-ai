@@ -239,7 +239,7 @@ export const appRouter = router({
       if (!transform) throw new TRPCError({ code: "NOT_FOUND", message: "Transformasi tidak ditemukan." });
       return withPrivatePhotoMedia(transform);
     }),
-    shareHistory: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional() })).query(({ ctx, input }) => db.listPhotoShareEvents(ctx.user.id, input.transformId, input)),
+    shareHistory: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(), captionQuery: z.string().trim().max(120).optional() })).query(({ ctx, input }) => db.listPhotoShareEvents(ctx.user.id, input.transformId, input)),
     recordShare: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]), caption: z.string().trim().min(1).max(500), watermarkText: z.string().trim().max(72).optional(), outcome: z.enum(["shared", "copied", "downloaded"]) })).mutation(({ ctx, input }) => db.recordPhotoShareEvent(ctx.user.id, { ...input, watermarkText: input.watermarkText ?? null })),
     aiQuotaStatus: protectedProcedure.query(() => ({ checkedAt: new Date(), retryEstimate: aiQuotaRetryEstimate(), status: "estimate_only" as const })),
     cancelTransform: protectedProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -330,6 +330,7 @@ export const appRouter = router({
   }),
   watermarkPresets: router({
     list: protectedProcedure.query(({ ctx }) => db.listPhotoWatermarkPresets(ctx.user.id)),
+    global: publicProcedure.query(() => db.listGlobalWatermarkPresets()),
     create: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(60), text: z.string().trim().min(1).max(72), position: z.enum(["top-left", "top-right", "center", "bottom-left", "bottom-right"]), size: z.number().int().min(2).max(10), font: z.enum(["sans", "serif", "mono"]) })).mutation(({ ctx, input }) => db.createPhotoWatermarkPreset(ctx.user.id, input)),
     delete: protectedProcedure.input(z.object({ presetId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       const deleted = await db.deletePhotoWatermarkPreset(ctx.user.id, input.presetId);
@@ -392,6 +393,9 @@ export const appRouter = router({
     setUserRole: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), role: z.enum(["user", "admin"]) })).mutation(({ ctx, input }) => db.setUserRoleByEmail(ctx.user.id, input.email, input.role)),
     accessAudits: adminProcedure.query(() => db.listAdminAccessAudits()),
     updateBrand: adminProcedure.input(z.object({ logo: brandImageInput.optional(), icon: brandImageInput.optional() }).refine((input) => input.logo || input.icon, { message: "Pilih logo atau ikon yang akan diperbarui." })).mutation(async ({ ctx, input }) => db.updateBrandSettings(ctx.user.id, { logoUrl: input.logo ? await storeBrandImage("logo", input.logo) : undefined, iconUrl: input.icon ? await storeBrandImage("icon", input.icon) : undefined })),
+    globalWatermarkPresets: adminProcedure.query(() => db.listGlobalWatermarkPresets(false)),
+    createGlobalWatermarkPreset: adminProcedure.input(z.object({ name: z.string().trim().min(2).max(60), text: z.string().trim().min(1).max(72), position: z.enum(["top-left", "top-right", "center", "bottom-left", "bottom-right"]), size: z.number().int().min(2).max(10), font: z.enum(["sans", "serif", "mono"]), isActive: z.boolean().default(true) })).mutation(({ input }) => db.createGlobalWatermarkPreset(input)),
+    updateGlobalWatermarkPreset: adminProcedure.input(z.object({ id: z.number().int().positive(), name: z.string().trim().min(2).max(60), text: z.string().trim().min(1).max(72), position: z.enum(["top-left", "top-right", "center", "bottom-left", "bottom-right"]), size: z.number().int().min(2).max(10), font: z.enum(["sans", "serif", "mono"]), isActive: z.boolean() })).mutation(({ input }) => { const { id, ...values } = input; return db.updateGlobalWatermarkPreset(id, values); }),
     seasonalCollections: adminProcedure.query(async () => ({ collections: await db.listAdminSeasonalRecipeCollections(), serverNow: new Date() })),
     createSeasonalCollection: adminProcedure.input(seasonalCollectionInput).mutation(({ input }) => db.createSeasonalRecipeCollection(input)),
     updateSeasonalCollection: adminProcedure.input(z.object({ id: z.number().int().positive() }).and(seasonalCollectionInput)).mutation(({ input }) => db.updateSeasonalRecipeCollection(input.id, input)),

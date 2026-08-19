@@ -19,4 +19,10 @@ describe("riwayat berbagi hasil", () => {
     expect(mocks.recordPhotoShareEvent).toHaveBeenCalledWith(71, expect.objectContaining({ transformId: 9, platform: "instagram", watermarkText: "@tokosaya" }));
     expect(mocks.listPhotoShareEvents).toHaveBeenCalledWith(71, 9, { transformId: 9 });
   });
+
+  it("meneruskan pencarian caption tanpa melepas batas pemilik dan transformasi", async () => {
+    mocks.listPhotoShareEvents.mockResolvedValue([]);
+    await appRouter.createCaller(context(72)).photo.shareHistory({ transformId: 19, captionQuery: "  promo akhir pekan  ", platform: "instagram" });
+    expect(mocks.listPhotoShareEvents).toHaveBeenCalledWith(72, 19, { transformId: 19, captionQuery: "promo akhir pekan", platform: "instagram" });
+  });
 });

@@ -320,6 +320,23 @@ export const photoWatermarkPresets = mysqlTable(
   (table) => [uniqueIndex("photoWatermarkPresets_user_name_unique").on(table.userId, table.name), index("photoWatermarkPresets_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+/** Active presets are brand-managed and readable in the share dialog by every user. */
+export const globalWatermarkPresets = mysqlTable(
+  "globalWatermarkPresets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 60 }).notNull(),
+    text: varchar("text", { length: 72 }).notNull(),
+    position: mysqlEnum("position", ["top-left", "top-right", "center", "bottom-left", "bottom-right"]).notNull(),
+    size: int("size").notNull(),
+    font: mysqlEnum("font", ["sans", "serif", "mono"]).notNull(),
+    isActive: boolean("isActive").notNull().default(true),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("globalWatermarkPresets_name_unique").on(table.name), index("globalWatermarkPresets_active_idx").on(table.isActive)]
+);
+
 /** Saved recipe IDs are private shortcuts and never exposed in community metadata. */
 export const photoRecipeFavorites = mysqlTable(
   "photoRecipeFavorites",
