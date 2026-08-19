@@ -24,6 +24,8 @@ describe("Kolaborasi Foto", () => {
     expect(mocks.createPhotoTransform).toHaveBeenCalledWith(expect.objectContaining({ userId: 7, recipe: "collaboration", secondarySourceKey: "collaborations/7/b.jpg" }));
     expect(mocks.generateImage).toHaveBeenCalledWith(expect.objectContaining({ originalImages: [{ b64Json: image, mimeType: "image/jpeg" }, { b64Json: image, mimeType: "image/png" }], quality: "high", prompt: expect.stringContaining("Identity preservation is non-negotiable") }));
     expect(mocks.generateImage).toHaveBeenCalledWith(expect.objectContaining({ prompt: expect.stringContaining("Do not face-swap, blend faces, morph identities") }));
+    expect(mocks.generateImage).toHaveBeenCalledWith(expect.objectContaining({ prompt: expect.stringContaining("ONE unified single full-frame final photo") }));
+    expect(mocks.generateImage).toHaveBeenCalledWith(expect.objectContaining({ prompt: expect.stringContaining("Never render a diptych") }));
     expect(result).toMatchObject({ resultUrl: "/api/media/private/results%2Fcollaboration.jpg", secondarySourceUrl: "/api/media/private/collaborations%2F7%2Fb.jpg" });
   });
 });

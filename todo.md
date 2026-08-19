@@ -356,3 +356,7 @@
 - [x] Tambahkan skema dan prosedur owner/admin untuk laporan hasil Kolaborasi dan preset latar brand.
 - [x] Bangun tombol laporkan hasil, perbandingan berdampingan versi Kolaborasi, dan pemilihan preset latar brand.
 - [x] Uji otorisasi, privasi laporan, perbandingan owner-scoped, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.
+- [x] Audit prompt, template, dan bahasa antarmuka agar Kolaborasi selalu menghasilkan satu foto pasangan dalam satu frame.
+- [x] Perketat kontrak server untuk menyatukan dua subjek secara natural tanpa diptych, panel terpisah, atau frame berbeda.
+- [x] Perjelas pratinjau dan hasil Kolaborasi sebagai satu foto pasangan final, dengan perbandingan hanya sebagai evaluasi privat proses ulang.
+- [x] Uji prompt komposisi satu frame, perbarui skill ai-photo-studio-fullstack, validasi, dan simpan checkpoint.
