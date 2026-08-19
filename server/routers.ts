@@ -239,7 +239,7 @@ export const appRouter = router({
       if (!transform) throw new TRPCError({ code: "NOT_FOUND", message: "Transformasi tidak ditemukan." });
       return withPrivatePhotoMedia(transform);
     }),
-    shareHistory: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(({ ctx, input }) => db.listPhotoShareEvents(ctx.user.id, input.transformId)),
+    shareHistory: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional() })).query(({ ctx, input }) => db.listPhotoShareEvents(ctx.user.id, input.transformId, input)),
     recordShare: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]), caption: z.string().trim().min(1).max(500), watermarkText: z.string().trim().max(72).optional(), outcome: z.enum(["shared", "copied", "downloaded"]) })).mutation(({ ctx, input }) => db.recordPhotoShareEvent(ctx.user.id, { ...input, watermarkText: input.watermarkText ?? null })),
     aiQuotaStatus: protectedProcedure.query(() => ({ checkedAt: new Date(), retryEstimate: aiQuotaRetryEstimate(), status: "estimate_only" as const })),
     cancelTransform: protectedProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
@@ -325,6 +325,15 @@ export const appRouter = router({
     delete: protectedProcedure.input(z.object({ templateId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       const deleted = await db.deletePhotoCaptionTemplate(ctx.user.id, input.templateId);
       if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Template caption tidak ditemukan." });
+      return { deleted: true } as const;
+    }),
+  }),
+  watermarkPresets: router({
+    list: protectedProcedure.query(({ ctx }) => db.listPhotoWatermarkPresets(ctx.user.id)),
+    create: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(60), text: z.string().trim().min(1).max(72), position: z.enum(["top-left", "top-right", "center", "bottom-left", "bottom-right"]), size: z.number().int().min(2).max(10), font: z.enum(["sans", "serif", "mono"]) })).mutation(({ ctx, input }) => db.createPhotoWatermarkPreset(ctx.user.id, input)),
+    delete: protectedProcedure.input(z.object({ presetId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      const deleted = await db.deletePhotoWatermarkPreset(ctx.user.id, input.presetId);
+      if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Preset watermark tidak ditemukan." });
       return { deleted: true } as const;
     }),
   }),

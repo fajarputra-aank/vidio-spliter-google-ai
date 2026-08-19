@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -267,10 +267,14 @@ export async function recordPhotoShareEvent(userId: number, input: { transformId
   return records[0];
 }
 
-export async function listPhotoShareEvents(userId: number, transformId: number) {
+export async function listPhotoShareEvents(userId: number, transformId: number, filters: { platform?: "whatsapp" | "instagram" | "facebook" | "tiktok" | "other"; from?: Date; to?: Date } = {}) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(photoShareEvents).where(and(eq(photoShareEvents.userId, userId), eq(photoShareEvents.transformId, transformId))).orderBy(desc(photoShareEvents.createdAt)).limit(30);
+  const conditions = [eq(photoShareEvents.userId, userId), eq(photoShareEvents.transformId, transformId)];
+  if (filters.platform) conditions.push(eq(photoShareEvents.platform, filters.platform));
+  if (filters.from) conditions.push(gte(photoShareEvents.createdAt, filters.from));
+  if (filters.to) conditions.push(lte(photoShareEvents.createdAt, filters.to));
+  return db.select().from(photoShareEvents).where(and(...conditions)).orderBy(desc(photoShareEvents.createdAt)).limit(100);
 }
 
 export async function listPhotoCaptionTemplates(userId: number) {
@@ -292,6 +296,28 @@ export async function deletePhotoCaptionTemplate(userId: number, templateId: num
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
   const result = await db.delete(photoCaptionTemplates).where(and(eq(photoCaptionTemplates.id, templateId), eq(photoCaptionTemplates.userId, userId)));
+  return Number(result[0].affectedRows ?? 0) > 0;
+}
+
+export async function listPhotoWatermarkPresets(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(photoWatermarkPresets).where(eq(photoWatermarkPresets.userId, userId)).orderBy(desc(photoWatermarkPresets.createdAt)).limit(30);
+}
+
+export async function createPhotoWatermarkPreset(userId: number, input: { name: string; text: string; position: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; size: number; font: "sans" | "serif" | "mono" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.insert(photoWatermarkPresets).values({ ...input, userId, name: input.name.trim(), text: input.text.trim() });
+  const records = await db.select().from(photoWatermarkPresets).where(eq(photoWatermarkPresets.id, Number(result[0].insertId))).limit(1);
+  if (!records[0]) throw new Error("Preset watermark belum dapat disimpan.");
+  return records[0];
+}
+
+export async function deletePhotoWatermarkPreset(userId: number, presetId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.delete(photoWatermarkPresets).where(and(eq(photoWatermarkPresets.id, presetId), eq(photoWatermarkPresets.userId, userId)));
   return Number(result[0].affectedRows ?? 0) > 0;
 }
 

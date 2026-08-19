@@ -17,6 +17,6 @@ describe("riwayat berbagi hasil", () => {
     await caller.photo.recordShare({ transformId: 9, platform: "instagram", caption: "Hasil katalog", watermarkText: "@tokosaya", outcome: "shared" });
     await caller.photo.shareHistory({ transformId: 9 });
     expect(mocks.recordPhotoShareEvent).toHaveBeenCalledWith(71, expect.objectContaining({ transformId: 9, platform: "instagram", watermarkText: "@tokosaya" }));
-    expect(mocks.listPhotoShareEvents).toHaveBeenCalledWith(71, 9);
+    expect(mocks.listPhotoShareEvents).toHaveBeenCalledWith(71, 9, { transformId: 9 });
   });
 });

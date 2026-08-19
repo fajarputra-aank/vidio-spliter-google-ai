@@ -290,3 +290,8 @@
 - [x] Terapkan posisi, ukuran, dan font watermark pada salinan canvas sebelum berbagi tanpa mengubah hasil asli.
 - [x] Tambahkan kontrol template caption, pengaturan watermark, dan ekspor CSV riwayat berbagi di studio/detail hasil.
 - [x] Uji template, konfigurasi watermark, ekspor CSV, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang preset watermark owner-scoped, pratinjau salinan langsung, dan filter tanggal/platform untuk riwayat berbagi privat.
+- [x] Tambahkan tabel, migrasi, helper, dan prosedur privat untuk menyimpan, menerapkan, serta menghapus preset watermark.
+- [x] Tambahkan filter server owner-scoped berdasarkan tanggal dan platform pada pembacaan riwayat berbagi.
+- [x] Tampilkan pratinjau watermark, pemilih preset, serta filter tanggal/platform pada dialog dan detail hasil.
+- [x] Uji preset, pratinjau, filter riwayat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

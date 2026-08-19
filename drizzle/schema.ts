@@ -304,6 +304,22 @@ export const photoCaptionTemplates = mysqlTable(
   (table) => [uniqueIndex("photoCaptionTemplates_user_name_unique").on(table.userId, table.name), index("photoCaptionTemplates_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+/** Reusable private watermark settings; the original result file is never altered. */
+export const photoWatermarkPresets = mysqlTable(
+  "photoWatermarkPresets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    name: varchar("name", { length: 60 }).notNull(),
+    text: varchar("text", { length: 72 }).notNull(),
+    position: mysqlEnum("position", ["top-left", "top-right", "center", "bottom-left", "bottom-right"]).notNull(),
+    size: int("size").notNull(),
+    font: mysqlEnum("font", ["sans", "serif", "mono"]).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("photoWatermarkPresets_user_name_unique").on(table.userId, table.name), index("photoWatermarkPresets_user_created_idx").on(table.userId, table.createdAt)]
+);
+
 /** Saved recipe IDs are private shortcuts and never exposed in community metadata. */
 export const photoRecipeFavorites = mysqlTable(
   "photoRecipeFavorites",
