@@ -69,6 +69,8 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .media-image-skeleton { color: #a95c19; background: linear-gradient(110deg, #e8dfcf 20%, #f9f5eb 38%, #e8dfcf 56%); background-size: 220% 100%; animation: media-shimmer 1.2s linear infinite; }
 .media-image-fallback { padding: 10px; color: #746b5d; background: repeating-linear-gradient(45deg, #eee7da, #eee7da 7px, #e6ddcf 7px, #e6ddcf 14px); }
 .media-image-fallback small { max-width: 12ch; font-size: 9px; font-weight: 800; line-height: 1.2; letter-spacing: .03em; }
+.media-image-fallback button { padding: 5px 7px; color: #1b1b18; border: 1px solid #1b1b18; background: #f6f1e7; font-size: 9px; font-weight: 800; cursor: pointer; }
+.media-image-fallback button:hover { background: #ef8f2f; }
 @keyframes media-shimmer { to { background-position: -220% 0; } }
 @media (prefers-reduced-motion: reduce) { .media-image-skeleton { animation: none; } }
 

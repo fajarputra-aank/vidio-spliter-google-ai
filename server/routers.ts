@@ -15,6 +15,7 @@ import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, valida
 import { sdk } from "./_core/sdk";
 import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail, sendSecuritySummaryEmail } from "./accountEmails";
 import { registerActiveSession } from "./sessionMetadata";
+import { toSafeTransformFailure } from "./transformFailureMessages";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -35,8 +36,11 @@ function privateMediaUrl(value: string | null) {
   return `/api/media/private/${encodeURIComponent(value.slice("/manus-storage/".length))}`;
 }
 
-function withPrivatePhotoMedia<T extends { sourceUrl: string; resultUrl: string | null }>(record: T) {
-  return { ...record, sourceUrl: privateMediaUrl(record.sourceUrl)!, resultUrl: privateMediaUrl(record.resultUrl) };
+function withPrivatePhotoMedia<T extends { sourceUrl: string; resultUrl: string | null; errorMessage?: string | null }>(record: T) {
+  const errorMessage = record.errorMessage && !record.errorMessage.startsWith("Layanan AI sedang") && !record.errorMessage.startsWith("Transformasi belum berhasil")
+    ? toSafeTransformFailure(new Error(record.errorMessage)).message
+    : record.errorMessage;
+  return { ...record, errorMessage, sourceUrl: privateMediaUrl(record.sourceUrl)!, resultUrl: privateMediaUrl(record.resultUrl) };
 }
 
 function withPrivateAlbumMedia<T extends { coverUrl: string | null; items: Array<{ resultUrl: string | null }> }>(album: T) {
@@ -243,10 +247,11 @@ export const appRouter = router({
         return withPrivatePhotoMedia(await db.completePhotoTransform(transform.id, result.url));
       } catch (error) {
         if (usedPurchasedCredit) await db.refundPurchasedCredit(ctx.user.id);
-        const message = error instanceof Error ? error.message : "Transformasi AI gagal diproses.";
-        if (transformId) await db.failPhotoTransform(transformId, message);
-        console.error("[Photo] Transform failed", message);
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transformasi belum berhasil. Coba lagi beberapa saat." });
+        const providerMessage = error instanceof Error ? error.message : "Transformasi AI gagal diproses.";
+        const failure = toSafeTransformFailure(error);
+        if (transformId) await db.failPhotoTransform(transformId, failure.message);
+        console.error("[Photo] Transform failed", providerMessage);
+        throw new TRPCError({ code: failure.code === "AI_QUOTA_EXHAUSTED" ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR", message: failure.message });
       }
     }),
   }),

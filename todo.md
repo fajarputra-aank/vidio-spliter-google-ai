@@ -224,3 +224,8 @@
 - [x] Tambahkan fallback dan indikator galat yang jelas untuk gambar riwayat yang tidak berhasil dimuat.
 - [x] Tambahkan skeleton atau animasi pemuatan untuk gambar studio, hasil, album, dan riwayat.
 - [x] Uji interaksi gambar, transformasi, responsivitas, dan simpan checkpoint peningkatan pengalaman media.
+- [x] Tambahkan tombol muat ulang pada fallback gambar agar pengguna dapat mencoba kembali media yang gagal.
+- [x] Tampilkan status dan alasan aman untuk transformasi gagal pada galeri riwayat.
+- [x] Tambahkan peringatan ramah saat kuota layanan AI sedang habis.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pola pemulihan media serta komunikasi kuota.
+- [x] Uji pesan, pemulihan gambar, responsivitas, dan simpan checkpoint rilis.
