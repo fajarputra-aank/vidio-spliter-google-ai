@@ -261,13 +261,25 @@ export async function getProcessingQueueStatus() {
   if (!db) throw new Error("Basis data belum tersedia.");
   const rows = await db.select({ activeCount: count() }).from(photoTransforms).where(eq(photoTransforms.status, "processing"));
   const activeCount = Number(rows[0]?.activeCount ?? 0);
-  return { activeCount, position: activeCount + 1 };
+  const completed = await db.select({ createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.completedAt))).orderBy(desc(photoTransforms.completedAt)).limit(30);
+  const durations = completed.map((item) => Math.max(1, Math.round((item.completedAt!.getTime() - item.createdAt.getTime()) / 1000))).filter((seconds) => seconds <= 15 * 60);
+  const averageDurationSeconds = durations.length ? Math.round(durations.reduce((total, seconds) => total + seconds, 0) / durations.length) : 45;
+  const position = activeCount + 1;
+  return { activeCount, position, averageDurationSeconds, estimatedWaitSeconds: averageDurationSeconds * Math.max(0, position - 1), estimatedCompletionSeconds: averageDurationSeconds * position, sampleSize: durations.length };
 }
 
 export async function markPhotoTransformAutoRetry(id: number) {
   const db = await getDb();
   if (!db) return;
   await db.update(photoTransforms).set({ providerAttemptCount: 2, autoRetryAt: new Date() }).where(and(eq(photoTransforms.id, id), eq(photoTransforms.status, "processing")));
+}
+
+export function getPhotoTransformCompletionActivity(transform: { title: string; providerAttemptCount: number }) {
+  const recovered = transform.providerAttemptCount > 1;
+  return {
+    title: recovered ? "Transformasi selesai setelah pemulihan" : "Transformasi selesai",
+    content: recovered ? `“${transform.title}” berhasil diselesaikan setelah sistem mencoba ulang akibat gangguan sementara.` : `“${transform.title}” sudah siap ditinjau, diunduh, atau disusun ke album privat.`,
+  };
 }
 
 export async function completePhotoTransform(id: number, resultUrl: string) {
@@ -281,7 +293,10 @@ export async function completePhotoTransform(id: number, resultUrl: string) {
   const transform = rows[0];
   if (transform?.status === "completed") {
     const preferences = await db.select({ accountActivity: userNotificationPreferences.accountActivity }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, transform.userId)).limit(1);
-    if (preferences[0]?.accountActivity ?? true) await db.insert(userNotifications).values({ userId: transform.userId, kind: "account_activity", title: "Transformasi selesai", content: `“${transform.title}” sudah siap ditinjau, diunduh, atau disusun ke album privat.`, relatedPostId: null });
+    if (preferences[0]?.accountActivity ?? true) {
+      const activity = getPhotoTransformCompletionActivity(transform);
+      await db.insert(userNotifications).values({ userId: transform.userId, kind: "account_activity", ...activity, relatedPostId: null });
+    }
   }
   return rows[0];
 }

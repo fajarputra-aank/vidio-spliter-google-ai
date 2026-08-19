@@ -249,3 +249,8 @@
 - [x] Buat halaman detail aktivitas privat untuk setiap transformasi.
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk antrean, pengulangan otomatis, dan detail aktivitas.
 - [x] Uji migrasi, antrean, pengulangan otomatis, detail aktivitas, responsivitas, dan simpan checkpoint rilis.
+- [x] Tambahkan estimasi waktu tunggu yang jujur berdasarkan posisi antrean AI.
+- [x] Kirim notifikasi saat transformasi yang sempat diulang otomatis berhasil selesai.
+- [x] Tambahkan ekspor CSV owner-scoped untuk riwayat aktivitas transformasi.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk estimasi antrean, notifikasi retry, dan ekspor aktivitas.
+- [x] Uji estimasi, notifikasi retry, ekspor CSV, responsivitas, dan simpan checkpoint rilis.

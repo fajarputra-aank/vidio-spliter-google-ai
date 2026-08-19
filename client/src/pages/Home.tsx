@@ -86,6 +86,11 @@ function formatDate(value: Date | string) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+function formatQueueTime(seconds: number) {
+  if (seconds < 60) return "kurang dari 1 menit";
+  return `sekitar ${Math.ceil(seconds / 60)} menit`;
+}
+
 async function shareImage(url: string, title: string) {
   try {
     const outcome = await shareImageUrl(url, title, window.location.origin, navigator);
@@ -127,6 +132,7 @@ export default function Home() {
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [queueEstimate, setQueueEstimate] = useState<{ waitSeconds: number; completionSeconds: number; sampleSize: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelledRequestIds = useRef(new Set<string>());
   const hasUnlimitedStudioAccess = user?.role === "admin" || quotaQuery.data?.isUnlimited === true;
@@ -174,6 +180,7 @@ export default function Home() {
         setIsProcessing(false);
         setActiveRequestId(null);
         setQueuePosition(null);
+        setQueueEstimate(null);
         void utils.photo.list.invalidate();
         toast.message("Transformasi dibatalkan. Foto sumber tetap tersimpan aman di riwayat.");
         return;
@@ -187,18 +194,20 @@ export default function Home() {
       setRetryOfTransformId(null);
       setActiveRequestId(null);
       setQueuePosition(null);
+      setQueueEstimate(null);
       setIsProcessing(false);
       void utils.photo.list.invalidate();
       void utils.photo.quota.invalidate();
       void utils.billing.balance.invalidate();
       void utils.photo.profile.invalidate();
-      toast.success("Hasil AI sudah masuk ke galeri pribadimu.");
+      toast.success(record.providerAttemptCount > 1 ? "Gangguan sementara pulih. Hasil AI selesai setelah sistem mencoba ulang dan sudah masuk ke galeri privat." : "Hasil AI sudah masuk ke galeri pribadimu.");
     },
     onError: (error, variables) => {
       setIsProcessing(false);
       setProgress(0);
       setActiveRequestId(null);
       setQueuePosition(null);
+      setQueueEstimate(null);
       if (variables.requestId && cancelledRequestIds.current.delete(variables.requestId)) return;
       if (/batas penggunaan/i.test(error.message)) setQuotaWarning(error.message);
       toast.error(error.message);
@@ -270,6 +279,7 @@ export default function Home() {
     setIsProcessing(true);
     const queue = await queueStatusQuery.refetch();
     setQueuePosition(queue.data?.position ?? null);
+    setQueueEstimate(queue.data ? { waitSeconds: queue.data.estimatedWaitSeconds, completionSeconds: queue.data.estimatedCompletionSeconds, sampleSize: queue.data.sampleSize } : null);
     const requestId = crypto.randomUUID();
     setActiveRequestId(requestId);
     if (retryOfTransformId) toast.message("Memproses ulang foto dari riwayat. Catatan instruksi privat akan dipakai pada percobaan ini.");
@@ -284,6 +294,7 @@ export default function Home() {
         setProgress(0);
         setActiveRequestId(null);
         setQueuePosition(null);
+        setQueueEstimate(null);
         void utils.photo.list.invalidate();
         void utils.photo.quota.invalidate();
         toast.message("Transformasi dibatalkan. Foto sumber tetap tersimpan aman di riwayat.");
@@ -437,7 +448,7 @@ export default function Home() {
               <div className="column-label"><span>PRATINJAU</span><span>{resultImage ? "siap" : isProcessing ? "meracik" : "menunggu"}</span></div>
               {resultImage && uploadedImage ? <><BeforeAfterSlider before={uploadedImage} after={resultImage} aspectRatio={selectedAspect} /><p className="comparison-help">Geser garis pembanding, gunakan kontrol sentuh/keyboard, atau tekan <strong>TENGAH</strong> untuk kembali ke posisi 50:50.</p></> : <div className={`result-frame ratio-preview ${isProcessing ? "is-processing" : ""}`} style={{ aspectRatio: selectedAspect }}><MediaImage src={previewImage} alt="Pratinjau hasil resep terpilih" fallbackLabel="Pratinjau belum tersedia" /><span className="frame-number">LS / {new Date().getFullYear()}</span><span className="ratio-stamp">{selectedAspect}</span>{isProcessing && <div className="processing-layer progress-layer"><div className="process-orbit"><Sparkles size={20} /></div><strong>{progressStages[progressStage]}</strong><span>AI sedang memproses frame-mu</span><div className="progress-track" aria-label={`Progres proses ${progress}%`}><i style={{ width: `${progress}%` }} /></div><small>{progress}% · perkiraan selama AI menyelesaikan frame</small></div>}</div>}
               <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? `Hasil ${selectedStyle} ${selectedAspect} sudah tersimpan. Geser garis pembanding untuk melihat perubahan.` : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : `Unggah foto asli lalu terapkan resep serta gaya ${selectedStyle} untuk membuat hasil ${selectedAspect}.`}</p></div>
-              {isProcessing && <div className="queue-status" role="status"><span>ANTREAN AI</span><strong>{queuePosition ? `Perkiraan giliran #${queuePosition}` : "Menghitung perkiraan giliran…"}</strong><small>Posisi dapat berubah saat pekerjaan lain selesai atau baru masuk.</small></div>}
+              {isProcessing && <div className="queue-status" role="status"><span>ANTREAN AI</span><strong>{queuePosition ? `Perkiraan giliran #${queuePosition}` : "Menghitung perkiraan giliran…"}</strong>{queueEstimate && <p>Waktu tunggu {formatQueueTime(queueEstimate.waitSeconds)} · hasil sekitar {formatQueueTime(queueEstimate.completionSeconds)}.</p>}<small>Ini estimasi dari {queueEstimate?.sampleSize ? `${queueEstimate.sampleSize} proses terakhir` : "durasi standar"}; posisi dapat berubah saat pekerjaan lain masuk atau selesai.</small></div>}
               {quotaWarning && <div className="ai-quota-warning" role="status"><div><strong>STATUS KUOTA AI</strong><p>{quotaWarning}</p></div><button type="button" onClick={() => void refreshAiQuotaStatus()} disabled={aiQuotaStatusQuery.isFetching}>{aiQuotaStatusQuery.isFetching ? "Memeriksa…" : "Muat ulang status kuota"}</button></div>}
               {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button><button className="share-action retry-action" onClick={tryAnotherRecipe} disabled={isRestoringHistorySource}><RotateCcw size={16} /> {isRestoringHistorySource ? "Menyiapkan sumber…" : "Coba resep lain"}</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!hasUnlimitedStudioAccess && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : hasUnlimitedStudioAccess ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
               {isProcessing && activeRequestId && <AlertDialog><AlertDialogTrigger asChild><button type="button" className="cancel-transform" disabled={cancelTransformMutation.isPending}>{cancelTransformMutation.isPending ? "Membatalkan…" : "Batalkan transformasi"}</button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Batalkan transformasi ini?</AlertDialogTitle><AlertDialogDescription>Proses AI yang sedang berjalan akan dihentikan. Foto sumber tetap aman di riwayat privat dan dapat diproses ulang kapan saja.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Teruskan proses</AlertDialogCancel><AlertDialogAction className="cancel-dialog-confirm" onClick={() => cancelTransformMutation.mutate({ requestId: activeRequestId })}>Ya, batalkan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
