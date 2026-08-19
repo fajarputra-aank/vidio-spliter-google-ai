@@ -11,7 +11,7 @@ import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
 import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
-import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
+import { createSecurityToken, hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
 import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail, sendSecuritySummaryEmail } from "./accountEmails";
 import { registerActiveSession } from "./sessionMetadata";
@@ -251,6 +251,13 @@ export const appRouter = router({
     }),
     collaborationInvites: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationInvites(ctx.user.id)),
     collaborationProjects: protectedProcedure.query(async ({ ctx }) => (await db.listPhotoCollaborationProjects(ctx.user.id)).map((project) => ({ ...project, resultUrl: privateMediaUrl(project.resultUrl) }))),
+    collaborationShareLinks: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(({ ctx, input }) => db.listPhotoCollaborationShareLinks(ctx.user.id, input.transformId)),
+    createCollaborationShareLink: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), expiresInHours: z.union([z.literal(1), z.literal(24), z.literal(72)]) })).mutation(async ({ ctx, input }) => { const { token, tokenHash } = createSecurityToken(); const link = await db.createPhotoCollaborationShareLink(ctx.user.id, input.transformId, tokenHash, new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000)); return { id: link.id, token, expiresAt: link.expiresAt }; }),
+    revokeCollaborationShareLink: protectedProcedure.input(z.object({ shareLinkId: z.number().int().positive() })).mutation(({ ctx, input }) => db.revokePhotoCollaborationShareLink(ctx.user.id, input.shareLinkId)),
+    collaborationSharePreview: publicProcedure.input(z.object({ token: z.string().min(32).max(100) })).query(async ({ input }) => { const shared = await db.getPhotoCollaborationShareByTokenHash(hashSecurityToken(input.token)); if (!shared) throw new TRPCError({ code: "NOT_FOUND", message: "Tautan berbagi tidak tersedia atau telah berakhir." }); return { title: shared.title, template: shared.template, aspectRatio: shared.aspectRatio, expiresAt: shared.expiresAt }; }),
+    collaborationLayoutPresets: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationLayoutPresets(ctx.user.id)),
+    createCollaborationLayoutPreset: protectedProcedure.input(z.object({ name: z.string().trim().min(1).max(48), layout: collaborationLayoutInput })).mutation(({ ctx, input }) => db.createPhotoCollaborationLayoutPreset(ctx.user.id, input.name, JSON.stringify(input.layout))),
+    deleteCollaborationLayoutPreset: protectedProcedure.input(z.object({ presetId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deletePhotoCollaborationLayoutPreset(ctx.user.id, input.presetId)),
     inviteToCollaboration: protectedProcedure.input(z.object({ email: z.string().trim().email().max(320), template: z.enum(collaborationTemplateIds), aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), note: z.string().trim().max(360).optional() })).mutation(({ ctx, input }) => db.createPhotoCollaborationInvite(ctx.user.id, normalizeEmail(input.email), input)),
     respondToCollaborationInvite: protectedProcedure.input(z.object({ inviteId: z.number().int().positive(), action: z.enum(["accepted", "declined"]) })).mutation(({ ctx, input }) => db.respondPhotoCollaborationInvite(ctx.user.id, input.inviteId, input.action)),
     cancelCollaborationInvite: protectedProcedure.input(z.object({ inviteId: z.number().int().positive() })).mutation(({ ctx, input }) => db.cancelPhotoCollaborationInvite(ctx.user.id, input.inviteId)),

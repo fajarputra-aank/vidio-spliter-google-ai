@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { photoCollaborationInvites } from "../drizzle/schema";
+import { photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
 import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
@@ -310,6 +310,59 @@ export async function listPhotoCollaborationProjects(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"))).orderBy(desc(photoTransforms.createdAt)).limit(100);
+}
+
+export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const transform = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  if (!transform[0]) throw new Error("Hanya hasil Kolaborasi Foto yang selesai dapat dibagikan.");
+  const result = await db.insert(photoCollaborationShareLinks).values({ userId, transformId, tokenHash, expiresAt });
+  const rows = await db.select().from(photoCollaborationShareLinks).where(eq(photoCollaborationShareLinks.id, Number(result[0].insertId))).limit(1);
+  return rows[0];
+}
+
+export async function listPhotoCollaborationShareLinks(userId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({ id: photoCollaborationShareLinks.id, expiresAt: photoCollaborationShareLinks.expiresAt, revokedAt: photoCollaborationShareLinks.revokedAt, createdAt: photoCollaborationShareLinks.createdAt }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId))).orderBy(desc(photoCollaborationShareLinks.createdAt)).limit(20);
+}
+
+export async function revokePhotoCollaborationShareLink(userId: number, shareLinkId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.update(photoCollaborationShareLinks).set({ revokedAt: new Date() }).where(and(eq(photoCollaborationShareLinks.id, shareLinkId), eq(photoCollaborationShareLinks.userId, userId), isNull(photoCollaborationShareLinks.revokedAt)));
+  if (!Number(result[0].affectedRows)) throw new Error("Tautan tidak dapat dicabut.");
+  return { success: true };
+}
+
+export async function getPhotoCollaborationShareByTokenHash(tokenHash: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select({ transformId: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, resultUrl: photoTransforms.resultUrl, expiresAt: photoCollaborationShareLinks.expiresAt }).from(photoCollaborationShareLinks).innerJoin(photoTransforms, eq(photoTransforms.id, photoCollaborationShareLinks.transformId)).where(and(eq(photoCollaborationShareLinks.tokenHash, tokenHash), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date()), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listPhotoCollaborationLayoutPresets(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(photoCollaborationLayoutPresets).where(eq(photoCollaborationLayoutPresets.userId, userId)).orderBy(desc(photoCollaborationLayoutPresets.updatedAt), desc(photoCollaborationLayoutPresets.id)).limit(24);
+}
+
+export async function createPhotoCollaborationLayoutPreset(userId: number, name: string, layout: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.insert(photoCollaborationLayoutPresets).values({ userId, name: name.trim(), layout });
+  const rows = await db.select().from(photoCollaborationLayoutPresets).where(eq(photoCollaborationLayoutPresets.id, Number(result[0].insertId))).limit(1);
+  return rows[0];
+}
+
+export async function deletePhotoCollaborationLayoutPreset(userId: number, presetId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.delete(photoCollaborationLayoutPresets).where(and(eq(photoCollaborationLayoutPresets.id, presetId), eq(photoCollaborationLayoutPresets.userId, userId)));
+  if (!Number(result[0].affectedRows)) throw new Error("Preset tidak ditemukan.");
+  return { success: true };
 }
 
 export async function getOwnedPhotoTransform(userId: number, transformId: number) {

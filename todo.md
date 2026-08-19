@@ -325,3 +325,7 @@
 - [x] Tambahkan prosedur aman untuk membatalkan undangan, memberi tahu kolaborator, dan membaca proyek milik pemanggil.
 - [x] Bangun halaman riwayat kolaborasi serta kontrol geser/proporsi pada pratinjau sebelum proses.
 - [x] Uji pembatalan, notifikasi, riwayat privat, pratinjau interaktif, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang tautan berbagi hasil kolaborasi dengan masa berlaku terbatas dan preset tata letak privat yang dapat digunakan ulang.
+- [x] Tambahkan skema, migrasi, prosedur, dan akses media aman untuk tautan terbatas serta preset milik pengguna.
+- [x] Bangun pengelolaan tautan berbagi dan simpan/terapkan preset tata letak di antarmuka Kolaborasi Foto.
+- [x] Uji masa berlaku tautan, batas kepemilikan preset, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

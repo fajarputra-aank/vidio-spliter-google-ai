@@ -16,6 +16,7 @@
 @import "./collaboration.css";
 @import "./collaboration-extensions.css";
 @import "./collaboration-history.css";
+@import "./collaboration-share.css";
 
 @custom-variant dark (&:is(.dark *));
 

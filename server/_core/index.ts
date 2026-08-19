@@ -5,6 +5,7 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerStorageProxy } from "./storageProxy";
 import { registerMediaProxy } from "./mediaProxy";
+import { registerCollaborationShareProxy } from "./collaborationShareProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -40,6 +41,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerMediaProxy(app);
+  registerCollaborationShareProxy(app);
   app.post("/api/scheduled/archived-album-reminders", handleArchivedAlbumReminders);
   app.post("/api/scheduled/security-summaries", handleSecuritySummaries);
   // tRPC API

@@ -160,6 +160,35 @@ export const photoCollaborationInvites = mysqlTable(
   (table) => [index("photoCollaborationInvites_invitee_status_created_idx").on(table.inviteeUserId, table.status, table.createdAt), index("photoCollaborationInvites_inviter_created_idx").on(table.inviterUserId, table.createdAt)]
 );
 
+/** Opaque, revocable access tokens for one completed collaboration result. Only a token hash is persisted. */
+export const photoCollaborationShareLinks = mysqlTable(
+  "photoCollaborationShareLinks",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    transformId: int("transformId").notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    revokedAt: timestamp("revokedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [index("photoCollaborationShareLinks_user_transform_created_idx").on(table.userId, table.transformId, table.createdAt), index("photoCollaborationShareLinks_token_expiry_idx").on(table.tokenHash, table.expiresAt)]
+);
+
+/** Reusable private layout values for the two local collaboration inputs. */
+export const photoCollaborationLayoutPresets = mysqlTable(
+  "photoCollaborationLayoutPresets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    name: varchar("name", { length: 48 }).notNull(),
+    layout: text("layout").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  (table) => [index("photoCollaborationLayoutPresets_user_updated_idx").on(table.userId, table.updatedAt)]
+);
+
 /** Private record of a completed result shared by its owner; no destination account or external URL is stored. */
 export const photoShareEvents = mysqlTable(
   "photoShareEvents",
