@@ -239,6 +239,8 @@ export const appRouter = router({
       if (!transform) throw new TRPCError({ code: "NOT_FOUND", message: "Transformasi tidak ditemukan." });
       return withPrivatePhotoMedia(transform);
     }),
+    shareHistory: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(({ ctx, input }) => db.listPhotoShareEvents(ctx.user.id, input.transformId)),
+    recordShare: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]), caption: z.string().trim().min(1).max(500), watermarkText: z.string().trim().max(72).optional(), outcome: z.enum(["shared", "copied", "downloaded"]) })).mutation(({ ctx, input }) => db.recordPhotoShareEvent(ctx.user.id, { ...input, watermarkText: input.watermarkText ?? null })),
     aiQuotaStatus: protectedProcedure.query(() => ({ checkedAt: new Date(), retryEstimate: aiQuotaRetryEstimate(), status: "estimate_only" as const })),
     cancelTransform: protectedProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
       const result = await db.cancelPhotoTransform(ctx.user.id, input.requestId);

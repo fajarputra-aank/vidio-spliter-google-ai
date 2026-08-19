@@ -280,3 +280,8 @@
 - [x] Rancang tindakan berbagi hasil foto yang menggunakan lembar berbagi perangkat, tautan aplikasi sosial, dan fallback salin tautan tanpa mengklaim dukungan aplikasi yang tidak tersedia.
 - [x] Tambahkan tombol berbagi lintas media sosial pada hasil foto dengan fallback aman untuk perangkat/browser yang tidak mendukung berbagi native.
 - [x] Uji alur berbagi, pembaruan skill ai-photo-studio-fullstack, pemeriksaan rilis, dan simpan checkpoint.
+- [x] Rancang model caption per platform, watermark kustom sebelum berbagi, dan riwayat berbagi yang hanya dapat dilihat pemilik hasil.
+- [x] Tambahkan tabel, migrasi, helper, dan prosedur owner-scoped untuk mencatat platform, caption, status, serta waktu tindakan berbagi.
+- [x] Bangun pembuatan caption yang berbeda untuk platform pilihan dan watermark kustom pada salinan yang dibagikan tanpa mengubah hasil asli.
+- [x] Tampilkan kontrol caption/watermark sebelum berbagi serta riwayat aktivitas berbagi pada hasil foto.
+- [x] Uji caption, watermark, privasi riwayat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

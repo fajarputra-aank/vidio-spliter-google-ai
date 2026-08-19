@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoRecipeFavorites, photoTransforms, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -254,6 +254,23 @@ export async function getOwnedPhotoTransform(userId: number, transformId: number
   if (!db) return null;
   const rows = await db.select().from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId))).limit(1);
   return rows[0] ?? null;
+}
+
+export async function recordPhotoShareEvent(userId: number, input: { transformId: number; platform: "whatsapp" | "instagram" | "facebook" | "tiktok" | "other"; caption: string; watermarkText: string | null; outcome: "shared" | "copied" | "downloaded" }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const transform = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, input.transformId), eq(photoTransforms.userId, userId), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  if (!transform[0]) throw new Error("Hanya hasil transformasi selesai yang dapat dicatat sebagai dibagikan.");
+  const result = await db.insert(photoShareEvents).values({ ...input, userId, watermarkText: input.watermarkText?.trim() || null });
+  const records = await db.select().from(photoShareEvents).where(eq(photoShareEvents.id, Number(result[0].insertId))).limit(1);
+  if (!records[0]) throw new Error("Riwayat berbagi belum dapat disimpan.");
+  return records[0];
+}
+
+export async function listPhotoShareEvents(userId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(photoShareEvents).where(and(eq(photoShareEvents.userId, userId), eq(photoShareEvents.transformId, transformId))).orderBy(desc(photoShareEvents.createdAt)).limit(30);
 }
 
 export async function getProcessingQueueStatus() {

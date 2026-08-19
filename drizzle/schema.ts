@@ -135,6 +135,22 @@ export const photoTransforms = mysqlTable(
   (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt), index("photoTransforms_user_retry_idx").on(table.userId, table.retryOfTransformId, table.createdAt), index("photoTransforms_user_request_idx").on(table.userId, table.requestId)]
 );
 
+/** Private record of a completed result shared by its owner; no destination account or external URL is stored. */
+export const photoShareEvents = mysqlTable(
+  "photoShareEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    transformId: int("transformId").notNull(),
+    userId: int("userId").notNull(),
+    platform: mysqlEnum("platform", ["whatsapp", "instagram", "facebook", "tiktok", "other"]).notNull(),
+    caption: varchar("caption", { length: 500 }).notNull(),
+    watermarkText: varchar("watermarkText", { length: 72 }),
+    outcome: mysqlEnum("outcome", ["shared", "copied", "downloaded"]).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [index("photoShareEvents_user_transform_created_idx").on(table.userId, table.transformId, table.createdAt)]
+);
+
 /** Immutable business ledger for paid extra transformations. */
 export const creditLedger = mysqlTable(
   "creditLedger",

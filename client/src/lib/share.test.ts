@@ -25,7 +25,7 @@ describe("shareImageUrl", () => {
     const share = vi.fn().mockResolvedValue(undefined);
     const blob = new Blob(["image"], { type: "image/png" });
     const file = { name: "lensa-saku-produk-katalog.png" } as File;
-    const result = await shareResultImage("/api/media/private/result.png", "Produk katalog", "https://studio.example", { share, canShare: vi.fn().mockReturnValue(true) }, vi.fn().mockResolvedValue({ ok: true, blob: vi.fn().mockResolvedValue(blob) }), vi.fn().mockReturnValue(file));
+    const result = await shareResultImage("/api/media/private/result.png", "Produk katalog", "https://studio.example", { share, canShare: vi.fn().mockReturnValue(true) }, {}, vi.fn().mockResolvedValue({ ok: true, blob: vi.fn().mockResolvedValue(blob) }), vi.fn().mockReturnValue(file));
 
     expect(result).toBe("native_image");
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ files: [file] }));

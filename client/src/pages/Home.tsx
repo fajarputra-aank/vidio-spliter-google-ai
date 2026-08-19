@@ -7,6 +7,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { shareResultImage } from "@/lib/share";
+import { buildShareCaption, sharePlatforms, type SharePlatform } from "@/lib/shareCaption";
 import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
 import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
@@ -120,10 +121,11 @@ function formatQueueTime(seconds: number) {
   return `sekitar ${Math.ceil(seconds / 60)} menit`;
 }
 
-async function shareImage(url: string, title: string) {
+async function shareImage(url: string, title: string, options: { watermarkText?: string; caption?: string } = {}) {
   try {
-    const outcome = await shareResultImage(url, title, window.location.origin, navigator);
+    const outcome = await shareResultImage(url, title, window.location.origin, navigator, options);
     toast.success(outcome === "native_image" ? "Pilih aplikasi sosial dari lembar berbagi perangkat." : outcome === "native" ? "Pilih aplikasi sosial dari lembar berbagi perangkat." : "Tautan hasil sudah disalin.");
+    return outcome;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return;
     toast.error("Tautan belum dapat dibagikan. Coba unduh hasilnya.");
@@ -143,6 +145,12 @@ export default function Home() {
   const recipeFavoritesQuery = trpc.recipeFavorites.list.useQuery(undefined, { enabled: isAuthenticated });
   const recipePopularityQuery = trpc.recipeCatalog.popularity.useQuery();
   const personalRecipeUsageQuery = trpc.recipeCatalog.personalUsage.useQuery(undefined, { enabled: isAuthenticated });
+  const [resultTransformId, setResultTransformId] = useState<number | null>(null);
+  const [sharePlatform, setSharePlatform] = useState<SharePlatform>("instagram");
+  const [shareCaption, setShareCaption] = useState("");
+  const [shareWatermark, setShareWatermark] = useState("");
+  const shareHistoryQuery = trpc.photo.shareHistory.useQuery({ transformId: resultTransformId ?? 0 }, { enabled: isAuthenticated && Boolean(resultTransformId) });
+  const recordShareMutation = trpc.photo.recordShare.useMutation({ onSuccess: () => void utils.photo.shareHistory.invalidate() });
   const seasonalCollectionsQuery = trpc.recipeCatalog.seasonalCollections.useQuery();
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [selectedRecipeCollection, setSelectedRecipeCollection] = useState<RecipeCollectionFilter>("all");
@@ -233,6 +241,7 @@ export default function Home() {
         return;
       }
       setResultImage(privateMediaUrl(record.resultUrl));
+      setResultTransformId(record.id);
       setRetryOfTransformId(null);
       setActiveRequestId(null);
       setQueuePosition(null);
@@ -295,6 +304,7 @@ export default function Home() {
       setUploadedImage(dataUrl);
       setUploadPayload({ base64, mimeType: file.type as UploadPayload["mimeType"], fileName: file.name });
       setResultImage(null);
+      setResultTransformId(null);
       setProgress(0);
       setRecommendations([]);
       setRetryOfTransformId(null);
@@ -516,7 +526,7 @@ export default function Home() {
               <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? `Hasil ${selectedStyle} ${selectedAspect} sudah tersimpan. Geser garis pembanding untuk melihat perubahan.` : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : `Unggah foto asli lalu terapkan resep serta gaya ${selectedStyle} untuk membuat hasil ${selectedAspect}.`}</p></div>
               {isProcessing && <div className="queue-status" role="status"><span>ANTREAN AI</span><strong>{queuePosition ? `Perkiraan giliran #${queuePosition}` : "Menghitung perkiraan giliran…"}</strong>{queueEstimate && <p>Waktu tunggu {formatQueueTime(queueEstimate.waitSeconds)} · hasil sekitar {formatQueueTime(queueEstimate.completionSeconds)}.</p>}<small>Ini estimasi dari {queueEstimate?.sampleSize ? `${queueEstimate.sampleSize} proses terakhir` : "durasi standar"}; posisi dapat berubah saat pekerjaan lain masuk atau selesai.</small></div>}
               {quotaWarning && <div className="ai-quota-warning" role="status"><div><strong>STATUS KUOTA AI</strong><p>{quotaWarning}</p></div><button type="button" onClick={() => void refreshAiQuotaStatus()} disabled={aiQuotaStatusQuery.isFetching}>{aiQuotaStatusQuery.isFetching ? "Memeriksa…" : "Muat ulang status kuota"}</button></div>}
-              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><Dialog open={shareOpen} onOpenChange={setShareOpen}><DialogTrigger asChild><button className="share-action"><Share2 size={16} /> Bagikan</button></DialogTrigger><DialogContent className="share-result-dialog"><DialogHeader><DialogTitle>Bagikan hasil ke aplikasi sosial</DialogTitle><DialogDescription>Pilih aplikasi yang tersedia di perangkatmu melalui lembar berbagi. Foto hasil dikirim sebagai berkas bila perangkat mendukungnya.</DialogDescription></DialogHeader><div className="share-app-hints"><span>WhatsApp</span><span>Instagram</span><span>Facebook</span><span>TikTok</span><span>dan lainnya</span></div><button className="primary-action share-everywhere" onClick={() => { void shareImage(resultImage, selectedRecipe.name); setShareOpen(false); }}><Share2 size={16} /> Bagikan ke semua aplikasi</button><button className="secondary-action share-download-fallback" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.message("Unduh hasil lalu unggah ke aplikasi pilihanmu."); setShareOpen(false); }}><Download size={15} /> Unduh untuk dibagikan manual</button></DialogContent></Dialog><button className="share-action retry-action" onClick={tryAnotherRecipe} disabled={isRestoringHistorySource}><RotateCcw size={16} /> {isRestoringHistorySource ? "Menyiapkan sumber…" : "Coba resep lain"}</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!hasUnlimitedStudioAccess && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : hasUnlimitedStudioAccess ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
+              {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><Dialog open={shareOpen} onOpenChange={setShareOpen}><DialogTrigger asChild><button className="share-action" onClick={() => { setSharePlatform("instagram"); setShareCaption(buildShareCaption("instagram", selectedRecipe.name, selectedRecipe.prompt, selectedStyle)); setShareWatermark(""); }}><Share2 size={16} /> Bagikan</button></DialogTrigger><DialogContent className="share-result-dialog"><DialogHeader><DialogTitle>Bagikan hasil ke aplikasi sosial</DialogTitle><DialogDescription>Caption dan watermark hanya diterapkan pada salinan yang dibagikan; hasil asli tetap utuh di koleksimu.</DialogDescription></DialogHeader><div className="share-platform-picker"><span>PLATFORM TUJUAN</span><Select value={sharePlatform} onValueChange={(value) => { const platform = value as SharePlatform; setSharePlatform(platform); setShareCaption(buildShareCaption(platform, selectedRecipe.name, selectedRecipe.prompt, selectedStyle)); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sharePlatforms.map((platform) => <SelectItem key={platform.id} value={platform.id}>{platform.label}</SelectItem>)}</SelectContent></Select></div><label className="share-caption-field"><span>CAPTION OTOMATIS</span><Textarea value={shareCaption} maxLength={500} onChange={(event) => setShareCaption(event.target.value)} /></label><label className="share-watermark-field"><span>WATERMARK KUSTOM <small>opsional</small></span><input value={shareWatermark} maxLength={72} onChange={(event) => setShareWatermark(event.target.value)} placeholder="Contoh: @tokokamu" /></label><div className="share-app-hints">{sharePlatforms.map((platform) => <span key={platform.id}>{platform.label}</span>)}</div><button className="primary-action share-everywhere" onClick={() => { void (async () => { const outcome = await shareImage(resultImage, selectedRecipe.name, { watermarkText: shareWatermark, caption: shareCaption }); if (outcome && resultTransformId) recordShareMutation.mutate({ transformId: resultTransformId, platform: sharePlatform, caption: shareCaption, watermarkText: shareWatermark || undefined, outcome: outcome === "copied" ? "copied" : "shared" }); setShareOpen(false); })(); }}><Share2 size={16} /> Bagikan ke semua aplikasi</button><button className="secondary-action share-download-fallback" onClick={() => { downloadImage(resultImage, selectedRecipe.id); if (resultTransformId) recordShareMutation.mutate({ transformId: resultTransformId, platform: sharePlatform, caption: shareCaption, watermarkText: shareWatermark || undefined, outcome: "downloaded" }); toast.message("Unduh hasil lalu unggah ke aplikasi pilihanmu."); setShareOpen(false); }}><Download size={15} /> Unduh untuk dibagikan manual</button>{resultTransformId && <div className="share-history"><strong>RIWAYAT BERBAGI PRIVAT</strong>{shareHistoryQuery.isLoading ? <small>Memuat riwayat…</small> : shareHistoryQuery.data?.length ? <div>{shareHistoryQuery.data.map((item) => <span key={item.id}>{item.platform} · {item.outcome} · {formatDate(item.createdAt)}</span>)}</div> : <small>Belum ada tindakan berbagi untuk hasil ini.</small>}</div>}</DialogContent></Dialog><button className="share-action retry-action" onClick={tryAnotherRecipe} disabled={isRestoringHistorySource}><RotateCcw size={16} /> {isRestoringHistorySource ? "Menyiapkan sumber…" : "Coba resep lain"}</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!hasUnlimitedStudioAccess && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : hasUnlimitedStudioAccess ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
               {isProcessing && activeRequestId && <AlertDialog><AlertDialogTrigger asChild><button type="button" className="cancel-transform" disabled={cancelTransformMutation.isPending}>{cancelTransformMutation.isPending ? "Membatalkan…" : "Batalkan transformasi"}</button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Batalkan transformasi ini?</AlertDialogTitle><AlertDialogDescription>Proses AI yang sedang berjalan akan dihentikan. Foto sumber tetap aman di riwayat privat dan dapat diproses ulang kapan saja.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Teruskan proses</AlertDialogCancel><AlertDialogAction className="cancel-dialog-confirm" onClick={() => cancelTransformMutation.mutate({ requestId: activeRequestId })}>Ya, batalkan</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
             </section>
           </div>
