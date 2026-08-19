@@ -352,3 +352,7 @@
 - [x] Tambahkan kontrak server untuk proses ulang sumber asli, latar belakang terpilih, dan penilaian kualitas wajah tanpa menyimpan analitik biometrik.
 - [x] Bangun kontrol proses ulang, pemilihan latar, serta pemeriksaan kesiapan wajah sebelum penggabungan.
 - [x] Uji privasi, preservasi subjek, proses ulang, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.
+- [x] Audit hasil Kolaborasi, lineage proses ulang, dan pola pengelolaan brand untuk pelaporan, perbandingan, serta preset latar.
+- [x] Tambahkan skema dan prosedur owner/admin untuk laporan hasil Kolaborasi dan preset latar brand.
+- [x] Bangun tombol laporkan hasil, perbandingan berdampingan versi Kolaborasi, dan pemilihan preset latar brand.
+- [x] Uji otorisasi, privasi laporan, perbandingan owner-scoped, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.

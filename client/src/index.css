@@ -21,6 +21,8 @@
 @import "./collaboration-identity.css";
 @import "./collaboration-advanced-controls.css";
 @import "./collaboration-face-readiness.css";
+@import "./collaboration-feedback-comparison.css";
+@import "./collaboration-brand-backgrounds.css";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -36,8 +36,8 @@ const collaborationBrandLogoInput = z.object({ name: z.string().trim().min(2).ma
 const collaborationTemplateIds = ["free", "couple", "product"] as const;
 const collaborationBackgroundIds = ["keep", "studio-ivory", "soft-gray", "charcoal", "cafe", "garden", "office"] as const;
 const collaborationLayoutInput = z.object({ firstX: z.number().min(-80).max(80), firstY: z.number().min(-80).max(80), firstScale: z.number().min(0.6).max(1.4), secondX: z.number().min(-80).max(80), secondY: z.number().min(-80).max(80), secondScale: z.number().min(0.6).max(1.4) });
-const collaborationInput = z.object({ first: collaborationImageInput, second: collaborationImageInput, template: z.enum(collaborationTemplateIds).default("free"), aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), background: z.enum(collaborationBackgroundIds).default("keep"), customInstruction: z.string().trim().min(3).max(360).optional(), inviteId: z.number().int().positive().optional(), layout: collaborationLayoutInput.optional(), requestId: z.string().uuid().optional() });
-const collaborationRetryInput = z.object({ transformId: z.number().int().positive(), background: z.enum(collaborationBackgroundIds).default("keep"), customInstruction: z.string().trim().min(3).max(360).optional(), requestId: z.string().uuid().optional() });
+const collaborationInput = z.object({ first: collaborationImageInput, second: collaborationImageInput, template: z.enum(collaborationTemplateIds).default("free"), aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), background: z.enum(collaborationBackgroundIds).default("keep"), brandBackgroundPresetId: z.number().int().positive().optional(), customInstruction: z.string().trim().min(3).max(360).optional(), inviteId: z.number().int().positive().optional(), layout: collaborationLayoutInput.optional(), requestId: z.string().uuid().optional() });
+const collaborationRetryInput = z.object({ transformId: z.number().int().positive(), background: z.enum(collaborationBackgroundIds).default("keep"), brandBackgroundPresetId: z.number().int().positive().optional(), customInstruction: z.string().trim().min(3).max(360).optional(), requestId: z.string().uuid().optional() });
 
 const seasonalCollectionFields = z.object({
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{3,48}$/),
@@ -102,6 +102,14 @@ function parseStoredCollaborationLayout(value: string | null) {
   if (!value) return undefined;
   try { const parsed = collaborationLayoutInput.safeParse(JSON.parse(value)); return parsed.success ? parsed.data : undefined; }
   catch { return undefined; }
+}
+
+async function resolveCollaborationBackground(role: "admin" | "user", fallback: (typeof collaborationBackgroundIds)[number], brandBackgroundPresetId?: number) {
+  if (!brandBackgroundPresetId) return fallback;
+  if (role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Preset latar brand hanya tersedia untuk administrator." });
+  const preset = await db.getActiveCollaborationBrandBackgroundPreset(brandBackgroundPresetId);
+  if (!preset) throw new TRPCError({ code: "BAD_REQUEST", message: "Preset latar brand tidak tersedia atau tidak aktif." });
+  return preset.background as Exclude<(typeof collaborationBackgroundIds)[number], "keep">;
 }
 
 function withPrivateAlbumMedia<T extends { coverUrl: string | null; items: Array<{ resultUrl: string | null }> }>(album: T) {
@@ -380,6 +388,7 @@ export const appRouter = router({
     collaborate: protectedProcedure.input(collaborationInput).mutation(async ({ ctx, input }) => {
       const firstBuffer = Buffer.from(input.first.sourceData, "base64"); const secondBuffer = Buffer.from(input.second.sourceData, "base64");
       if (!firstBuffer.length || !secondBuffer.length || firstBuffer.length > 5_500_000 || secondBuffer.length > 5_500_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Masing-masing foto kolaborasi harus maksimal 5 MB." });
+      const resolvedBackground = await resolveCollaborationBackground(ctx.user.role === "admin" ? "admin" : "user", input.background, input.brandBackgroundPresetId);
       const acceptedInvite = input.inviteId ? await db.getAcceptedPhotoCollaborationInvite(ctx.user.id, input.inviteId) : null;
       if (input.inviteId && (!acceptedInvite || acceptedInvite.template !== input.template || acceptedInvite.aspectRatio !== input.aspectRatio || acceptedInvite.style !== input.style)) throw new TRPCError({ code: "FORBIDDEN", message: "Persetujuan kolaborator tidak tersedia untuk template, rasio, atau gaya ini." });
       const quota = await db.getDailyPhotoQuota(ctx.user.id); let usedPurchasedCredit = false; let transformId: number | null = null;
@@ -392,7 +401,7 @@ export const appRouter = router({
         transformId = transform.id; const aborter = input.requestId ? new AbortController() : null;
         if (acceptedInvite && input.inviteId) await db.markPhotoCollaborationInviteUsed(ctx.user.id, input.inviteId, transform.id);
         if (aborter && input.requestId) activeTransformAborters.set(activeTransformKey(ctx.user.id, input.requestId), aborter);
-        const options = { prompt: buildCollaborationPrompt(input.template, input.aspectRatio, input.style, input.background, input.customInstruction, input.layout), originalImages: [{ b64Json: input.first.sourceData, mimeType: input.first.mimeType }, { b64Json: input.second.sourceData, mimeType: input.second.mimeType }], quality: "high" as const, signal: aborter?.signal };
+        const options = { prompt: buildCollaborationPrompt(input.template, input.aspectRatio, input.style, resolvedBackground, input.customInstruction, input.layout), originalImages: [{ b64Json: input.first.sourceData, mimeType: input.first.mimeType }, { b64Json: input.second.sourceData, mimeType: input.second.mimeType }], quality: "high" as const, signal: aborter?.signal };
         let result; try { result = await generateImage(options); } catch (firstError) { if (!isTemporaryProviderFailure(firstError)) throw firstError; await db.markPhotoTransformAutoRetry(transform.id); result = await generateImage(options); }
         if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
         const completed = await db.completePhotoTransform(transform.id, result.url);
@@ -412,15 +421,16 @@ export const appRouter = router({
       const template = collaborationTemplateIds.includes(previous.collaborationTemplate as (typeof collaborationTemplateIds)[number]) ? previous.collaborationTemplate as (typeof collaborationTemplateIds)[number] : "free";
       const aspectRatio = aspectRatioIds.includes(previous.aspectRatio as (typeof aspectRatioIds)[number]) ? previous.aspectRatio as (typeof aspectRatioIds)[number] : "1:1";
       const style = styleIds.includes(previous.style as (typeof styleIds)[number]) ? previous.style as (typeof styleIds)[number] : "editorial";
+      const resolvedBackground = await resolveCollaborationBackground(ctx.user.role === "admin" ? "admin" : "user", input.background, input.brandBackgroundPresetId);
       const quota = await db.getDailyPhotoQuota(ctx.user.id); let usedPurchasedCredit = false; let transformId: number | null = null;
       if (quota.exhausted && !hasUnlimitedTransforms(ctx.user)) { usedPurchasedCredit = await db.consumePurchasedCredit(ctx.user.id); if (!usedPurchasedCredit) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Kuota harian dan kredit tambahanmu sudah habis. Tambahkan kredit untuk melanjutkan Kolaborasi." }); }
       try {
         const [firstUrl, secondUrl] = await Promise.all([storageGetSignedUrl(previous.sourceKey), storageGetSignedUrl(previous.secondarySourceKey)]);
         const queue = await db.getProcessingQueueStatus();
-        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: "collaboration", aspectRatio, style, title: input.background === "keep" ? "Kolaborasi dua foto · ulang proses" : "Kolaborasi dua foto · latar baru", sourceKey: previous.sourceKey, sourceUrl: previous.sourceUrl, secondarySourceKey: previous.secondarySourceKey, secondarySourceUrl: previous.secondarySourceUrl, collaborationTemplate: template, collaborationInviteId: null, collaborationLayout: previous.collaborationLayout, retryOfTransformId: previous.id, retryInstruction: input.customInstruction?.trim() || null, requestId: input.requestId, queuePosition: queue.position, status: "processing" });
+        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: "collaboration", aspectRatio, style, title: resolvedBackground === "keep" ? "Kolaborasi dua foto · ulang proses" : "Kolaborasi dua foto · latar baru", sourceKey: previous.sourceKey, sourceUrl: previous.sourceUrl, secondarySourceKey: previous.secondarySourceKey, secondarySourceUrl: previous.secondarySourceUrl, collaborationTemplate: template, collaborationInviteId: null, collaborationLayout: previous.collaborationLayout, retryOfTransformId: previous.id, retryInstruction: input.customInstruction?.trim() || null, requestId: input.requestId, queuePosition: queue.position, status: "processing" });
         transformId = transform.id; const aborter = input.requestId ? new AbortController() : null;
         if (aborter && input.requestId) activeTransformAborters.set(activeTransformKey(ctx.user.id, input.requestId), aborter);
-        const options = { prompt: buildCollaborationPrompt(template, aspectRatio, style, input.background, input.customInstruction, parseStoredCollaborationLayout(previous.collaborationLayout)), originalImages: [{ url: firstUrl, mimeType: collaborationMimeTypeFromKey(previous.sourceKey) }, { url: secondUrl, mimeType: collaborationMimeTypeFromKey(previous.secondarySourceKey) }], quality: "high" as const, signal: aborter?.signal };
+        const options = { prompt: buildCollaborationPrompt(template, aspectRatio, style, resolvedBackground, input.customInstruction, parseStoredCollaborationLayout(previous.collaborationLayout)), originalImages: [{ url: firstUrl, mimeType: collaborationMimeTypeFromKey(previous.sourceKey) }, { url: secondUrl, mimeType: collaborationMimeTypeFromKey(previous.secondarySourceKey) }], quality: "high" as const, signal: aborter?.signal };
         let result; try { result = await generateImage(options); } catch (firstError) { if (!isTemporaryProviderFailure(firstError)) throw firstError; await db.markPhotoTransformAutoRetry(transform.id); result = await generateImage(options); }
         if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
         return withPrivatePhotoMedia(await db.completePhotoTransform(transform.id, result.url));
@@ -432,6 +442,12 @@ export const appRouter = router({
         throw new TRPCError({ code: failure.code === "AI_QUOTA_EXHAUSTED" ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR", message: failure.message });
       } finally { if (input.requestId) activeTransformAborters.delete(activeTransformKey(ctx.user.id, input.requestId)); }
     }),
+    collaborationComparison: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(async ({ ctx, input }) => {
+      const comparison = await db.getPhotoCollaborationComparison(ctx.user.id, input.transformId);
+      if (!comparison) return null;
+      return { before: { ...comparison.before, resultUrl: privateMediaUrl(comparison.before.resultUrl)! }, after: { ...comparison.after, resultUrl: privateMediaUrl(comparison.after.resultUrl)! } };
+    }),
+    reportCollaborationResult: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), reason: z.enum(["face_mismatch", "subject_changed", "background_issue", "other"]), details: z.string().trim().max(320).optional() })).mutation(({ ctx, input }) => db.createPhotoCollaborationResultReport(ctx.user.id, input)),
   }),
   promptFavorites: router({
     list: protectedProcedure.query(({ ctx }) => db.listPhotoPromptFavorites(ctx.user.id)),
@@ -516,6 +532,10 @@ export const appRouter = router({
     setUserRole: adminProcedure.input(z.object({ email: z.string().trim().email().max(320), role: z.enum(["user", "admin"]) })).mutation(({ ctx, input }) => db.setUserRoleByEmail(ctx.user.id, input.email, input.role)),
     accessAudits: adminProcedure.query(() => db.listAdminAccessAudits()),
     updateBrand: adminProcedure.input(z.object({ logo: brandImageInput.optional(), icon: brandImageInput.optional() }).refine((input) => input.logo || input.icon, { message: "Pilih logo atau ikon yang akan diperbarui." })).mutation(async ({ ctx, input }) => db.updateBrandSettings(ctx.user.id, { logoUrl: input.logo ? await storeBrandImage("logo", input.logo) : undefined, iconUrl: input.icon ? await storeBrandImage("icon", input.icon) : undefined })),
+    collaborationResultReports: adminProcedure.query(() => db.listAdminPhotoCollaborationResultReports()),
+    collaborationBrandBackgroundPresets: adminProcedure.query(() => db.listCollaborationBrandBackgroundPresets()),
+    createCollaborationBrandBackgroundPreset: adminProcedure.input(z.object({ name: z.string().trim().min(2).max(60), background: z.enum(["studio-ivory", "soft-gray", "charcoal", "cafe", "garden", "office"]), isActive: z.boolean().default(true) })).mutation(({ input }) => db.createCollaborationBrandBackgroundPreset(input)),
+    updateCollaborationBrandBackgroundPreset: adminProcedure.input(z.object({ id: z.number().int().positive(), name: z.string().trim().min(2).max(60), background: z.enum(["studio-ivory", "soft-gray", "charcoal", "cafe", "garden", "office"]), isActive: z.boolean() })).mutation(({ input }) => { const { id, ...values } = input; return db.updateCollaborationBrandBackgroundPreset(id, values); }),
     globalWatermarkPresets: adminProcedure.query(() => db.listGlobalWatermarkPresets(false)),
     createGlobalWatermarkPreset: adminProcedure.input(z.object({ name: z.string().trim().min(2).max(60), text: z.string().trim().min(1).max(72), position: z.enum(["top-left", "top-right", "center", "bottom-left", "bottom-right"]), size: z.number().int().min(2).max(10), font: z.enum(["sans", "serif", "mono"]), isActive: z.boolean().default(true) })).mutation(({ ctx, input }) => db.createGlobalWatermarkPreset(ctx.user.id, input)),
     updateGlobalWatermarkPreset: adminProcedure.input(z.object({ id: z.number().int().positive(), name: z.string().trim().min(2).max(60), text: z.string().trim().min(1).max(72), position: z.enum(["top-left", "top-right", "center", "bottom-left", "bottom-right"]), size: z.number().int().min(2).max(10), font: z.enum(["sans", "serif", "mono"]), isActive: z.boolean() })).mutation(({ ctx, input }) => { const { id, ...values } = input; return db.updateGlobalWatermarkPreset(ctx.user.id, id, values); }),

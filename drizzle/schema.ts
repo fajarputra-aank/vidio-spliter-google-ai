@@ -330,6 +330,22 @@ export const communityReports = mysqlTable(
   ]
 );
 
+/** Private owner feedback on completed collaboration results; never visible publicly. */
+export const photoCollaborationResultReports = mysqlTable(
+  "photoCollaborationResultReports",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    transformId: int("transformId").notNull(),
+    reporterUserId: int("reporterUserId").notNull(),
+    reason: mysqlEnum("reason", ["face_mismatch", "subject_changed", "background_issue", "other"]).notNull(),
+    details: varchar("details", { length: 320 }),
+    status: mysqlEnum("status", ["open", "reviewed"]).default("open").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    reviewedAt: timestamp("reviewedAt"),
+  },
+  (table) => [uniqueIndex("photoCollaborationResultReports_transform_reporter_unique").on(table.transformId, table.reporterUserId), index("photoCollaborationResultReports_status_created_idx").on(table.status, table.createdAt)]
+);
+
 /** Private grouping metadata; transforms themselves remain immutable and private. */
 export const photoAlbums = mysqlTable(
   "photoAlbums",
@@ -415,6 +431,20 @@ export const globalWatermarkPresets = mysqlTable(
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
   (table) => [uniqueIndex("globalWatermarkPresets_name_unique").on(table.name), index("globalWatermarkPresets_active_order_idx").on(table.isActive, table.sortOrder)]
+);
+
+/** Server-owned background choices reserved for administrator collaboration work. */
+export const collaborationBrandBackgroundPresets = mysqlTable(
+  "collaborationBrandBackgroundPresets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 60 }).notNull(),
+    background: mysqlEnum("background", ["studio-ivory", "soft-gray", "charcoal", "cafe", "garden", "office"]).notNull(),
+    isActive: boolean("isActive").notNull().default(true),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("collaborationBrandBackgroundPresets_name_unique").on(table.name), index("collaborationBrandBackgroundPresets_active_idx").on(table.isActive)]
 );
 
 /** Append-only administrator activity for global watermark branding changes. */

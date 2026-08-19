@@ -3,6 +3,7 @@ import { useBrand } from "@/contexts/BrandContext";
 import { trpc } from "@/lib/trpc";
 import { finalizeBrandSave } from "@/lib/brandUpdateFlow";
 import { GlobalBrandWatermarkPresets } from "@/components/GlobalBrandWatermarkPresets";
+import { CollaborationBrandBackgroundPresets } from "@/components/CollaborationBrandBackgroundPresets";
 import { ArrowLeft, ImagePlus, LoaderCircle, Paintbrush, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
@@ -59,6 +60,7 @@ export default function BrandSettings() {
       <article><div className="brand-settings-heading"><div><span className="eyebrow">IKON RINGKAS</span><h2>Untuk layar kecil.</h2></div><Sparkles size={19} /></div><div className="brand-preview brand-preview-icon"><img src={icon?.previewUrl ?? brand.iconUrl} alt="Pratinjau ikon aplikasi" /></div><label className="brand-file-input"><span>Unggah ikon baru</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void selectImage(event, "icon")} /></label><p>Rasio 1:1 paling efektif untuk favicon, rail navigasi, dan layar seluler.</p></article>
     </section>
     <GlobalBrandWatermarkPresets />
+    <CollaborationBrandBackgroundPresets />
     <footer className="brand-settings-footer"><p>Perubahan berlaku pada sesi baru dan seluruh halaman yang memakai identitas brand.</p><button disabled={updateBrand.isPending || (!logo && !icon)} onClick={() => updateBrand.mutate({ logo: logo ? { mimeType: logo.mimeType, sourceData: logo.sourceData } : undefined, icon: icon ? { mimeType: icon.mimeType, sourceData: icon.sourceData } : undefined })}>{updateBrand.isPending ? <><LoaderCircle className="spin-icon" size={16} /> Menyimpan…</> : <><Save size={16} /> Simpan identitas brand</>}</button></footer>
   </main>;
 }

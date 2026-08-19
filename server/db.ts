@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { collaborationShareRoleLimits, photoCollaborationBrandLogos, photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, collaborationBrandBackgroundPresets, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoCollaborationResultReports, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -312,7 +312,69 @@ export async function listPhotoCollaborationProjects(userId: number, filters: { 
   const conditions = [eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration")];
   if (filters.template) conditions.push(eq(photoTransforms.collaborationTemplate, filters.template));
   if (filters.status) conditions.push(eq(photoTransforms.status, filters.status));
-  return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(...conditions)).orderBy(desc(photoTransforms.createdAt)).limit(100);
+  return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, retryOfTransformId: photoTransforms.retryOfTransformId, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(...conditions)).orderBy(desc(photoTransforms.createdAt)).limit(100);
+}
+
+export async function getPhotoCollaborationComparison(userId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const current = await db.select({ id: photoTransforms.id, title: photoTransforms.title, resultUrl: photoTransforms.resultUrl, createdAt: photoTransforms.createdAt, retryOfTransformId: photoTransforms.retryOfTransformId }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  if (!current[0]?.retryOfTransformId) return null;
+  const previous = await db.select({ id: photoTransforms.id, title: photoTransforms.title, resultUrl: photoTransforms.resultUrl, createdAt: photoTransforms.createdAt }).from(photoTransforms).where(and(eq(photoTransforms.id, current[0].retryOfTransformId), eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  if (!previous[0]) return null;
+  return { before: previous[0], after: current[0] };
+}
+
+type CollaborationResultReportReason = "face_mismatch" | "subject_changed" | "background_issue" | "other";
+
+export async function createPhotoCollaborationResultReport(reporterUserId: number, input: { transformId: number; reason: CollaborationResultReportReason; details?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const target = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, input.transformId), eq(photoTransforms.userId, reporterUserId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  if (!target[0]) throw new Error("Hanya hasil Kolaborasi selesai milikmu yang dapat dilaporkan.");
+  const existing = await db.select({ id: photoCollaborationResultReports.id }).from(photoCollaborationResultReports).where(and(eq(photoCollaborationResultReports.transformId, input.transformId), eq(photoCollaborationResultReports.reporterUserId, reporterUserId))).limit(1);
+  if (existing[0]) throw new Error("Kamu sudah mengirim umpan balik untuk hasil ini.");
+  await db.insert(photoCollaborationResultReports).values({ transformId: input.transformId, reporterUserId, reason: input.reason, details: input.details?.trim() || null });
+  return { success: true } as const;
+}
+
+export async function listAdminPhotoCollaborationResultReports() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({ id: photoCollaborationResultReports.id, transformId: photoCollaborationResultReports.transformId, reason: photoCollaborationResultReports.reason, details: photoCollaborationResultReports.details, status: photoCollaborationResultReports.status, createdAt: photoCollaborationResultReports.createdAt, reporterName: users.name, reporterEmail: users.email, transformTitle: photoTransforms.title }).from(photoCollaborationResultReports).innerJoin(photoTransforms, eq(photoTransforms.id, photoCollaborationResultReports.transformId)).leftJoin(users, eq(users.id, photoCollaborationResultReports.reporterUserId)).where(eq(photoCollaborationResultReports.status, "open")).orderBy(desc(photoCollaborationResultReports.createdAt)).limit(100);
+}
+
+type CollaborationBrandBackgroundInput = { name: string; background: "studio-ivory" | "soft-gray" | "charcoal" | "cafe" | "garden" | "office"; isActive: boolean };
+
+export async function listCollaborationBrandBackgroundPresets() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(collaborationBrandBackgroundPresets).orderBy(desc(collaborationBrandBackgroundPresets.updatedAt), collaborationBrandBackgroundPresets.id).limit(50);
+}
+
+export async function getActiveCollaborationBrandBackgroundPreset(presetId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const records = await db.select().from(collaborationBrandBackgroundPresets).where(and(eq(collaborationBrandBackgroundPresets.id, presetId), eq(collaborationBrandBackgroundPresets.isActive, true))).limit(1);
+  return records[0] ?? null;
+}
+
+export async function createCollaborationBrandBackgroundPreset(input: CollaborationBrandBackgroundInput) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.insert(collaborationBrandBackgroundPresets).values({ ...input, name: input.name.trim() });
+  const records = await db.select().from(collaborationBrandBackgroundPresets).where(eq(collaborationBrandBackgroundPresets.id, Number(result[0].insertId))).limit(1);
+  if (!records[0]) throw new Error("Preset latar brand belum dapat disimpan.");
+  return records[0];
+}
+
+export async function updateCollaborationBrandBackgroundPreset(id: number, input: CollaborationBrandBackgroundInput) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.update(collaborationBrandBackgroundPresets).set({ ...input, name: input.name.trim() }).where(eq(collaborationBrandBackgroundPresets.id, id));
+  if (!Number(result[0].affectedRows ?? 0)) throw new Error("Preset latar brand tidak ditemukan.");
+  const records = await db.select().from(collaborationBrandBackgroundPresets).where(eq(collaborationBrandBackgroundPresets.id, id)).limit(1);
+  return records[0]!;
 }
 
 export type CollaborationShareRole = "user" | "admin";
