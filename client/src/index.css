@@ -191,6 +191,14 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .result-copy p { min-height: 38px; margin: 0; color: #70695f; font-size: 9px; line-height: 1.55; }
 .full-action, .download-action { width: 100%; margin-top: auto; }
 .download-action { background: #1b1b18; color: #fffdf8; box-shadow: 4px 4px 0 #ef8f2f; }
+.cancel-transform { width: 100%; min-height: 40px; margin-top: 8px; border: 1px solid #8c4a2c; background: #f0ddd2; color: #73391f; font-size: 10px; font-weight: 800; }
+.cancel-transform:hover { background: #e8c3b2; }
+.cancel-transform:disabled { opacity: .6; cursor: wait; }
+.ai-quota-warning { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; margin: 10px 0; padding: 10px; border-left: 3px solid #9f4b24; background: #f3e2d7; }
+.ai-quota-warning strong { display: block; color: #7d3c20; font-size: 8px; letter-spacing: .09em; }
+.ai-quota-warning p { margin: 5px 0 0; color: #704934; font-size: 9px; line-height: 1.45; }
+.ai-quota-warning button { align-self: center; min-height: 29px; padding: 0 9px; background: #1b1b18; color: #fffdf8; font-size: 8px; font-weight: 800; }
+.ai-quota-warning button:disabled { opacity: .6; cursor: wait; }
 
 .explore-section { padding: 86px 0 0 6.5vw; background: #f6f1e7; }
 .compact-heading { padding-right: 6.5vw; align-items: center; }
@@ -321,6 +329,8 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .instruction-field label, .favorite-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #645d53; font-size: 8px; font-weight: 800; letter-spacing: .09em; }
 .instruction-field textarea { min-height: 74px; margin-top: 7px; resize: vertical; border-radius: 0; border-color: #cfc3b2; background: #fffdf8; color: #2f2b24; font-size: 10px; line-height: 1.5; }
 .instruction-field > p { margin: 7px 0 0; color: #7a7266; font-size: 8px; line-height: 1.45; }
+.retry-instruction-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 7px; padding: 7px; border-left: 2px solid #b8611c; background: #f5e8d7; color: #704934; font-size: 8px; line-height: 1.4; }
+.retry-instruction-note svg { flex: 0 0 auto; color: #a95115; }
 .instruction-favorites { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #cfc3b2; }
 .favorite-heading button { min-height: 25px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px; background: #1b1b18; color: #fffdf8; font-size: 8px; font-weight: 800; letter-spacing: .02em; }
 .favorite-heading button:disabled { opacity: .5; cursor: not-allowed; }

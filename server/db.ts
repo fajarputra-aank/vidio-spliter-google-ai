@@ -262,10 +262,10 @@ export async function completePhotoTransform(id: number, resultUrl: string) {
   await db
     .update(photoTransforms)
     .set({ status: "completed", resultUrl, completedAt: new Date(), errorMessage: null })
-    .where(eq(photoTransforms.id, id));
+    .where(and(eq(photoTransforms.id, id), eq(photoTransforms.status, "processing")));
   const rows = await db.select().from(photoTransforms).where(eq(photoTransforms.id, id)).limit(1);
   const transform = rows[0];
-  if (transform) {
+  if (transform?.status === "completed") {
     const preferences = await db.select({ accountActivity: userNotificationPreferences.accountActivity }).from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, transform.userId)).limit(1);
     if (preferences[0]?.accountActivity ?? true) await db.insert(userNotifications).values({ userId: transform.userId, kind: "account_activity", title: "Transformasi selesai", content: `“${transform.title}” sudah siap ditinjau, diunduh, atau disusun ke album privat.`, relatedPostId: null });
   }
@@ -278,7 +278,14 @@ export async function failPhotoTransform(id: number, message: string) {
   await db
     .update(photoTransforms)
     .set({ status: "failed", errorMessage: message.slice(0, 500), completedAt: new Date() })
-    .where(eq(photoTransforms.id, id));
+    .where(and(eq(photoTransforms.id, id), eq(photoTransforms.status, "processing")));
+}
+
+export async function cancelPhotoTransform(userId: number, requestId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const result = await db.update(photoTransforms).set({ status: "cancelled", errorMessage: "Transformasi dibatalkan oleh pengguna. Foto sumber tetap aman di riwayat.", completedAt: new Date() }).where(and(eq(photoTransforms.userId, userId), eq(photoTransforms.requestId, requestId), eq(photoTransforms.status, "processing")));
+  return { cancelled: Number(result[0].affectedRows ?? 0) > 0 };
 }
 
 export async function listPhotoTransforms(userId: number, includeHidden = false) {

@@ -101,6 +101,7 @@ export default function Home() {
   const historyQuery = trpc.photo.list.useQuery(undefined, { enabled: isAuthenticated });
   const quotaQuery = trpc.photo.quota.useQuery(undefined, { enabled: isAuthenticated });
   const creditBalanceQuery = trpc.billing.balance.useQuery(undefined, { enabled: isAuthenticated });
+  const aiQuotaStatusQuery = trpc.photo.aiQuotaStatus.useQuery(undefined, { enabled: false });
   const promptFavoritesQuery = trpc.promptFavorites.list.useQuery(undefined, { enabled: isAuthenticated });
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe>(recipes[0]);
@@ -120,7 +121,10 @@ export default function Home() {
   const [isRestoringHistorySource, setIsRestoringHistorySource] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<"all" | "failed">("all");
   const [retryOfTransformId, setRetryOfTransformId] = useState<number | null>(null);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cancelledRequestIds = useRef(new Set<string>());
   const hasUnlimitedStudioAccess = user?.role === "admin" || quotaQuery.data?.isUnlimited === true;
 
   const shownRecipes = selectedCategory === "Semua" ? recipes : recipes.filter((recipe) => recipe.category === selectedCategory);
@@ -162,6 +166,13 @@ export default function Home() {
   const transformMutation = trpc.photo.transform.useMutation({
     onSuccess: (record) => {
       setProgress(100);
+      if (record.status === "cancelled") {
+        setIsProcessing(false);
+        setActiveRequestId(null);
+        void utils.photo.list.invalidate();
+        toast.message("Transformasi dibatalkan. Foto sumber tetap tersimpan aman di riwayat.");
+        return;
+      }
       if (!record.resultUrl) {
         setIsProcessing(false);
         toast.error("Layanan AI tidak mengembalikan gambar hasil. Coba lagi.");
@@ -169,6 +180,7 @@ export default function Home() {
       }
       setResultImage(privateMediaUrl(record.resultUrl));
       setRetryOfTransformId(null);
+      setActiveRequestId(null);
       setIsProcessing(false);
       void utils.photo.list.invalidate();
       void utils.photo.quota.invalidate();
@@ -176,9 +188,12 @@ export default function Home() {
       void utils.photo.profile.invalidate();
       toast.success("Hasil AI sudah masuk ke galeri pribadimu.");
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       setIsProcessing(false);
       setProgress(0);
+      setActiveRequestId(null);
+      if (variables.requestId && cancelledRequestIds.current.delete(variables.requestId)) return;
+      if (/batas penggunaan/i.test(error.message)) setQuotaWarning(error.message);
       toast.error(error.message);
     },
   });
@@ -246,7 +261,30 @@ export default function Home() {
     setProgress(8);
     setResultImage(null);
     setIsProcessing(true);
-    transformMutation.mutate({ recipe: selectedRecipe.id, aspectRatio: selectedAspect, style: selectedStyle, fileName: uploadPayload.fileName, mimeType: uploadPayload.mimeType, sourceData: uploadPayload.base64, customInstruction: customInstruction.trim() || undefined, retryOfTransformId: retryOfTransformId ?? undefined });
+    const requestId = crypto.randomUUID();
+    setActiveRequestId(requestId);
+    transformMutation.mutate({ recipe: selectedRecipe.id, aspectRatio: selectedAspect, style: selectedStyle, fileName: uploadPayload.fileName, mimeType: uploadPayload.mimeType, sourceData: uploadPayload.base64, customInstruction: customInstruction.trim() || undefined, retryOfTransformId: retryOfTransformId ?? undefined, requestId });
+  }
+
+  const cancelTransformMutation = trpc.photo.cancelTransform.useMutation({
+    onSuccess: (result, variables) => {
+      if (result.cancelled) {
+        cancelledRequestIds.current.add(variables.requestId);
+        setIsProcessing(false);
+        setProgress(0);
+        setActiveRequestId(null);
+        void utils.photo.list.invalidate();
+        void utils.photo.quota.invalidate();
+        toast.message("Transformasi dibatalkan. Foto sumber tetap tersimpan aman di riwayat.");
+      } else toast.message("Transformasi sudah selesai atau tidak lagi aktif.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  async function refreshAiQuotaStatus() {
+    const response = await aiQuotaStatusQuery.refetch();
+    if (!response.data) return toast.error("Status kuota AI belum dapat diperbarui. Coba lagi sesaat.");
+    setQuotaWarning(`Status kuota AI diperbarui ${new Intl.DateTimeFormat("id-ID", { timeStyle: "short" }).format(new Date(response.data.checkedAt))}. Penyedia tidak menyediakan status kuota langsung; perkiraan coba kembali sekitar ${response.data.retryEstimate} WIB.`);
   }
 
   function chooseRecipe(recipe: Recipe) {
@@ -380,14 +418,16 @@ export default function Home() {
               <div className="style-picker"><div><span className="eyebrow"><Palette size={13} /> GAYA AI</span><p>Pilih bahasa visual untuk hasilmu.</p></div><div className="style-options">{styleOptions.map((style) => <button key={style.value} className={selectedStyle === style.value ? "is-selected" : ""} onClick={() => chooseStyle(style.value)}><strong>{style.title}</strong><small>{style.note}</small></button>)}</div></div>
               <div className="aspect-picker"><div><span className="eyebrow"><Ratio size={13} /> RASIO KELUARAN</span><p>AI menata komposisi sesuai frame pilihanmu.</p></div><Select value={selectedAspect} onValueChange={(value) => chooseAspect(value as OutputAspect)}><SelectTrigger size="sm" className="aspect-select"><SelectValue /></SelectTrigger><SelectContent>{aspectOptions.map((aspect) => <SelectItem key={aspect.value} value={aspect.value}>{aspect.title} · {aspect.note}</SelectItem>)}</SelectContent></Select></div>
               <div className="selected-recipe-note"><WandSparkles size={16} /><span>Resep dipilih: <strong>{selectedRecipe.name}</strong> · {selectedRecipe.prompt}</span></div>
-              <div className="instruction-field"><label htmlFor="custom-instruction"><span>ARAH TAMBAHAN OPSIONAL</span><small>{customInstruction.length}/360</small></label><Textarea id="custom-instruction" value={customInstruction} onChange={(event) => setCustomInstruction(event.target.value.slice(0, 360))} placeholder="Contoh: pertahankan suasana hangat, buat latar lebih tenang." /><p>Instruksi dipakai hanya bila tidak bertentangan dengan perlindungan subjek, label, dan komposisi foto sumber.</p><div className="instruction-favorites"><div className="favorite-heading"><span>FAVORIT PRIBADI</span><button type="button" onClick={saveInstructionFavorite} disabled={createPromptFavoriteMutation.isPending || customInstruction.trim().length < 3}><BookmarkPlus size={14} /> Simpan arahan</button></div>{!isAuthenticated ? <button type="button" className="favorite-login" onClick={startLogin}>Masuk untuk menyimpan arahan favorit privat.</button> : promptFavoritesQuery.isLoading ? <small>Memuat arahan favorit…</small> : promptFavoritesQuery.isError ? <div className="favorite-error"><small>Favorit privat belum dapat dimuat.</small><button type="button" onClick={() => void promptFavoritesQuery.refetch()}>Muat ulang</button></div> : promptFavoritesQuery.data?.length ? <div className="favorite-list">{promptFavoritesQuery.data.map((favorite) => <div className="favorite-chip" key={favorite.id}><button type="button" onClick={() => { setCustomInstruction(favorite.instruction); toast.message("Arahan favorit dipakai kembali."); }}>{favorite.instruction}</button><button type="button" aria-label="Hapus arahan favorit" onClick={() => deletePromptFavoriteMutation.mutate({ favoriteId: favorite.id })} disabled={deletePromptFavoriteMutation.isPending}><Trash2 size={13} /></button></div>)}</div> : <small>Belum ada arahan favorit. Simpan arah yang ingin dipakai lagi di sini.</small>}</div></div>
+              <div className="instruction-field"><label htmlFor="custom-instruction"><span>{retryOfTransformId ? "CATATAN UNTUK PERCOBAAN ULANG" : "ARAH TAMBAHAN OPSIONAL"}</span><small>{customInstruction.length}/360</small></label>{retryOfTransformId && <div className="retry-instruction-note"><RotateCcw size={14} /><span>Catatan ini dicatat privat pada percobaan ulang foto sebelumnya.</span></div>}<Textarea id="custom-instruction" value={customInstruction} onChange={(event) => setCustomInstruction(event.target.value.slice(0, 360))} placeholder={retryOfTransformId ? "Contoh: pertahankan produk, cerahkan latar, jangan ubah label." : "Contoh: pertahankan suasana hangat, buat latar lebih tenang."} /><p>Instruksi dipakai hanya bila tidak bertentangan dengan perlindungan subjek, label, dan komposisi foto sumber.</p><div className="instruction-favorites"><div className="favorite-heading"><span>FAVORIT PRIBADI</span><button type="button" onClick={saveInstructionFavorite} disabled={createPromptFavoriteMutation.isPending || customInstruction.trim().length < 3}><BookmarkPlus size={14} /> Simpan arahan</button></div>{!isAuthenticated ? <button type="button" className="favorite-login" onClick={startLogin}>Masuk untuk menyimpan arahan favorit privat.</button> : promptFavoritesQuery.isLoading ? <small>Memuat arahan favorit…</small> : promptFavoritesQuery.isError ? <div className="favorite-error"><small>Favorit privat belum dapat dimuat.</small><button type="button" onClick={() => void promptFavoritesQuery.refetch()}>Muat ulang</button></div> : promptFavoritesQuery.data?.length ? <div className="favorite-list">{promptFavoritesQuery.data.map((favorite) => <div className="favorite-chip" key={favorite.id}><button type="button" onClick={() => { setCustomInstruction(favorite.instruction); toast.message("Arahan favorit dipakai kembali."); }}>{favorite.instruction}</button><button type="button" aria-label="Hapus arahan favorit" onClick={() => deletePromptFavoriteMutation.mutate({ favoriteId: favorite.id })} disabled={deletePromptFavoriteMutation.isPending}><Trash2 size={13} /></button></div>)}</div> : <small>Belum ada arahan favorit. Simpan arah yang ingin dipakai lagi di sini.</small>}</div></div>
             </section>
 
             <section className="result-column">
               <div className="column-label"><span>PRATINJAU</span><span>{resultImage ? "siap" : isProcessing ? "meracik" : "menunggu"}</span></div>
               {resultImage && uploadedImage ? <><BeforeAfterSlider before={uploadedImage} after={resultImage} aspectRatio={selectedAspect} /><p className="comparison-help">Geser garis pembanding, gunakan kontrol sentuh/keyboard, atau tekan <strong>TENGAH</strong> untuk kembali ke posisi 50:50.</p></> : <div className={`result-frame ratio-preview ${isProcessing ? "is-processing" : ""}`} style={{ aspectRatio: selectedAspect }}><MediaImage src={previewImage} alt="Pratinjau hasil resep terpilih" fallbackLabel="Pratinjau belum tersedia" /><span className="frame-number">LS / {new Date().getFullYear()}</span><span className="ratio-stamp">{selectedAspect}</span>{isProcessing && <div className="processing-layer progress-layer"><div className="process-orbit"><Sparkles size={20} /></div><strong>{progressStages[progressStage]}</strong><span>AI sedang memproses frame-mu</span><div className="progress-track" aria-label={`Progres proses ${progress}%`}><i style={{ width: `${progress}%` }} /></div><small>{progress}% · perkiraan selama AI menyelesaikan frame</small></div>}</div>}
               <div className="result-copy"><span className="eyebrow">{resultImage ? "HASIL AI TERSIMPAN" : isProcessing ? "PROSES AI BERJALAN" : "ARAH VISUAL TERPILIH"}</span><h3>{selectedRecipe.name}</h3><p>{resultImage ? `Hasil ${selectedStyle} ${selectedAspect} sudah tersimpan. Geser garis pembanding untuk melihat perubahan.` : isProcessing ? "Jangan tutup halaman ini. Indikator bergerak sebagai perkiraan sampai hasil asli dari AI diterima." : `Unggah foto asli lalu terapkan resep serta gaya ${selectedStyle} untuk membuat hasil ${selectedAspect}.`}</p></div>
+              {quotaWarning && <div className="ai-quota-warning" role="status"><div><strong>STATUS KUOTA AI</strong><p>{quotaWarning}</p></div><button type="button" onClick={() => void refreshAiQuotaStatus()} disabled={aiQuotaStatusQuery.isFetching}>{aiQuotaStatusQuery.isFetching ? "Memeriksa…" : "Muat ulang status kuota"}</button></div>}
               {resultImage ? <div className="result-actions"><button className="download-action" onClick={() => { downloadImage(resultImage, selectedRecipe.id); toast.success("Unduhan hasil dimulai."); }}><Download size={16} /> Unduh</button><button className="share-action" onClick={() => void shareImage(resultImage, selectedRecipe.name)}><Share2 size={16} /> Bagikan</button><button className="share-action retry-action" onClick={tryAnotherRecipe} disabled={isRestoringHistorySource}><RotateCcw size={16} /> {isRestoringHistorySource ? "Menyiapkan sumber…" : "Coba resep lain"}</button></div> : <button className="primary-action full-action" onClick={applyRecipe} disabled={isProcessing || (!hasUnlimitedStudioAccess && quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1)}>{isProcessing ? <><LoaderCircle className="spin-icon" size={17} /> Sedang meracik...</> : hasUnlimitedStudioAccess ? <>Terapkan tanpa batas <ArrowRight size={17} /></> : quotaQuery.data?.exhausted && (creditBalanceQuery.data?.credits ?? 0) < 1 ? "Tambah kredit untuk lanjut" : quotaQuery.data?.exhausted ? "Pakai 1 kredit tambahan" : <>Terapkan resep <ArrowRight size={17} /></>}</button>}
+              {isProcessing && activeRequestId && <button type="button" className="cancel-transform" onClick={() => cancelTransformMutation.mutate({ requestId: activeRequestId })} disabled={cancelTransformMutation.isPending}>{cancelTransformMutation.isPending ? "Membatalkan…" : "Batalkan transformasi"}</button>}
             </section>
           </div>
           {isProcessing && <div className="progress-console" role="status" aria-live="polite"><div className="console-title"><span className="pulse-dot" /> PROSES AKTIF <b>{progress}%</b></div><div className="console-steps">{progressStages.map((stage, index) => <div key={stage} className={index < progressStage ? "is-complete" : index === progressStage ? "is-current" : ""}><span>{index < progressStage ? <Check size={12} /> : String(index + 1).padStart(2, "0")}</span>{stage}</div>)}</div></div>}

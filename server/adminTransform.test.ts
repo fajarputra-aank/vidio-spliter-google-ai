@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   completePhotoTransform: vi.fn(),
   failPhotoTransform: vi.fn(),
   getOwnedPhotoTransform: vi.fn(),
+  cancelPhotoTransform: vi.fn(),
   storagePut: vi.fn(),
   generateImage: vi.fn(),
 }));
@@ -21,6 +22,7 @@ vi.mock("./db", () => ({
   completePhotoTransform: mocks.completePhotoTransform,
   failPhotoTransform: mocks.failPhotoTransform,
   getOwnedPhotoTransform: mocks.getOwnedPhotoTransform,
+  cancelPhotoTransform: mocks.cancelPhotoTransform,
 }));
 
 vi.mock("./storage", () => ({ storagePut: mocks.storagePut }));
@@ -74,6 +76,7 @@ describe("admin photo transforms", () => {
     mocks.generateImage.mockResolvedValue({ url: "/manus-storage/results/admin.png" });
     mocks.completePhotoTransform.mockResolvedValue({ id: 42, resultUrl: "/manus-storage/results/admin.png", status: "completed" });
     mocks.getOwnedPhotoTransform.mockResolvedValue({ id: 11, status: "failed" });
+    mocks.cancelPhotoTransform.mockResolvedValue({ cancelled: true });
   });
 
   it("bypasses an exhausted daily quota without consuming purchased credit", async () => {
@@ -108,9 +111,23 @@ describe("admin photo transforms", () => {
     const caller = appRouter.createCaller(adminContext());
     const sourceData = Buffer.from("retry image payload").toString("base64");
 
-    await caller.photo.transform({ recipe: "headshot", aspectRatio: "1:1", style: "editorial", fileName: "retry.png", mimeType: "image/png", sourceData, retryOfTransformId: 11 });
+    await caller.photo.transform({ recipe: "headshot", aspectRatio: "1:1", style: "editorial", fileName: "retry.png", mimeType: "image/png", sourceData, retryOfTransformId: 11, customInstruction: "Pertahankan label produk dan cerahkan latar." });
 
     expect(mocks.getOwnedPhotoTransform).toHaveBeenCalledWith(1, 11);
-    expect(mocks.createPhotoTransform).toHaveBeenCalledWith(expect.objectContaining({ retryOfTransformId: 11, userId: 1 }));
+    expect(mocks.createPhotoTransform).toHaveBeenCalledWith(expect.objectContaining({ retryOfTransformId: 11, retryInstruction: "Pertahankan label produk dan cerahkan latar.", userId: 1 }));
+  });
+
+  it("cancels only the active transform request belonging to the caller", async () => {
+    const caller = appRouter.createCaller(adminContext());
+    const requestId = "244f9d54-2c2d-4fde-ab6d-2cc2d62ee5d2";
+
+    await expect(caller.photo.cancelTransform({ requestId })).resolves.toEqual({ cancelled: true });
+    expect(mocks.cancelPhotoTransform).toHaveBeenCalledWith(1, requestId);
+  });
+
+  it("returns a transparent, server-derived quota refresh estimate", async () => {
+    const caller = appRouter.createCaller(adminContext());
+
+    await expect(caller.photo.aiQuotaStatus()).resolves.toMatchObject({ status: "estimate_only", retryEstimate: expect.any(String), checkedAt: expect.any(Date) });
   });
 });

@@ -15,7 +15,7 @@ import { hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, valida
 import { sdk } from "./_core/sdk";
 import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail, sendSecuritySummaryEmail } from "./accountEmails";
 import { registerActiveSession } from "./sessionMetadata";
-import { toSafeTransformFailure } from "./transformFailureMessages";
+import { aiQuotaRetryEstimate, toSafeTransformFailure } from "./transformFailureMessages";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -26,6 +26,7 @@ const imageInput = z.object({
   sourceData: z.string().min(16).max(8_000_000),
   customInstruction: z.string().trim().min(3).max(360).optional(),
   retryOfTransformId: z.number().int().positive().optional(),
+  requestId: z.string().uuid().optional(),
 });
 
 function safeFileName(value: string) {
@@ -65,6 +66,12 @@ async function storeTransferProof(userId: number, image: z.infer<typeof transfer
   const extension = image.mimeType === "image/png" ? "png" : image.mimeType === "image/webp" ? "webp" : "jpg";
   const stored = await storagePut(`payment-proofs/${userId}/${Date.now()}.${extension}`, bytes, image.mimeType);
   return stored.url;
+}
+
+const activeTransformAborters = new Map<string, AbortController>();
+
+function activeTransformKey(userId: number, requestId: string) {
+  return `${userId}:${requestId}`;
 }
 
 export const appRouter = router({
@@ -202,6 +209,12 @@ export const appRouter = router({
     list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => (await db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)).map(withPrivatePhotoMedia)),
     setHidden: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), isHidden: z.boolean() })).mutation(({ ctx, input }) => db.setPhotoTransformHidden(ctx.user.id, input.transformId, input.isHidden)),
     quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user) })),
+    aiQuotaStatus: protectedProcedure.query(() => ({ checkedAt: new Date(), retryEstimate: aiQuotaRetryEstimate(), status: "estimate_only" as const })),
+    cancelTransform: protectedProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
+      const result = await db.cancelPhotoTransform(ctx.user.id, input.requestId);
+      if (result.cancelled) activeTransformAborters.get(activeTransformKey(ctx.user.id, input.requestId))?.abort();
+      return result;
+    }),
     profile: protectedProcedure.query(async ({ ctx }) => ({
       user: { name: ctx.user.name, email: ctx.user.email, role: ctx.user.role, createdAt: ctx.user.createdAt },
       isUnlimitedTransforms: hasUnlimitedTransforms(ctx.user),
@@ -241,12 +254,15 @@ export const appRouter = router({
       }
       try {
         const source = await storagePut(`originals/${ctx.user.id}/${Date.now()}-${safeFileName(input.fileName)}`, sourceBuffer, input.mimeType);
-        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: input.recipe, aspectRatio: input.aspectRatio, style: input.style, title: photoRecipes[input.recipe].title, sourceKey: source.key, sourceUrl: source.url, retryOfTransformId: input.retryOfTransformId, status: "processing" });
+        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: input.recipe, aspectRatio: input.aspectRatio, style: input.style, title: photoRecipes[input.recipe].title, sourceKey: source.key, sourceUrl: source.url, retryOfTransformId: input.retryOfTransformId, requestId: input.requestId, retryInstruction: input.retryOfTransformId ? input.customInstruction ?? null : null, status: "processing" });
         transformId = transform.id;
+        const aborter = input.requestId ? new AbortController() : null;
+        if (aborter && input.requestId) activeTransformAborters.set(activeTransformKey(ctx.user.id, input.requestId), aborter);
         const result = await generateImage({
           prompt: buildTransformPrompt(input.recipe, input.aspectRatio, input.style, input.customInstruction),
           originalImages: [{ b64Json: input.sourceData, mimeType: input.mimeType }],
           quality: "medium",
+          signal: aborter?.signal,
         });
         if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
         return withPrivatePhotoMedia(await db.completePhotoTransform(transform.id, result.url));
@@ -257,6 +273,8 @@ export const appRouter = router({
         if (transformId) await db.failPhotoTransform(transformId, failure.message);
         console.error("[Photo] Transform failed", providerMessage);
         throw new TRPCError({ code: failure.code === "AI_QUOTA_EXHAUSTED" ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR", message: failure.message });
+      } finally {
+        if (input.requestId) activeTransformAborters.delete(activeTransformKey(ctx.user.id, input.requestId));
       }
     }),
   }),

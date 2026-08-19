@@ -234,3 +234,8 @@
 - [x] Catat dan tampilkan jumlah serta riwayat percobaan ulang per foto secara privat.
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pemulihan kuota, filter gagal, dan percobaan ulang.
 - [x] Uji migrasi, riwayat percobaan ulang, filter, responsivitas, dan simpan checkpoint rilis.
+- [x] Tambahkan kontrol pembatalan yang aman untuk transformasi gambar yang masih diproses.
+- [x] Tambahkan instruksi khusus opsional pada setiap percobaan ulang transformasi gagal.
+- [x] Tambahkan tombol muat ulang status kuota AI pada pesan peringatan pengguna.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pembatalan, instruksi ulang, dan penyegaran kuota.
+- [x] Uji pembatalan, instruksi ulang, penyegaran kuota, responsivitas, dan simpan checkpoint rilis.

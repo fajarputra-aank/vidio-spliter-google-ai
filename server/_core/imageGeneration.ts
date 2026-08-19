@@ -34,6 +34,8 @@ export type GenerateImageOptions = {
   model?: string;
   /** Generation quality, e.g. "medium" | "high". Defaults to "medium" for GPT Image 2. */
   quality?: string;
+  /** Abort an in-flight provider request when the caller cancels its transformation. */
+  signal?: AbortSignal;
 };
 
 export type GenerateImageResponse = {
@@ -77,6 +79,7 @@ export async function generateImage(
       model,
       ...(quality ? { quality } : {}),
     }),
+    signal: options.signal,
   });
 
   if (!response.ok) {
