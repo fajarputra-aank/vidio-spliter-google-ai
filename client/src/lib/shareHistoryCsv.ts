@@ -7,7 +7,7 @@ export function formatShareHistoryCsv(rows: ShareHistoryRow[]) {
   return [header, ...rows.map((row) => [row.id, row.transformId, row.platform, row.caption, row.watermarkText, row.outcome, new Date(row.createdAt).toISOString()].map(quote).join(","))].join("\r\n");
 }
 
-export function downloadShareHistoryCsv(rows: ShareHistoryRow[], transformId: number) {
+export function downloadShareHistoryCsv(rows: ShareHistoryRow[], transformId: number, filenamePrefix = "lensa-saku-riwayat-berbagi") {
   const blob = new Blob(["\ufeff", formatShareHistoryCsv(rows)], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `lensa-saku-riwayat-berbagi-${transformId}.csv`; link.click(); URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = transformId > 0 ? `${filenamePrefix}-${transformId}.csv` : `${filenamePrefix}.csv`; link.click(); URL.revokeObjectURL(url);
 }

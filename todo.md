@@ -305,3 +305,7 @@
 - [x] Tambahkan ekspor CSV owner-scoped yang selalu mengikuti filter pencarian caption, platform, dan tanggal aktif.
 - [x] Bangun drag-and-drop urutan preset, tombol ekspor riwayat, serta audit trail pada Pengaturan Brand.
 - [x] Uji pengurutan, ekspor privat, audit trail, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang navigasi keyboard urutan preset, filter audit administrator, dan ekspor CSV gabungan yang tetap owner-scoped.
+- [x] Tambahkan query dan prosedur aman untuk filter audit serta pengambilan riwayat berbagi dari beberapa transformasi milik pemanggil.
+- [x] Bangun kontrol keyboard, filter log audit, dan ekspor CSV gabungan pada antarmuka.
+- [x] Uji aksesibilitas urutan, filter audit, ekspor gabungan privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

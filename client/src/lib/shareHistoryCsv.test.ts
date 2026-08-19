@@ -13,4 +13,10 @@ describe("formatShareHistoryCsv", () => {
     expect(csv).toContain("Promo yang dicari");
     expect(csv).not.toContain("Caption milik hasil lain");
   });
+
+  it("mempertahankan ID transformasi pada ekspor gabungan beberapa riwayat privat", () => {
+    const csv = formatShareHistoryCsv([{ id: 4, transformId: 2, platform: "instagram", caption: "Frame dua", watermarkText: null, outcome: "shared", createdAt: "2026-08-19T00:00:00.000Z" }, { id: 5, transformId: 8, platform: "whatsapp", caption: "Frame delapan", watermarkText: null, outcome: "copied", createdAt: "2026-08-19T01:00:00.000Z" }]);
+    expect(csv).toContain('"2"');
+    expect(csv).toContain('"8"');
+  });
 });

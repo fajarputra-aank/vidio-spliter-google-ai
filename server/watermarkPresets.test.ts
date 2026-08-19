@@ -26,4 +26,11 @@ describe("preset watermark favorit", () => {
     await expect(appRouter.createCaller(context(68)).admin.createGlobalWatermarkPreset(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(mocks.listGlobalWatermarkPresets).toHaveBeenCalledWith(); expect(mocks.listGlobalWatermarkPresets).toHaveBeenCalledWith(false); expect(mocks.createGlobalWatermarkPreset).toHaveBeenCalledWith(1, input); expect(mocks.updateGlobalWatermarkPreset).toHaveBeenCalledWith(1, 8, { ...input, isActive: false }); expect(mocks.reorderGlobalWatermarkPresets).toHaveBeenCalledWith(1, [8, 9]); expect(mocks.listGlobalWatermarkPresetAudits).toHaveBeenCalledOnce();
   });
+
+  it("meneruskan filter nama administrator dan tindakan hanya dari prosedur admin", async () => {
+    mocks.listGlobalWatermarkPresetAudits.mockResolvedValue([]);
+    await appRouter.createCaller(adminContext(1)).admin.globalWatermarkPresetAudits({ search: "Fajar", action: "updated" });
+    await expect(appRouter.createCaller(context(68)).admin.globalWatermarkPresetAudits({ action: "updated" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(mocks.listGlobalWatermarkPresetAudits).toHaveBeenCalledWith({ search: "Fajar", action: "updated" });
+  });
 });

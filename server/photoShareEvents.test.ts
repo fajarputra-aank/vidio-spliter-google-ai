@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
-const mocks = vi.hoisted(() => ({ recordPhotoShareEvent: vi.fn(), listPhotoShareEvents: vi.fn() }));
-vi.mock("./db", () => ({ recordPhotoShareEvent: mocks.recordPhotoShareEvent, listPhotoShareEvents: mocks.listPhotoShareEvents }));
+const mocks = vi.hoisted(() => ({ recordPhotoShareEvent: vi.fn(), listPhotoShareEvents: vi.fn(), listPhotoShareEventsForTransforms: vi.fn() }));
+vi.mock("./db", () => ({ recordPhotoShareEvent: mocks.recordPhotoShareEvent, listPhotoShareEvents: mocks.listPhotoShareEvents, listPhotoShareEventsForTransforms: mocks.listPhotoShareEventsForTransforms }));
 import { appRouter } from "./routers";
 
 function context(userId: number): TrpcContext {
@@ -24,5 +24,11 @@ describe("riwayat berbagi hasil", () => {
     mocks.listPhotoShareEvents.mockResolvedValue([]);
     await appRouter.createCaller(context(72)).photo.shareHistory({ transformId: 19, captionQuery: "  promo akhir pekan  ", platform: "instagram" });
     expect(mocks.listPhotoShareEvents).toHaveBeenCalledWith(72, 19, { transformId: 19, captionQuery: "promo akhir pekan", platform: "instagram" });
+  });
+
+  it("mengambil ekspor gabungan hanya dengan identitas pemilik dan transformasi yang dipilihnya", async () => {
+    mocks.listPhotoShareEventsForTransforms.mockResolvedValue([]);
+    await appRouter.createCaller(context(73)).photo.combinedShareHistory({ transformIds: [21, 24, 29] });
+    expect(mocks.listPhotoShareEventsForTransforms).toHaveBeenCalledWith(73, [21, 24, 29]);
   });
 });

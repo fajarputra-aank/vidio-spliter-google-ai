@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
@@ -278,6 +278,14 @@ export async function listPhotoShareEvents(userId: number, transformId: number, 
   return db.select().from(photoShareEvents).where(and(...conditions)).orderBy(desc(photoShareEvents.createdAt)).limit(100);
 }
 
+export async function listPhotoShareEventsForTransforms(userId: number, transformIds: number[]) {
+  const db = await getDb();
+  if (!db) return [];
+  const uniqueTransformIds = Array.from(new Set(transformIds));
+  if (!uniqueTransformIds.length) return [];
+  return db.select().from(photoShareEvents).where(and(eq(photoShareEvents.userId, userId), inArray(photoShareEvents.transformId, uniqueTransformIds))).orderBy(desc(photoShareEvents.createdAt), desc(photoShareEvents.id)).limit(500);
+}
+
 export async function listPhotoCaptionTemplates(userId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -368,10 +376,16 @@ export async function reorderGlobalWatermarkPresets(actorUserId: number, presetI
   return listGlobalWatermarkPresets(false);
 }
 
-export async function listGlobalWatermarkPresetAudits() {
+export async function listGlobalWatermarkPresetAudits(filters: { search?: string; action?: "all" | "created" | "updated" | "reordered" } = {}) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({ id: globalWatermarkPresetAudits.id, presetId: globalWatermarkPresetAudits.presetId, action: globalWatermarkPresetAudits.action, summary: globalWatermarkPresetAudits.summary, createdAt: globalWatermarkPresetAudits.createdAt, actorName: users.name, actorEmail: users.email }).from(globalWatermarkPresetAudits).leftJoin(users, eq(users.id, globalWatermarkPresetAudits.actorUserId)).orderBy(desc(globalWatermarkPresetAudits.createdAt), desc(globalWatermarkPresetAudits.id)).limit(50);
+  const conditions = [];
+  if (filters.action && filters.action !== "all") conditions.push(eq(globalWatermarkPresetAudits.action, filters.action));
+  if (filters.search?.trim()) {
+    const pattern = `%${filters.search.trim().toLowerCase()}%`;
+    conditions.push(or(sql`LOWER(COALESCE(${users.name}, '')) LIKE ${pattern}`, sql`LOWER(COALESCE(${users.email}, '')) LIKE ${pattern}`)!);
+  }
+  return db.select({ id: globalWatermarkPresetAudits.id, presetId: globalWatermarkPresetAudits.presetId, action: globalWatermarkPresetAudits.action, summary: globalWatermarkPresetAudits.summary, createdAt: globalWatermarkPresetAudits.createdAt, actorName: users.name, actorEmail: users.email }).from(globalWatermarkPresetAudits).leftJoin(users, eq(users.id, globalWatermarkPresetAudits.actorUserId)).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(globalWatermarkPresetAudits.createdAt), desc(globalWatermarkPresetAudits.id)).limit(50);
 }
 
 export async function getProcessingQueueStatus() {
