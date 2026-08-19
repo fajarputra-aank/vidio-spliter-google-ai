@@ -249,6 +249,13 @@ export async function createPhotoTransform(transform: InsertPhotoTransform) {
   return rows[0];
 }
 
+export async function getOwnedPhotoTransform(userId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId))).limit(1);
+  return rows[0] ?? null;
+}
+
 export async function completePhotoTransform(id: number, resultUrl: string) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");

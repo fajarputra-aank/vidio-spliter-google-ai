@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   createPhotoTransform: vi.fn(),
   completePhotoTransform: vi.fn(),
   failPhotoTransform: vi.fn(),
+  getOwnedPhotoTransform: vi.fn(),
   storagePut: vi.fn(),
   generateImage: vi.fn(),
 }));
@@ -19,6 +20,7 @@ vi.mock("./db", () => ({
   createPhotoTransform: mocks.createPhotoTransform,
   completePhotoTransform: mocks.completePhotoTransform,
   failPhotoTransform: mocks.failPhotoTransform,
+  getOwnedPhotoTransform: mocks.getOwnedPhotoTransform,
 }));
 
 vi.mock("./storage", () => ({ storagePut: mocks.storagePut }));
@@ -71,6 +73,7 @@ describe("admin photo transforms", () => {
     mocks.createPhotoTransform.mockResolvedValue({ id: 42 });
     mocks.generateImage.mockResolvedValue({ url: "/manus-storage/results/admin.png" });
     mocks.completePhotoTransform.mockResolvedValue({ id: 42, resultUrl: "/manus-storage/results/admin.png", status: "completed" });
+    mocks.getOwnedPhotoTransform.mockResolvedValue({ id: 11, status: "failed" });
   });
 
   it("bypasses an exhausted daily quota without consuming purchased credit", async () => {
@@ -99,5 +102,15 @@ describe("admin photo transforms", () => {
 
     expect(mocks.consumePurchasedCredit).not.toHaveBeenCalled();
     expect(mocks.generateImage).toHaveBeenCalledOnce();
+  });
+
+  it("records an owner-scoped retry relationship for a failed transform", async () => {
+    const caller = appRouter.createCaller(adminContext());
+    const sourceData = Buffer.from("retry image payload").toString("base64");
+
+    await caller.photo.transform({ recipe: "headshot", aspectRatio: "1:1", style: "editorial", fileName: "retry.png", mimeType: "image/png", sourceData, retryOfTransformId: 11 });
+
+    expect(mocks.getOwnedPhotoTransform).toHaveBeenCalledWith(1, 11);
+    expect(mocks.createPhotoTransform).toHaveBeenCalledWith(expect.objectContaining({ retryOfTransformId: 11, userId: 1 }));
   });
 });

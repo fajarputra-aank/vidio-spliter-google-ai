@@ -120,13 +120,14 @@ export const photoTransforms = mysqlTable(
     sourceKey: varchar("sourceKey", { length: 512 }).notNull(),
     sourceUrl: text("sourceUrl").notNull(),
     resultUrl: text("resultUrl"),
+    retryOfTransformId: int("retryOfTransformId"),
     status: mysqlEnum("status", ["processing", "completed", "failed"]).default("processing").notNull(),
     isHidden: boolean("isHidden").notNull().default(false),
     errorMessage: varchar("errorMessage", { length: 500 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     completedAt: timestamp("completedAt"),
   },
-  (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt)]
+  (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt), index("photoTransforms_user_retry_idx").on(table.userId, table.retryOfTransformId, table.createdAt)]
 );
 
 /** Immutable business ledger for paid extra transformations. */

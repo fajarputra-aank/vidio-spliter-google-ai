@@ -2,7 +2,7 @@
  * Design reminder — Kamar Gelap Editorial: photo-first workspace with tactile
  * contact-sheet details, an honest process console, and a private proof gallery.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
@@ -118,11 +118,25 @@ export default function Home() {
   const [recommendations, setRecommendations] = useState<PhotoRecommendation[]>([]);
   const [recommendationStatus, setRecommendationStatus] = useState<"idle" | "login" | "error">("idle");
   const [isRestoringHistorySource, setIsRestoringHistorySource] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<"all" | "failed">("all");
+  const [retryOfTransformId, setRetryOfTransformId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasUnlimitedStudioAccess = user?.role === "admin" || quotaQuery.data?.isUnlimited === true;
 
   const shownRecipes = selectedCategory === "Semua" ? recipes : recipes.filter((recipe) => recipe.category === selectedCategory);
   const previewImage = resultImage ?? uploadedImage ?? selectedRecipe.image;
+  const historyItems = historyQuery.data ?? [];
+  const shownHistoryItems = historyFilter === "failed" ? historyItems.filter((item) => item.status === "failed") : historyItems;
+  const retryAttemptsBySource = useMemo(() => {
+    const grouped = new Map<number, typeof historyItems>();
+    for (const item of historyItems) {
+      if (!item.retryOfTransformId) continue;
+      const attempts = grouped.get(item.retryOfTransformId) ?? [];
+      attempts.push(item);
+      grouped.set(item.retryOfTransformId, attempts);
+    }
+    return grouped;
+  }, [historyItems]);
   const progressStage = progress < 25 ? 0 : progress < 48 ? 1 : progress < 78 ? 2 : 3;
 
   useEffect(() => {
@@ -154,6 +168,7 @@ export default function Home() {
         return;
       }
       setResultImage(privateMediaUrl(record.resultUrl));
+      setRetryOfTransformId(null);
       setIsProcessing(false);
       void utils.photo.list.invalidate();
       void utils.photo.quota.invalidate();
@@ -201,6 +216,7 @@ export default function Home() {
       setResultImage(null);
       setProgress(0);
       setRecommendations([]);
+      setRetryOfTransformId(null);
       if (isAuthenticated) {
         setRecommendationStatus("idle");
         recommendationMutation.mutate({ sourceData: base64, mimeType: file.type as UploadPayload["mimeType"] });
@@ -230,7 +246,7 @@ export default function Home() {
     setProgress(8);
     setResultImage(null);
     setIsProcessing(true);
-    transformMutation.mutate({ recipe: selectedRecipe.id, aspectRatio: selectedAspect, style: selectedStyle, fileName: uploadPayload.fileName, mimeType: uploadPayload.mimeType, sourceData: uploadPayload.base64, customInstruction: customInstruction.trim() || undefined });
+    transformMutation.mutate({ recipe: selectedRecipe.id, aspectRatio: selectedAspect, style: selectedStyle, fileName: uploadPayload.fileName, mimeType: uploadPayload.mimeType, sourceData: uploadPayload.base64, customInstruction: customInstruction.trim() || undefined, retryOfTransformId: retryOfTransformId ?? undefined });
   }
 
   function chooseRecipe(recipe: Recipe) {
@@ -268,11 +284,11 @@ export default function Home() {
     toast.message(`Foto sumber tetap dipakai. Coba ${recipe.name} saat siap.`);
   }
 
-  async function restoreHistoryToStudio(item: { id: number; sourceUrl: string; resultUrl: string | null; recipe: string; aspectRatio: string; style: string }) {
+  async function restoreHistoryToStudio(item: { id: number; sourceUrl: string; resultUrl: string | null; retryOfTransformId?: number | null; recipe: string; aspectRatio: string; style: string }) {
     const recipe = recipes.find((candidate) => candidate.id === item.recipe);
     const sourceMediaUrl = privateMediaUrl(item.sourceUrl);
     setUploadedImage(sourceMediaUrl);
-    setResultImage(privateMediaUrl(item.resultUrl ?? item.sourceUrl));
+    setResultImage(null);
     setSelectedAspect(item.aspectRatio as OutputAspect);
     setSelectedStyle(item.style as AiStyle);
     if (recipe) { setSelectedRecipe(recipe); setSelectedCategory(recipe.category); }
@@ -294,7 +310,8 @@ export default function Home() {
         reader.readAsDataURL(blob);
       });
       setUploadPayload({ base64: sourceData, mimeType, fileName: `riwayat-${item.id}.${mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg"}` });
-      toast.success("Sumber privat dimuat kembali. Kamu dapat mencoba resep lain tanpa unggah ulang.");
+      setRetryOfTransformId(item.retryOfTransformId ?? item.id);
+      toast.success("Sumber privat dimuat kembali. Percobaan ulang akan dicatat pada riwayat foto ini.");
     } catch {
       toast.error("Sumber riwayat belum dapat dimuat ulang. Pilih berkas asli untuk membuat transformasi baru.");
     } finally {
@@ -378,7 +395,7 @@ export default function Home() {
 
         <section className="history-section" id="gallery">
           <div className="section-heading"><div><span className="eyebrow">03 — koleksi pribadi</span><h2>Jejak frame-mu.</h2></div><p>{isAuthenticated ? "Semua hasil transformasi tersimpan privat di akunmu. Pilih kembali kapan pun untuk melihat atau mengunduh ulang." : "Masuk untuk membuat galeri personal yang menyimpan sumber dan hasil transformasi AI."}</p></div>
-          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyQuery.data?.length ? <div className="history-grid">{historyQuery.data.map((item) => <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><MediaImage src={privateMediaUrl(item.resultUrl || item.sourceUrl)} alt={`Hasil ${item.title}`} fallbackLabel="Hasil tidak tersedia" />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status === "failed" ? "GAGAL" : "DIPROSES"}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? `${item.style} · ${item.aspectRatio} siap dilihat ulang.` : item.status === "failed" ? item.errorMessage || "Transformasi sebelumnya belum berhasil. Foto sumbermu tetap aman." : "Masih diproses di studio."}</p><div className="history-actions">{item.resultUrl && <button onClick={() => void restoreHistoryToStudio(item)}><Sparkles size={14} /> Bandingkan</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}{item.resultUrl && <button onClick={() => void shareImage(item.resultUrl ?? item.sourceUrl, item.title)}><Share2 size={14} /> Bagikan</button>}{item.status === "failed" && <button onClick={() => { scrollTo("studio"); toast.message("Pilih resep lalu coba lagi saat layanan AI tersedia."); }}><RotateCcw size={14} /> Coba lagi</button>}</div></div></article>)}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
+          {!isAuthenticated ? <div className="history-login"><div><History size={28} /><strong>Koleksimu dimulai dari satu foto.</strong><p>Masuk untuk menyimpan riwayat, meninjau hasil lama, dan mengunduh kembali kapan saja.</p></div><button className="primary-action" onClick={startLogin}><LogIn size={16} /> Masuk & buat koleksi</button></div> : historyQuery.isLoading ? <div className="history-loading"><LoaderCircle className="spin-icon" size={22} /> Membuka arsip visualmu...</div> : historyQuery.isError ? <div className="history-error"><strong>Arsip belum bisa dibuka.</strong><p>Periksa koneksi lalu coba memuat ulang koleksi.</p><button className="secondary-action" onClick={() => void historyQuery.refetch()}>Muat ulang</button></div> : historyItems.length ? <><div className="history-filter" role="group" aria-label="Filter riwayat transformasi"><button className={historyFilter === "all" ? "is-active" : ""} onClick={() => setHistoryFilter("all")}>Semua <span>{historyItems.length}</span></button><button className={historyFilter === "failed" ? "is-active" : ""} onClick={() => setHistoryFilter("failed")}>Transformasi gagal <span>{historyItems.filter((item) => item.status === "failed").length}</span></button></div>{shownHistoryItems.length ? <div className="history-grid">{shownHistoryItems.map((item) => { const retries = retryAttemptsBySource.get(item.id) ?? []; return <article className={`history-card ${item.status}`} key={item.id}><div className="history-thumb"><MediaImage src={privateMediaUrl(item.resultUrl || item.sourceUrl)} alt={`Hasil ${item.title}`} fallbackLabel="Hasil tidak tersedia" />{item.status === "completed" ? <span>SELESAI</span> : <span>{item.status === "failed" ? "GAGAL" : "DIPROSES"}</span>}</div><div className="history-info"><small>{formatDate(item.createdAt)}</small><strong>{item.title}</strong><p>{item.status === "completed" ? `${item.style} · ${item.aspectRatio} siap dilihat ulang.` : item.status === "failed" ? item.errorMessage || "Transformasi sebelumnya belum berhasil. Foto sumbermu tetap aman." : "Masih diproses di studio."}</p>{retries.length > 0 && <div className="retry-history"><strong>{retries.length} percobaan ulang</strong><div>{retries.map((retry) => <span key={retry.id}>{formatDate(retry.createdAt)} · {retry.status === "completed" ? "selesai" : retry.status === "failed" ? "gagal" : "diproses"}</span>)}</div></div>}<div className="history-actions">{item.resultUrl && <button onClick={() => void restoreHistoryToStudio(item)}><Sparkles size={14} /> Bandingkan</button>}{item.resultUrl && <button onClick={() => downloadImage(item.resultUrl ?? item.sourceUrl, item.recipe)}><Download size={14} /> Unduh</button>}{item.resultUrl && <button onClick={() => void shareImage(item.resultUrl ?? item.sourceUrl, item.title)}><Share2 size={14} /> Bagikan</button>}{item.status === "failed" && <button disabled={isRestoringHistorySource} onClick={() => void restoreHistoryToStudio(item)}><RotateCcw size={14} /> {isRestoringHistorySource ? "Menyiapkan…" : "Coba lagi"}</button>}</div></div></article>; })}</div> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Tidak ada transformasi gagal.</strong><p>Pilih filter Semua untuk melihat seluruh koleksi fotomu.</p><button className="secondary-action" onClick={() => setHistoryFilter("all")}>Lihat semua</button></div>}</> : <div className="history-empty"><span className="film-count">00 / 00</span><strong>Belum ada frame di koleksi.</strong><p>Unggah foto pertama, pilih resep, lalu hasilnya akan muncul di sini.</p><button className="secondary-action" onClick={() => scrollTo("studio")}>Masuk studio</button></div>}
         </section>
 
         <section className="explore-section"><div className="section-heading compact-heading"><div><span className="eyebrow">04 — arah visual</span><h2>Untuk pekerjaan yang berbeda.</h2></div><button className="text-button" onClick={() => scrollTo("studio")}>Pilih resep <ArrowRight size={15} /></button></div><div className="contact-meta"><span>CONTACT SHEET / 04 FRAME</span><span>ARAH VISUAL TERPILIH</span></div><div className="explore-strip"><article className="explore-card"><img src={assets.headshot} alt="Contoh hasil portrait profesional" /><span className="explore-frame-no">01 / 04</span><div><span>PROFIL KERJA</span><strong>Rapi tanpa terasa kaku.</strong></div></article><article className="explore-card"><img src={assets.product} alt="Contoh foto produk katalog" /><span className="explore-frame-no">02 / 04</span><div><span>FOTO PRODUK</span><strong>Detail kecil ikut bicara.</strong></div></article><article className="explore-card"><img src={assets.food} alt="Contoh foto makanan editorial" /><span className="explore-frame-no">03 / 04</span><div><span>MENU & KULINER</span><strong>Warna hangat, fokus ke rasa.</strong></div></article><article className="explore-text-card"><span>RESEP BARU SETIAP PEKAN</span><p>Buka satu foto ke banyak kemungkinan baru.</p><button onClick={() => scrollTo("studio")}>Masuk studio <ArrowRight size={17} /></button></article></div></section>

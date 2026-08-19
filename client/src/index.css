@@ -254,6 +254,10 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .history-empty .secondary-action { margin-top: 5px; }
 .history-error strong { color: #6f4630; font-family: "DM Serif Display", Georgia, serif; font-size: 28px; font-weight: 400; }
 .history-error p { margin: 0; color: #6e675d; }
+.history-filter { max-width: 1450px; margin: -15px auto 16px; display: flex; flex-wrap: wrap; gap: 7px; }
+.history-filter button { padding: 8px 10px; border: 1px solid #bcae9b; background: #f8f2e8; color: #544d42; font-size: 9px; font-weight: 800; }
+.history-filter button.is-active { border-color: #1b1b18; background: #efbd84; color: #1b1b18; box-shadow: 2px 2px 0 #1b1b18; }
+.history-filter span { display: inline-grid; place-items: center; min-width: 16px; height: 16px; margin-left: 4px; border-radius: 50%; background: rgba(27,27,24,.1); font-size: 8px; }
 .history-grid { max-width: 1450px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
 .history-card { min-width: 0; display: flex; flex-direction: column; background: #fffdf8; border: 1px solid #c9bdaa; }
 .history-card.failed { opacity: .76; }
@@ -267,13 +271,17 @@ button:focus-visible { outline: 2px solid #ef8f2f; outline-offset: 3px; }
 .history-info small { display: block; color: #90887d; font-size: 8px; }
 .history-info strong { display: block; margin-top: 5px; font-size: 12px; }
 .history-info p { min-height: 28px; margin: 5px 0 11px; color: #746d62; font-size: 9px; line-height: 1.45; }
+.retry-history { margin: -3px 0 10px; padding: 7px 8px; border-left: 2px solid #b8611c; background: #f2eadf; }
+.retry-history strong { margin: 0; color: #6b3e1f; font-size: 8px; text-transform: uppercase; letter-spacing: .07em; }
+.retry-history div { display: grid; gap: 3px; margin-top: 5px; }
+.retry-history span { color: #746d62; font-size: 8px; line-height: 1.3; }
 .history-actions { display: flex; gap: 6px; }
 .history-actions button { padding: 7px 8px; display: inline-flex; align-items: center; gap: 4px; background: #eee7db; color: #282620; font-size: 9px; font-weight: 800; }
 .history-actions button:hover { background: #efbd84; }
 @keyframes orbit-pulse { from { transform: scale(.92) rotate(-8deg); opacity: .72; } to { transform: scale(1.05) rotate(8deg); opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1060px) { .history-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .console-steps { grid-template-columns: repeat(2,1fr); } }
-@media (max-width: 760px) { .auth-action { display: none !important; } .progress-console { margin-top: 12px; padding: 14px; display: block; } .console-title { margin-bottom: 13px; } .console-steps { gap: 9px 4px; } .console-steps > div { font-size: 8px; } .history-section { padding: 61px 20px; } .history-login { padding: 22px; align-items: flex-start; flex-direction: column; gap: 21px; } .history-login strong { font-size: 25px; } .history-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; } .history-thumb { height: 145px; } .history-info { padding: 10px; } .history-actions { flex-direction: column; } .history-actions button { justify-content: center; } }
+@media (max-width: 760px) { .auth-action { display: none !important; } .progress-console { margin-top: 12px; padding: 14px; display: block; } .console-title { margin-bottom: 13px; } .console-steps { gap: 9px 4px; } .console-steps > div { font-size: 8px; } .history-section { padding: 61px 20px; } .history-login { padding: 22px; align-items: flex-start; flex-direction: column; gap: 21px; } .history-login strong { font-size: 25px; } .history-filter { margin-top: -10px; } .history-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; } .history-thumb { height: 145px; } .history-info { padding: 10px; } .history-actions { flex-direction: column; } .history-actions button { justify-content: center; } }
 @media (max-width: 760px) { .mobile-brand-mark { width: 31px; height: 31px; display: grid; place-items: center; overflow: hidden; background: #1b1b18; } .mobile-brand-mark img { width: 100%; height: 100%; object-fit: cover; object-position: center 44%; transform: scale(1.28); } .mobile-brand-mark .aperture-mark { width: 19px; height: 19px; } }
 
 /* Ratio, quota, and sharing extensions — retain the darkroom proofing vocabulary. */

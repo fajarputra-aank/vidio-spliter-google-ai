@@ -229,3 +229,8 @@
 - [x] Tambahkan peringatan ramah saat kuota layanan AI sedang habis.
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pola pemulihan media serta komunikasi kuota.
 - [x] Uji pesan, pemulihan gambar, responsivitas, dan simpan checkpoint rilis.
+- [x] Tampilkan perkiraan waktu kapan kuota layanan AI tersedia kembali pada peringatan pengguna.
+- [x] Tambahkan filter galeri untuk menampilkan transformasi yang gagal.
+- [x] Catat dan tampilkan jumlah serta riwayat percobaan ulang per foto secara privat.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk pemulihan kuota, filter gagal, dan percobaan ulang.
+- [x] Uji migrasi, riwayat percobaan ulang, filter, responsivitas, dan simpan checkpoint rilis.

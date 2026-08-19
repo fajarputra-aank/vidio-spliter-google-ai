@@ -25,6 +25,7 @@ const imageInput = z.object({
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
   sourceData: z.string().min(16).max(8_000_000),
   customInstruction: z.string().trim().min(3).max(360).optional(),
+  retryOfTransformId: z.number().int().positive().optional(),
 });
 
 function safeFileName(value: string) {
@@ -234,9 +235,13 @@ export const appRouter = router({
         usedPurchasedCredit = await db.consumePurchasedCredit(ctx.user.id);
         if (!usedPurchasedCredit) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Kuota harian dan kredit tambahanmu sudah habis. Tambahkan kredit untuk lanjut meracik." });
       }
+      if (input.retryOfTransformId) {
+        const previous = await db.getOwnedPhotoTransform(ctx.user.id, input.retryOfTransformId);
+        if (!previous || previous.status !== "failed") throw new TRPCError({ code: "BAD_REQUEST", message: "Transformasi yang ingin diulang tidak tersedia." });
+      }
       try {
         const source = await storagePut(`originals/${ctx.user.id}/${Date.now()}-${safeFileName(input.fileName)}`, sourceBuffer, input.mimeType);
-        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: input.recipe, aspectRatio: input.aspectRatio, style: input.style, title: photoRecipes[input.recipe].title, sourceKey: source.key, sourceUrl: source.url, status: "processing" });
+        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: input.recipe, aspectRatio: input.aspectRatio, style: input.style, title: photoRecipes[input.recipe].title, sourceKey: source.key, sourceUrl: source.url, retryOfTransformId: input.retryOfTransformId, status: "processing" });
         transformId = transform.id;
         const result = await generateImage({
           prompt: buildTransformPrompt(input.recipe, input.aspectRatio, input.style, input.customInstruction),
