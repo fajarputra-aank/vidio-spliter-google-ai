@@ -315,13 +315,13 @@ export async function listPhotoCollaborationProjects(userId: number, filters: { 
   return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(...conditions)).orderBy(desc(photoTransforms.createdAt)).limit(100);
 }
 
-export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date, watermarkText: string | null, watermarkLogoId: number | null) {
+export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date, watermarkText: string | null, watermarkLogoId: number | null, allowUnlimitedActiveLinks = false) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
   const transform = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
   if (!transform[0]) throw new Error("Hanya hasil Kolaborasi Foto yang selesai dapat dibagikan.");
   const active = await db.select({ total: count() }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date())));
-  if (Number(active[0]?.total ?? 0) >= 3) throw new Error("Maksimal tiga tautan berbagi aktif untuk setiap hasil. Cabut atau tunggu salah satunya berakhir.");
+  if (!allowUnlimitedActiveLinks && Number(active[0]?.total ?? 0) >= 3) throw new Error("Maksimal tiga tautan berbagi aktif untuk setiap hasil. Cabut atau tunggu salah satunya berakhir.");
   if (watermarkLogoId) { const logo = await db.select({ id: photoCollaborationBrandLogos.id }).from(photoCollaborationBrandLogos).where(and(eq(photoCollaborationBrandLogos.id, watermarkLogoId), eq(photoCollaborationBrandLogos.userId, userId))).limit(1); if (!logo[0]) throw new Error("Logo watermark tidak ditemukan."); }
   const result = await db.insert(photoCollaborationShareLinks).values({ userId, transformId, tokenHash, expiresAt, watermarkText: watermarkText?.trim() || null, watermarkLogoId });
   const rows = await db.select().from(photoCollaborationShareLinks).where(eq(photoCollaborationShareLinks.id, Number(result[0].insertId))).limit(1);

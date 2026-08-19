@@ -9,7 +9,7 @@ import * as db from "./db";
 import { aspectRatioIds, buildTransformPrompt, photoRecipes, recipeIds, styleIds } from "./photoPrompts";
 import { storagePut } from "./storage";
 import { creditPacks, getCreditPack } from "./creditProducts";
-import { hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
+import { hasUnlimitedCollaborationShareLinks, hasUnlimitedHdExports, hasUnlimitedTransforms } from "./accessPolicy";
 import { recommendPhotoRecipe } from "./photoRecommendations";
 import { createSecurityToken, hashLoginEmail, hashPassword, hashSecurityToken, normalizeEmail, validatePassword, validateRegistrationInput, verifyPassword } from "./localAuth";
 import { sdk } from "./_core/sdk";
@@ -262,7 +262,7 @@ export const appRouter = router({
     collaborationInvites: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationInvites(ctx.user.id)),
     collaborationProjects: protectedProcedure.input(z.object({ template: z.enum(collaborationTemplateIds).optional(), status: z.enum(["processing", "completed", "failed", "cancelled"]).optional() }).optional()).query(async ({ ctx, input }) => (await db.listPhotoCollaborationProjects(ctx.user.id, input)).map((project) => ({ ...project, resultUrl: privateMediaUrl(project.resultUrl) }))),
     collaborationShareLinks: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(({ ctx, input }) => db.listPhotoCollaborationShareLinks(ctx.user.id, input.transformId)),
-    createCollaborationShareLink: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), expiresInHours: z.union([z.literal(1), z.literal(24), z.literal(72)]), watermarkText: z.string().trim().max(72).optional(), watermarkLogoId: z.number().int().positive().optional() })).mutation(async ({ ctx, input }) => { const { token, tokenHash } = createSecurityToken(); const link = await db.createPhotoCollaborationShareLink(ctx.user.id, input.transformId, tokenHash, new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000), input.watermarkText?.trim() || null, input.watermarkLogoId ?? null); return { id: link.id, token, expiresAt: link.expiresAt }; }),
+    createCollaborationShareLink: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), expiresInHours: z.union([z.literal(1), z.literal(24), z.literal(72)]), watermarkText: z.string().trim().max(72).optional(), watermarkLogoId: z.number().int().positive().optional() })).mutation(async ({ ctx, input }) => { const { token, tokenHash } = createSecurityToken(); const link = await db.createPhotoCollaborationShareLink(ctx.user.id, input.transformId, tokenHash, new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000), input.watermarkText?.trim() || null, input.watermarkLogoId ?? null, hasUnlimitedCollaborationShareLinks(ctx.user.role)); return { id: link.id, token, expiresAt: link.expiresAt }; }),
     collaborationBrandLogos: protectedProcedure.query(async ({ ctx }) => db.listPhotoCollaborationBrandLogos(ctx.user.id)),
     uploadCollaborationBrandLogo: protectedProcedure.input(collaborationBrandLogoInput).mutation(async ({ ctx, input }) => db.createPhotoCollaborationBrandLogo(ctx.user.id, input.name, await storeCollaborationBrandLogo(ctx.user.id, input))),
     deleteCollaborationBrandLogo: protectedProcedure.input(z.object({ logoId: z.number().int().positive() })).mutation(async ({ ctx, input }) => db.deletePhotoCollaborationBrandLogo(ctx.user.id, input.logoId)),

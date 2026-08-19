@@ -5,3 +5,7 @@ export function hasUnlimitedTransforms(user: { role: string | null | undefined; 
 export function hasUnlimitedHdExports(role: string | null | undefined) {
   return role === "admin";
 }
+
+export function hasUnlimitedCollaborationShareLinks(role: string | null | undefined) {
+  return role === "admin";
+}

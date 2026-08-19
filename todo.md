@@ -337,3 +337,6 @@
 - [x] Tambahkan skema, migrasi, prosedur, akses media, dan penyimpanan logo yang aman untuk statistik serta watermark.
 - [x] Bangun tampilan statistik tautan, unggah/pilih logo watermark, dan pengingat kedaluwarsa di antarmuka.
 - [x] Uji statistik, kepemilikan logo, pengingat kedaluwarsa, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Audit pembatas Kolaborasi dan cakupan akses tanpa batas untuk fajar.spco@gmail.com serta fajar.putra86@gmail.com.
+- [x] Terapkan pengecualian Kolaborasi tanpa batas khusus administrator tanpa melonggarkan batas pengguna lain.
+- [x] Tambahkan pengujian otorisasi, perbarui skill ai-photo-studio-fullstack, validasi, dan simpan checkpoint.
