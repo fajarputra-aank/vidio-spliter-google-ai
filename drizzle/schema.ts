@@ -121,6 +121,8 @@ export const photoTransforms = mysqlTable(
     sourceUrl: text("sourceUrl").notNull(),
     secondarySourceKey: varchar("secondarySourceKey", { length: 512 }),
     secondarySourceUrl: text("secondarySourceUrl"),
+    collaborationTemplate: varchar("collaborationTemplate", { length: 32 }),
+    collaborationInviteId: int("collaborationInviteId"),
     resultUrl: text("resultUrl"),
     retryOfTransformId: int("retryOfTransformId"),
     requestId: varchar("requestId", { length: 64 }),
@@ -135,6 +137,26 @@ export const photoTransforms = mysqlTable(
     completedAt: timestamp("completedAt"),
   },
   (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt), index("photoTransforms_user_retry_idx").on(table.userId, table.retryOfTransformId, table.createdAt), index("photoTransforms_user_request_idx").on(table.userId, table.requestId)]
+);
+
+/** Explicit, time-limited consent to join a private two-photo collaboration. No image data is stored here. */
+export const photoCollaborationInvites = mysqlTable(
+  "photoCollaborationInvites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    inviterUserId: int("inviterUserId").notNull(),
+    inviteeUserId: int("inviteeUserId").notNull(),
+    template: varchar("template", { length: 32 }).notNull(),
+    aspectRatio: varchar("aspectRatio", { length: 8 }).notNull(),
+    style: varchar("style", { length: 24 }).notNull(),
+    note: varchar("note", { length: 360 }),
+    status: mysqlEnum("status", ["pending", "accepted", "declined", "used", "cancelled"]).notNull().default("pending"),
+    transformId: int("transformId"),
+    expiresAt: timestamp("expiresAt").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    respondedAt: timestamp("respondedAt"),
+  },
+  (table) => [index("photoCollaborationInvites_invitee_status_created_idx").on(table.inviteeUserId, table.status, table.createdAt), index("photoCollaborationInvites_inviter_created_idx").on(table.inviterUserId, table.createdAt)]
 );
 
 /** Private record of a completed result shared by its owner; no destination account or external URL is stored. */

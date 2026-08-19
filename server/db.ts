@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { photoCollaborationInvites } from "../drizzle/schema";
 import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
@@ -247,6 +248,52 @@ export async function createPhotoTransform(transform: InsertPhotoTransform) {
   const id = Number(result[0].insertId);
   const rows = await db.select().from(photoTransforms).where(eq(photoTransforms.id, id)).limit(1);
   return rows[0];
+}
+
+export async function createPhotoCollaborationInvite(inviterUserId: number, inviteeEmail: string, input: { template: string; aspectRatio: string; style: string; note?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const invitee = await getUserByEmail(inviteeEmail);
+  if (!invitee?.email) throw new Error("Akun penerima undangan tidak ditemukan.");
+  if (invitee.id === inviterUserId) throw new Error("Kamu tidak dapat mengundang akunmu sendiri.");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const result = await db.insert(photoCollaborationInvites).values({ inviterUserId, inviteeUserId: invitee.id, template: input.template, aspectRatio: input.aspectRatio, style: input.style, note: input.note?.trim() || null, expiresAt });
+  const id = Number(result[0].insertId); const rows = await db.select().from(photoCollaborationInvites).where(eq(photoCollaborationInvites.id, id)).limit(1);
+  await createAccountActivityNotification(invitee.id, "Undangan Kolaborasi Foto", "Ada undangan kolaborasi privat yang menunggu persetujuanmu. Tidak ada foto atau hasil yang dibagikan sampai kamu menyetujui.");
+  return rows[0];
+}
+
+export async function listPhotoCollaborationInvites(userId: number) {
+  const db = await getDb();
+  if (!db) return { incoming: [], outgoing: [] };
+  const [incoming, outgoing] = await Promise.all([
+    db.select({ id: photoCollaborationInvites.id, template: photoCollaborationInvites.template, aspectRatio: photoCollaborationInvites.aspectRatio, style: photoCollaborationInvites.style, note: photoCollaborationInvites.note, status: photoCollaborationInvites.status, expiresAt: photoCollaborationInvites.expiresAt, createdAt: photoCollaborationInvites.createdAt, respondedAt: photoCollaborationInvites.respondedAt, inviterName: users.name, inviterEmail: users.email }).from(photoCollaborationInvites).leftJoin(users, eq(users.id, photoCollaborationInvites.inviterUserId)).where(eq(photoCollaborationInvites.inviteeUserId, userId)).orderBy(desc(photoCollaborationInvites.createdAt)).limit(30),
+    db.select({ id: photoCollaborationInvites.id, template: photoCollaborationInvites.template, aspectRatio: photoCollaborationInvites.aspectRatio, style: photoCollaborationInvites.style, note: photoCollaborationInvites.note, status: photoCollaborationInvites.status, expiresAt: photoCollaborationInvites.expiresAt, createdAt: photoCollaborationInvites.createdAt, respondedAt: photoCollaborationInvites.respondedAt, inviteeName: users.name, inviteeEmail: users.email }).from(photoCollaborationInvites).leftJoin(users, eq(users.id, photoCollaborationInvites.inviteeUserId)).where(eq(photoCollaborationInvites.inviterUserId, userId)).orderBy(desc(photoCollaborationInvites.createdAt)).limit(30),
+  ]);
+  return { incoming, outgoing };
+}
+
+export async function respondPhotoCollaborationInvite(inviteeUserId: number, inviteId: number, action: "accepted" | "declined") {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const current = await db.select().from(photoCollaborationInvites).where(and(eq(photoCollaborationInvites.id, inviteId), eq(photoCollaborationInvites.inviteeUserId, inviteeUserId), eq(photoCollaborationInvites.status, "pending"), gt(photoCollaborationInvites.expiresAt, new Date()))).limit(1);
+  if (!current[0]) throw new Error("Undangan tidak tersedia atau sudah berakhir.");
+  await db.update(photoCollaborationInvites).set({ status: action, respondedAt: new Date() }).where(eq(photoCollaborationInvites.id, inviteId));
+  await createAccountActivityNotification(current[0].inviterUserId, action === "accepted" ? "Kolaborasi disetujui" : "Kolaborasi ditolak", action === "accepted" ? "Undangan Kolaborasi Foto telah disetujui. Kamu dapat memprosesnya sebelum masa persetujuan berakhir." : "Undangan Kolaborasi Foto ditolak. Tidak ada foto atau hasil yang dibagikan.");
+  return { success: true, status: action };
+}
+
+export async function getAcceptedPhotoCollaborationInvite(inviterUserId: number, inviteId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(photoCollaborationInvites).where(and(eq(photoCollaborationInvites.id, inviteId), eq(photoCollaborationInvites.inviterUserId, inviterUserId), eq(photoCollaborationInvites.status, "accepted"), gt(photoCollaborationInvites.expiresAt, new Date()))).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function markPhotoCollaborationInviteUsed(inviterUserId: number, inviteId: number, transformId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.update(photoCollaborationInvites).set({ status: "used", transformId }).where(and(eq(photoCollaborationInvites.id, inviteId), eq(photoCollaborationInvites.inviterUserId, inviterUserId), eq(photoCollaborationInvites.status, "accepted")));
 }
 
 export async function getOwnedPhotoTransform(userId: number, transformId: number) {

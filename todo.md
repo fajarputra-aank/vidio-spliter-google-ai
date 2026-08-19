@@ -317,3 +317,7 @@
 - [x] Tambahkan skema, migrasi, prosedur server, validasi berkas, kuota, dan penyimpanan aman untuk dua sumber kolaborasi.
 - [x] Bangun antarmuka unggah dua foto, pemilihan rasio, pemrosesan, serta tautan hasil privat di studio dan riwayat.
 - [x] Uji kolaborasi, kepemilikan, kuota, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang template pasangan/produk, pratinjau tata letak, dan undangan kolaborator yang memerlukan persetujuan eksplisit.
+- [x] Tambahkan skema, migrasi, prosedur undangan/persetujuan, dan validasi akses kolaborasi yang aman.
+- [x] Bangun pemilih template, pratinjau dua foto, serta alur undangan kolaborator di antarmuka.
+- [x] Uji template, pratinjau, persetujuan, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

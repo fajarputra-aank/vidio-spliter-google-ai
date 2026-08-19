@@ -30,7 +30,8 @@ const imageInput = z.object({
 });
 
 const collaborationImageInput = z.object({ fileName: z.string().min(1).max(180), mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(8_000_000) });
-const collaborationInput = z.object({ first: collaborationImageInput, second: collaborationImageInput, aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), customInstruction: z.string().trim().min(3).max(360).optional(), requestId: z.string().uuid().optional() });
+const collaborationTemplateIds = ["free", "couple", "product"] as const;
+const collaborationInput = z.object({ first: collaborationImageInput, second: collaborationImageInput, template: z.enum(collaborationTemplateIds).default("free"), aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), customInstruction: z.string().trim().min(3).max(360).optional(), inviteId: z.number().int().positive().optional(), requestId: z.string().uuid().optional() });
 
 const seasonalCollectionFields = z.object({
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{3,48}$/),
@@ -66,8 +67,9 @@ function withPrivatePhotoMedia<T extends { sourceUrl: string; secondarySourceUrl
   return { ...record, errorMessage, sourceUrl: privateMediaUrl(record.sourceUrl)!, secondarySourceUrl: privateMediaUrl(record.secondarySourceUrl ?? null), resultUrl: privateMediaUrl(record.resultUrl) };
 }
 
-function buildCollaborationPrompt(aspectRatio: (typeof aspectRatioIds)[number], style: (typeof styleIds)[number], customInstruction?: string) {
-  return `Create one coherent photographic collaboration from exactly the two supplied private photos. Preserve the recognizable identity, face, body proportions, clothing, products, labels, and essential visual details of both source photos. Place both contributions naturally into one believable shared composition with consistent light, scale, shadow, and perspective. Do not introduce additional people, duplicate subjects, invented products, text, logos, claims, or unrelated props. Keep the visual direction ${style} and compose for ${aspectRatio}. ${customInstruction ? `Apply this private direction only when compatible with both sources: ${customInstruction}` : ""}`;
+function buildCollaborationPrompt(template: (typeof collaborationTemplateIds)[number], aspectRatio: (typeof aspectRatioIds)[number], style: (typeof styleIds)[number], customInstruction?: string) {
+  const direction = template === "couple" ? "Create a warm, natural paired portrait with respectful physical spacing and no invented intimacy." : template === "product" ? "Create a clean commercial composition that shows both supplied products truthfully with consistent scale and clear labels." : "Create a flexible, coherent collaboration composition.";
+  return `${direction} Use exactly the two supplied private photos. Preserve the recognizable identity, face, body proportions, clothing, products, labels, and essential visual details of both source photos. Place both contributions naturally into one believable shared composition with consistent light, scale, shadow, and perspective. Do not introduce additional people, duplicate subjects, invented products, text, logos, claims, or unrelated props. Keep the visual direction ${style} and compose for ${aspectRatio}. ${customInstruction ? `Apply this private direction only when compatible with both sources: ${customInstruction}` : ""}`;
 }
 
 function withPrivateAlbumMedia<T extends { coverUrl: string | null; items: Array<{ resultUrl: string | null }> }>(album: T) {
@@ -246,6 +248,9 @@ export const appRouter = router({
       if (!transform) throw new TRPCError({ code: "NOT_FOUND", message: "Transformasi tidak ditemukan." });
       return withPrivatePhotoMedia(transform);
     }),
+    collaborationInvites: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationInvites(ctx.user.id)),
+    inviteToCollaboration: protectedProcedure.input(z.object({ email: z.string().trim().email().max(320), template: z.enum(collaborationTemplateIds), aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), note: z.string().trim().max(360).optional() })).mutation(({ ctx, input }) => db.createPhotoCollaborationInvite(ctx.user.id, normalizeEmail(input.email), input)),
+    respondToCollaborationInvite: protectedProcedure.input(z.object({ inviteId: z.number().int().positive(), action: z.enum(["accepted", "declined"]) })).mutation(({ ctx, input }) => db.respondPhotoCollaborationInvite(ctx.user.id, input.inviteId, input.action)),
     shareHistory: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]).optional(), from: z.coerce.date().optional(), to: z.coerce.date().optional(), captionQuery: z.string().trim().max(120).optional() })).query(({ ctx, input }) => db.listPhotoShareEvents(ctx.user.id, input.transformId, input)),
     combinedShareHistory: protectedProcedure.input(z.object({ transformIds: z.array(z.number().int().positive()).min(1).max(50).superRefine((ids, context) => { if (new Set(ids).size !== ids.length) context.addIssue({ code: z.ZodIssueCode.custom, message: "Transformasi tidak boleh dipilih lebih dari sekali." }); }), from: z.coerce.date().optional(), to: z.coerce.date().optional() })).query(({ ctx, input }) => db.listPhotoShareEventsForTransforms(ctx.user.id, input.transformIds, input)),
     recordShare: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]), caption: z.string().trim().min(1).max(500), watermarkText: z.string().trim().max(72).optional(), outcome: z.enum(["shared", "copied", "downloaded"]) })).mutation(({ ctx, input }) => db.recordPhotoShareEvent(ctx.user.id, { ...input, watermarkText: input.watermarkText ?? null })),
@@ -324,16 +329,19 @@ export const appRouter = router({
     collaborate: protectedProcedure.input(collaborationInput).mutation(async ({ ctx, input }) => {
       const firstBuffer = Buffer.from(input.first.sourceData, "base64"); const secondBuffer = Buffer.from(input.second.sourceData, "base64");
       if (!firstBuffer.length || !secondBuffer.length || firstBuffer.length > 5_500_000 || secondBuffer.length > 5_500_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Masing-masing foto kolaborasi harus maksimal 5 MB." });
+      const acceptedInvite = input.inviteId ? await db.getAcceptedPhotoCollaborationInvite(ctx.user.id, input.inviteId) : null;
+      if (input.inviteId && (!acceptedInvite || acceptedInvite.template !== input.template || acceptedInvite.aspectRatio !== input.aspectRatio || acceptedInvite.style !== input.style)) throw new TRPCError({ code: "FORBIDDEN", message: "Persetujuan kolaborator tidak tersedia untuk template, rasio, atau gaya ini." });
       const quota = await db.getDailyPhotoQuota(ctx.user.id); let usedPurchasedCredit = false; let transformId: number | null = null;
       if (quota.exhausted && !hasUnlimitedTransforms(ctx.user)) { usedPurchasedCredit = await db.consumePurchasedCredit(ctx.user.id); if (!usedPurchasedCredit) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Kuota harian dan kredit tambahanmu sudah habis. Tambahkan kredit untuk melanjutkan kolaborasi." }); }
       try {
         const now = Date.now();
         const [firstSource, secondSource] = await Promise.all([storagePut(`collaborations/${ctx.user.id}/${now}-a-${safeFileName(input.first.fileName)}`, firstBuffer, input.first.mimeType), storagePut(`collaborations/${ctx.user.id}/${now}-b-${safeFileName(input.second.fileName)}`, secondBuffer, input.second.mimeType)]);
         const queue = await db.getProcessingQueueStatus();
-        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: "collaboration", aspectRatio: input.aspectRatio, style: input.style, title: "Kolaborasi dua foto", sourceKey: firstSource.key, sourceUrl: firstSource.url, secondarySourceKey: secondSource.key, secondarySourceUrl: secondSource.url, requestId: input.requestId, queuePosition: queue.position, status: "processing" });
+        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: "collaboration", aspectRatio: input.aspectRatio, style: input.style, title: "Kolaborasi dua foto", sourceKey: firstSource.key, sourceUrl: firstSource.url, secondarySourceKey: secondSource.key, secondarySourceUrl: secondSource.url, collaborationTemplate: input.template, collaborationInviteId: input.inviteId ?? null, requestId: input.requestId, queuePosition: queue.position, status: "processing" });
         transformId = transform.id; const aborter = input.requestId ? new AbortController() : null;
+        if (acceptedInvite && input.inviteId) await db.markPhotoCollaborationInviteUsed(ctx.user.id, input.inviteId, transform.id);
         if (aborter && input.requestId) activeTransformAborters.set(activeTransformKey(ctx.user.id, input.requestId), aborter);
-        const options = { prompt: buildCollaborationPrompt(input.aspectRatio, input.style, input.customInstruction), originalImages: [{ b64Json: input.first.sourceData, mimeType: input.first.mimeType }, { b64Json: input.second.sourceData, mimeType: input.second.mimeType }], quality: "medium" as const, signal: aborter?.signal };
+        const options = { prompt: buildCollaborationPrompt(input.template, input.aspectRatio, input.style, input.customInstruction), originalImages: [{ b64Json: input.first.sourceData, mimeType: input.first.mimeType }, { b64Json: input.second.sourceData, mimeType: input.second.mimeType }], quality: "medium" as const, signal: aborter?.signal };
         let result; try { result = await generateImage(options); } catch (firstError) { if (!isTemporaryProviderFailure(firstError)) throw firstError; await db.markPhotoTransformAutoRetry(transform.id); result = await generateImage(options); }
         if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
         return withPrivatePhotoMedia(await db.completePhotoTransform(transform.id, result.url));

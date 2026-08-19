@@ -14,6 +14,7 @@
 @import "./brand-watermark-order.css";
 @import "./combined-share-export.css";
 @import "./collaboration.css";
+@import "./collaboration-extensions.css";
 
 @custom-variant dark (&:is(.dark *));
 
