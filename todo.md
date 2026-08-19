@@ -329,3 +329,7 @@
 - [x] Tambahkan skema, migrasi, prosedur, dan akses media aman untuk tautan terbatas serta preset milik pengguna.
 - [x] Bangun pengelolaan tautan berbagi dan simpan/terapkan preset tata letak di antarmuka Kolaborasi Foto.
 - [x] Uji masa berlaku tautan, batas kepemilikan preset, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang filter template/status riwayat, batas tautan aktif, dan watermark otomatis pada hasil Kolaborasi Foto yang dibagikan.
+- [x] Tambahkan query serta validasi server untuk filter, batas tautan aktif, dan metadata watermark berbagi.
+- [x] Bangun filter riwayat dan kontrol watermark otomatis di antarmuka berbagi.
+- [x] Uji filter, batas tautan, watermark berbagi, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

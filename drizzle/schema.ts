@@ -168,6 +168,7 @@ export const photoCollaborationShareLinks = mysqlTable(
     userId: int("userId").notNull(),
     transformId: int("transformId").notNull(),
     tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    watermarkText: varchar("watermarkText", { length: 72 }),
     expiresAt: timestamp("expiresAt").notNull(),
     revokedAt: timestamp("revokedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),

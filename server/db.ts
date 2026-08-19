@@ -306,18 +306,23 @@ export async function cancelPhotoCollaborationInvite(inviterUserId: number, invi
   return { success: true };
 }
 
-export async function listPhotoCollaborationProjects(userId: number) {
+export async function listPhotoCollaborationProjects(userId: number, filters: { template?: string; status?: "processing" | "completed" | "failed" | "cancelled" } = {}) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"))).orderBy(desc(photoTransforms.createdAt)).limit(100);
+  const conditions = [eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration")];
+  if (filters.template) conditions.push(eq(photoTransforms.collaborationTemplate, filters.template));
+  if (filters.status) conditions.push(eq(photoTransforms.status, filters.status));
+  return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(...conditions)).orderBy(desc(photoTransforms.createdAt)).limit(100);
 }
 
-export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date) {
+export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date, watermarkText: string | null) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
   const transform = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
   if (!transform[0]) throw new Error("Hanya hasil Kolaborasi Foto yang selesai dapat dibagikan.");
-  const result = await db.insert(photoCollaborationShareLinks).values({ userId, transformId, tokenHash, expiresAt });
+  const active = await db.select({ total: count() }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date())));
+  if (Number(active[0]?.total ?? 0) >= 3) throw new Error("Maksimal tiga tautan berbagi aktif untuk setiap hasil. Cabut atau tunggu salah satunya berakhir.");
+  const result = await db.insert(photoCollaborationShareLinks).values({ userId, transformId, tokenHash, expiresAt, watermarkText: watermarkText?.trim() || null });
   const rows = await db.select().from(photoCollaborationShareLinks).where(eq(photoCollaborationShareLinks.id, Number(result[0].insertId))).limit(1);
   return rows[0];
 }
@@ -325,7 +330,7 @@ export async function createPhotoCollaborationShareLink(userId: number, transfor
 export async function listPhotoCollaborationShareLinks(userId: number, transformId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({ id: photoCollaborationShareLinks.id, expiresAt: photoCollaborationShareLinks.expiresAt, revokedAt: photoCollaborationShareLinks.revokedAt, createdAt: photoCollaborationShareLinks.createdAt }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId))).orderBy(desc(photoCollaborationShareLinks.createdAt)).limit(20);
+  return db.select({ id: photoCollaborationShareLinks.id, watermarkText: photoCollaborationShareLinks.watermarkText, expiresAt: photoCollaborationShareLinks.expiresAt, revokedAt: photoCollaborationShareLinks.revokedAt, createdAt: photoCollaborationShareLinks.createdAt }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId))).orderBy(desc(photoCollaborationShareLinks.createdAt)).limit(20);
 }
 
 export async function revokePhotoCollaborationShareLink(userId: number, shareLinkId: number) {
@@ -339,7 +344,7 @@ export async function revokePhotoCollaborationShareLink(userId: number, shareLin
 export async function getPhotoCollaborationShareByTokenHash(tokenHash: string) {
   const db = await getDb();
   if (!db) return null;
-  const rows = await db.select({ transformId: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, resultUrl: photoTransforms.resultUrl, expiresAt: photoCollaborationShareLinks.expiresAt }).from(photoCollaborationShareLinks).innerJoin(photoTransforms, eq(photoTransforms.id, photoCollaborationShareLinks.transformId)).where(and(eq(photoCollaborationShareLinks.tokenHash, tokenHash), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date()), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  const rows = await db.select({ transformId: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, resultUrl: photoTransforms.resultUrl, watermarkText: photoCollaborationShareLinks.watermarkText, expiresAt: photoCollaborationShareLinks.expiresAt }).from(photoCollaborationShareLinks).innerJoin(photoTransforms, eq(photoTransforms.id, photoCollaborationShareLinks.transformId)).where(and(eq(photoCollaborationShareLinks.tokenHash, tokenHash), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date()), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
   return rows[0] ?? null;
 }
 

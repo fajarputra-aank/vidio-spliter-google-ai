@@ -1,0 +1,1 @@
+ALTER TABLE `photoCollaborationShareLinks` ADD `watermarkText` varchar(72);

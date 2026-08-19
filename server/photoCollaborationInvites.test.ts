@@ -23,6 +23,6 @@ describe("undangan Kolaborasi Foto", () => {
   it("membatalkan undangan dan membaca riwayat proyek hanya untuk pemilik aktif", async () => {
     mocks.cancelPhotoCollaborationInvite.mockResolvedValue({ success: true }); mocks.listPhotoCollaborationProjects.mockResolvedValue([{ id: 61, resultUrl: "/manus-storage/results/collaboration.jpg" }]);
     const caller = appRouter.createCaller(context(53)); await caller.photo.cancelCollaborationInvite({ inviteId: 18 }); const projects = await caller.photo.collaborationProjects();
-    expect(mocks.cancelPhotoCollaborationInvite).toHaveBeenCalledWith(53, 18); expect(mocks.listPhotoCollaborationProjects).toHaveBeenCalledWith(53); expect(projects[0]).toMatchObject({ id: 61, resultUrl: "/api/media/private/results%2Fcollaboration.jpg" });
+    expect(mocks.cancelPhotoCollaborationInvite).toHaveBeenCalledWith(53, 18); expect(mocks.listPhotoCollaborationProjects).toHaveBeenCalledWith(53, undefined); expect(projects[0]).toMatchObject({ id: 61, resultUrl: "/api/media/private/results%2Fcollaboration.jpg" });
   });
 });
