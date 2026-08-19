@@ -22,6 +22,7 @@ import ProfileSettings from "./pages/ProfileSettings";
 import TransformDetail from "./pages/TransformDetail";
 import SeasonalCollectionsAdmin from "./pages/SeasonalCollectionsAdmin";
 import Collaboration from "./pages/Collaboration";
+import CollaborationHistory from "./pages/CollaborationHistory";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/verifikasi-email" component={EmailVerification} />
       <Route path="/profil" component={Profile} />
       <Route path="/kolaborasi" component={Collaboration} />
+      <Route path="/kolaborasi/riwayat" component={CollaborationHistory} />
       <Route path="/koleksi/:id" component={TransformDetail} />
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />

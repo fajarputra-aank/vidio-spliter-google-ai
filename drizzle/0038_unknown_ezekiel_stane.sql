@@ -1,0 +1,1 @@
+ALTER TABLE `photoTransforms` ADD `collaborationLayout` text;

@@ -296,6 +296,22 @@ export async function markPhotoCollaborationInviteUsed(inviterUserId: number, in
   await db.update(photoCollaborationInvites).set({ status: "used", transformId }).where(and(eq(photoCollaborationInvites.id, inviteId), eq(photoCollaborationInvites.inviterUserId, inviterUserId), eq(photoCollaborationInvites.status, "accepted")));
 }
 
+export async function cancelPhotoCollaborationInvite(inviterUserId: number, inviteId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const current = await db.select().from(photoCollaborationInvites).where(and(eq(photoCollaborationInvites.id, inviteId), eq(photoCollaborationInvites.inviterUserId, inviterUserId), inArray(photoCollaborationInvites.status, ["pending", "accepted"]))).limit(1);
+  if (!current[0]) throw new Error("Undangan tidak dapat dibatalkan.");
+  await db.update(photoCollaborationInvites).set({ status: "cancelled", respondedAt: new Date() }).where(eq(photoCollaborationInvites.id, inviteId));
+  await createAccountActivityNotification(current[0].inviteeUserId, "Undangan Kolaborasi dibatalkan", "Pengirim membatalkan undangan Kolaborasi Foto. Tidak ada foto atau hasil yang dibagikan.");
+  return { success: true };
+}
+
+export async function listPhotoCollaborationProjects(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"))).orderBy(desc(photoTransforms.createdAt)).limit(100);
+}
+
 export async function getOwnedPhotoTransform(userId: number, transformId: number) {
   const db = await getDb();
   if (!db) return null;

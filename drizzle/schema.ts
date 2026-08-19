@@ -123,6 +123,7 @@ export const photoTransforms = mysqlTable(
     secondarySourceUrl: text("secondarySourceUrl"),
     collaborationTemplate: varchar("collaborationTemplate", { length: 32 }),
     collaborationInviteId: int("collaborationInviteId"),
+    collaborationLayout: text("collaborationLayout"),
     resultUrl: text("resultUrl"),
     retryOfTransformId: int("retryOfTransformId"),
     requestId: varchar("requestId", { length: 64 }),

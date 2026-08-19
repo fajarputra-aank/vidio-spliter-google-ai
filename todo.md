@@ -321,3 +321,7 @@
 - [x] Tambahkan skema, migrasi, prosedur undangan/persetujuan, dan validasi akses kolaborasi yang aman.
 - [x] Bangun pemilih template, pratinjau dua foto, serta alur undangan kolaborator di antarmuka.
 - [x] Uji template, pratinjau, persetujuan, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang pembatalan undangan, notifikasi hasil kolaborasi selesai, riwayat proyek privat, dan kontrol tata letak interaktif.
+- [x] Tambahkan prosedur aman untuk membatalkan undangan, memberi tahu kolaborator, dan membaca proyek milik pemanggil.
+- [x] Bangun halaman riwayat kolaborasi serta kontrol geser/proporsi pada pratinjau sebelum proses.
+- [x] Uji pembatalan, notifikasi, riwayat privat, pratinjau interaktif, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
