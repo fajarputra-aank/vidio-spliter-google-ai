@@ -5,4 +5,6 @@
 .share-history span b, .share-history span em { display: block; }
 .share-history span b { color: #315447; font-size: 8px; }
 .share-history span em { margin: 2px 0; overflow: hidden; color: #665c51; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.share-history-export { margin-top: 1px; min-height: 29px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; color: #315447; border: 1px solid #8db09b; background: #e7f1eb; font-size: 8px; font-weight: 800; }
+.share-history-export:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 640px) { .share-history-filters { grid-template-columns: 1fr; } }

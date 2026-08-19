@@ -331,10 +331,25 @@ export const globalWatermarkPresets = mysqlTable(
     size: int("size").notNull(),
     font: mysqlEnum("font", ["sans", "serif", "mono"]).notNull(),
     isActive: boolean("isActive").notNull().default(true),
+    sortOrder: int("sortOrder").notNull().default(0),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
-  (table) => [uniqueIndex("globalWatermarkPresets_name_unique").on(table.name), index("globalWatermarkPresets_active_idx").on(table.isActive)]
+  (table) => [uniqueIndex("globalWatermarkPresets_name_unique").on(table.name), index("globalWatermarkPresets_active_order_idx").on(table.isActive, table.sortOrder)]
+);
+
+/** Append-only administrator activity for global watermark branding changes. */
+export const globalWatermarkPresetAudits = mysqlTable(
+  "globalWatermarkPresetAudits",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    actorUserId: int("actorUserId").notNull(),
+    presetId: int("presetId"),
+    action: mysqlEnum("action", ["created", "updated", "reordered"]).notNull(),
+    summary: varchar("summary", { length: 240 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [index("globalWatermarkPresetAudits_created_idx").on(table.createdAt), index("globalWatermarkPresetAudits_preset_created_idx").on(table.presetId, table.createdAt)]
 );
 
 /** Saved recipe IDs are private shortcuts and never exposed in community metadata. */

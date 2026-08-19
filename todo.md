@@ -300,3 +300,8 @@
 - [x] Tambahkan pencarian teks tervalidasi pada query riwayat berbagi privat tanpa melepas filter transformasi atau pemilik.
 - [x] Tampilkan pemilih preset branding global di dialog berbagi dan pencarian caption pada riwayat hasil.
 - [x] Uji akses admin, preset global, pencarian privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang urutan manual preset watermark global, ekspor CSV hasil pencarian caption, dan audit trail perubahan preset oleh admin.
+- [x] Tambahkan skema, migrasi, helper, dan prosedur aman untuk urutan preset serta audit perubahan administrator.
+- [x] Tambahkan ekspor CSV owner-scoped yang selalu mengikuti filter pencarian caption, platform, dan tanggal aktif.
+- [x] Bangun drag-and-drop urutan preset, tombol ekspor riwayat, serta audit trail pada Pengaturan Brand.
+- [x] Uji pengurutan, ekspor privat, audit trail, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

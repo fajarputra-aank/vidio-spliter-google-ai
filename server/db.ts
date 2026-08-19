@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -325,25 +325,53 @@ export async function deletePhotoWatermarkPreset(userId: number, presetId: numbe
 export async function listGlobalWatermarkPresets(activeOnly = true) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(globalWatermarkPresets).where(activeOnly ? eq(globalWatermarkPresets.isActive, true) : undefined).orderBy(desc(globalWatermarkPresets.updatedAt)).limit(50);
+  return db.select().from(globalWatermarkPresets).where(activeOnly ? eq(globalWatermarkPresets.isActive, true) : undefined).orderBy(globalWatermarkPresets.sortOrder, globalWatermarkPresets.id).limit(50);
 }
 
-export async function createGlobalWatermarkPreset(input: { name: string; text: string; position: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; size: number; font: "sans" | "serif" | "mono"; isActive: boolean }) {
+type GlobalWatermarkPresetInput = { name: string; text: string; position: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; size: number; font: "sans" | "serif" | "mono"; isActive: boolean };
+
+export async function createGlobalWatermarkPreset(actorUserId: number, input: GlobalWatermarkPresetInput) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
-  const result = await db.insert(globalWatermarkPresets).values({ ...input, name: input.name.trim(), text: input.text.trim() });
+  const last = await db.select({ highestOrder: sql<number>`COALESCE(MAX(${globalWatermarkPresets.sortOrder}), -1)` }).from(globalWatermarkPresets);
+  const result = await db.insert(globalWatermarkPresets).values({ ...input, name: input.name.trim(), text: input.text.trim(), sortOrder: Number(last[0]?.highestOrder ?? -1) + 1 });
   const records = await db.select().from(globalWatermarkPresets).where(eq(globalWatermarkPresets.id, Number(result[0].insertId))).limit(1);
   if (!records[0]) throw new Error("Preset branding belum dapat disimpan.");
+  await db.insert(globalWatermarkPresetAudits).values({ actorUserId, presetId: records[0].id, action: "created", summary: `Membuat preset “${records[0].name}” pada urutan ${records[0].sortOrder + 1}.` });
   return records[0];
 }
 
-export async function updateGlobalWatermarkPreset(id: number, input: { name: string; text: string; position: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; size: number; font: "sans" | "serif" | "mono"; isActive: boolean }) {
+export async function updateGlobalWatermarkPreset(actorUserId: number, id: number, input: GlobalWatermarkPresetInput) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
+  const previous = await db.select().from(globalWatermarkPresets).where(eq(globalWatermarkPresets.id, id)).limit(1);
+  if (!previous[0]) throw new Error("Preset branding tidak ditemukan.");
   await db.update(globalWatermarkPresets).set({ ...input, name: input.name.trim(), text: input.text.trim() }).where(eq(globalWatermarkPresets.id, id));
   const records = await db.select().from(globalWatermarkPresets).where(eq(globalWatermarkPresets.id, id)).limit(1);
   if (!records[0]) throw new Error("Preset branding tidak ditemukan.");
+  const changed = (["name", "text", "position", "size", "font", "isActive"] as const).filter((field) => previous[0]![field] !== records[0]![field]);
+  if (changed.length) await db.insert(globalWatermarkPresetAudits).values({ actorUserId, presetId: id, action: "updated", summary: `Memperbarui ${changed.join(", ")} pada preset “${records[0].name}”.` });
   return records[0];
+}
+
+export async function reorderGlobalWatermarkPresets(actorUserId: number, presetIds: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const presets = await db.select({ id: globalWatermarkPresets.id }).from(globalWatermarkPresets).limit(50);
+  const existingIds = presets.map((preset) => preset.id).sort((a, b) => a - b);
+  const submittedIds = [...presetIds].sort((a, b) => a - b);
+  if (existingIds.length !== submittedIds.length || existingIds.some((id, index) => id !== submittedIds[index])) throw new Error("Urutan preset tidak lengkap atau sudah berubah. Muat ulang daftar lalu coba lagi.");
+  await db.transaction(async (tx) => {
+    for (let sortOrder = 0; sortOrder < presetIds.length; sortOrder += 1) await tx.update(globalWatermarkPresets).set({ sortOrder }).where(eq(globalWatermarkPresets.id, presetIds[sortOrder]!));
+    await tx.insert(globalWatermarkPresetAudits).values({ actorUserId, presetId: null, action: "reordered", summary: `Mengatur ulang urutan ${presetIds.length} preset watermark global.` });
+  });
+  return listGlobalWatermarkPresets(false);
+}
+
+export async function listGlobalWatermarkPresetAudits() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({ id: globalWatermarkPresetAudits.id, presetId: globalWatermarkPresetAudits.presetId, action: globalWatermarkPresetAudits.action, summary: globalWatermarkPresetAudits.summary, createdAt: globalWatermarkPresetAudits.createdAt, actorName: users.name, actorEmail: users.email }).from(globalWatermarkPresetAudits).leftJoin(users, eq(users.id, globalWatermarkPresetAudits.actorUserId)).orderBy(desc(globalWatermarkPresetAudits.createdAt), desc(globalWatermarkPresetAudits.id)).limit(50);
 }
 
 export async function getProcessingQueueStatus() {
