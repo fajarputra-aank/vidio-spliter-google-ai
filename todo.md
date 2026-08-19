@@ -313,3 +313,7 @@
 - [x] Tambahkan query owner-scoped dengan filter waktu serta agregasi audit admin-only yang aman.
 - [x] Bangun kontrol pemilihan/ekspor gabungan dan ringkasan tindakan di antarmuka.
 - [x] Uji pemilihan massal, filter waktu, ringkasan audit, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang menu Kolaborasi Foto untuk menggabungkan dua foto privat menjadi satu hasil AI dengan rasio dan instruksi yang jelas.
+- [x] Tambahkan skema, migrasi, prosedur server, validasi berkas, kuota, dan penyimpanan aman untuk dua sumber kolaborasi.
+- [x] Bangun antarmuka unggah dua foto, pemilihan rasio, pemrosesan, serta tautan hasil privat di studio dan riwayat.
+- [x] Uji kolaborasi, kepemilikan, kuota, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

@@ -466,6 +466,7 @@ export default function Home() {
         <button className="brand-badge" aria-label="Lensa Saku beranda"><img src={publicMediaUrl(brand.iconUrl)} alt="Ikon Lensa Saku" /></button>
         <nav className="rail-nav">
           <button className="rail-nav-button is-active" aria-label="Studio" onClick={() => scrollTo("studio")}><Aperture size={19} strokeWidth={1.7} /><span>Studio</span></button>
+          <Link href="/kolaborasi" className="rail-nav-button" aria-label="Kolaborasi Foto"><Layers3 size={19} strokeWidth={1.7} /><span>Kolab</span></Link>
           <button className="rail-nav-button" aria-label="Koleksi" onClick={() => scrollTo("gallery")}><History size={19} strokeWidth={1.7} /><span>Koleksi</span></button>
           <Link href="/profil" className="rail-nav-button" aria-label="Profil"><Palette size={19} strokeWidth={1.7} /><span>Profil</span></Link>
           <Link href="/komunitas" className="rail-nav-button" aria-label="Komunitas"><Globe2 size={19} strokeWidth={1.7} /><span>Ruang</span></Link>

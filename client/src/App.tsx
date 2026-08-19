@@ -21,6 +21,7 @@ import Auth, { ChangePassword, EmailVerification, ForgotPassword, ResetPassword 
 import ProfileSettings from "./pages/ProfileSettings";
 import TransformDetail from "./pages/TransformDetail";
 import SeasonalCollectionsAdmin from "./pages/SeasonalCollectionsAdmin";
+import Collaboration from "./pages/Collaboration";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/reset-kata-sandi" component={ResetPassword} />
       <Route path="/verifikasi-email" component={EmailVerification} />
       <Route path="/profil" component={Profile} />
+      <Route path="/kolaborasi" component={Collaboration} />
       <Route path="/koleksi/:id" component={TransformDetail} />
       <Route path="/kredit" component={Credits} />
       <Route path="/komunitas" component={Community} />

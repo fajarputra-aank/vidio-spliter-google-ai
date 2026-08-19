@@ -13,6 +13,7 @@
 @import "./share-global-watermark.css";
 @import "./brand-watermark-order.css";
 @import "./combined-share-export.css";
+@import "./collaboration.css";
 
 @custom-variant dark (&:is(.dark *));
 

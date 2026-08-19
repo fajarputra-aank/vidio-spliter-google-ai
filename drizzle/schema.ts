@@ -119,6 +119,8 @@ export const photoTransforms = mysqlTable(
     title: varchar("title", { length: 120 }).notNull(),
     sourceKey: varchar("sourceKey", { length: 512 }).notNull(),
     sourceUrl: text("sourceUrl").notNull(),
+    secondarySourceKey: varchar("secondarySourceKey", { length: 512 }),
+    secondarySourceUrl: text("secondarySourceUrl"),
     resultUrl: text("resultUrl"),
     retryOfTransformId: int("retryOfTransformId"),
     requestId: varchar("requestId", { length: 64 }),

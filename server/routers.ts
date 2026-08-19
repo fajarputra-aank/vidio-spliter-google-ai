@@ -29,6 +29,9 @@ const imageInput = z.object({
   requestId: z.string().uuid().optional(),
 });
 
+const collaborationImageInput = z.object({ fileName: z.string().min(1).max(180), mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(8_000_000) });
+const collaborationInput = z.object({ first: collaborationImageInput, second: collaborationImageInput, aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), customInstruction: z.string().trim().min(3).max(360).optional(), requestId: z.string().uuid().optional() });
+
 const seasonalCollectionFields = z.object({
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{3,48}$/),
   name: z.string().trim().min(3).max(80),
@@ -56,11 +59,15 @@ function privateMediaUrl(value: string | null) {
   return `/api/media/private/${encodeURIComponent(value.slice("/manus-storage/".length))}`;
 }
 
-function withPrivatePhotoMedia<T extends { sourceUrl: string; resultUrl: string | null; errorMessage?: string | null }>(record: T) {
+function withPrivatePhotoMedia<T extends { sourceUrl: string; secondarySourceUrl?: string | null; resultUrl: string | null; errorMessage?: string | null }>(record: T) {
   const errorMessage = record.errorMessage && !record.errorMessage.startsWith("Layanan AI sedang") && !record.errorMessage.startsWith("Transformasi belum berhasil")
     ? toSafeTransformFailure(new Error(record.errorMessage)).message
     : record.errorMessage;
-  return { ...record, errorMessage, sourceUrl: privateMediaUrl(record.sourceUrl)!, resultUrl: privateMediaUrl(record.resultUrl) };
+  return { ...record, errorMessage, sourceUrl: privateMediaUrl(record.sourceUrl)!, secondarySourceUrl: privateMediaUrl(record.secondarySourceUrl ?? null), resultUrl: privateMediaUrl(record.resultUrl) };
+}
+
+function buildCollaborationPrompt(aspectRatio: (typeof aspectRatioIds)[number], style: (typeof styleIds)[number], customInstruction?: string) {
+  return `Create one coherent photographic collaboration from exactly the two supplied private photos. Preserve the recognizable identity, face, body proportions, clothing, products, labels, and essential visual details of both source photos. Place both contributions naturally into one believable shared composition with consistent light, scale, shadow, and perspective. Do not introduce additional people, duplicate subjects, invented products, text, logos, claims, or unrelated props. Keep the visual direction ${style} and compose for ${aspectRatio}. ${customInstruction ? `Apply this private direction only when compatible with both sources: ${customInstruction}` : ""}`;
 }
 
 function withPrivateAlbumMedia<T extends { coverUrl: string | null; items: Array<{ resultUrl: string | null }> }>(album: T) {
@@ -313,6 +320,30 @@ export const appRouter = router({
       } finally {
         if (input.requestId) activeTransformAborters.delete(activeTransformKey(ctx.user.id, input.requestId));
       }
+    }),
+    collaborate: protectedProcedure.input(collaborationInput).mutation(async ({ ctx, input }) => {
+      const firstBuffer = Buffer.from(input.first.sourceData, "base64"); const secondBuffer = Buffer.from(input.second.sourceData, "base64");
+      if (!firstBuffer.length || !secondBuffer.length || firstBuffer.length > 5_500_000 || secondBuffer.length > 5_500_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Masing-masing foto kolaborasi harus maksimal 5 MB." });
+      const quota = await db.getDailyPhotoQuota(ctx.user.id); let usedPurchasedCredit = false; let transformId: number | null = null;
+      if (quota.exhausted && !hasUnlimitedTransforms(ctx.user)) { usedPurchasedCredit = await db.consumePurchasedCredit(ctx.user.id); if (!usedPurchasedCredit) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Kuota harian dan kredit tambahanmu sudah habis. Tambahkan kredit untuk melanjutkan kolaborasi." }); }
+      try {
+        const now = Date.now();
+        const [firstSource, secondSource] = await Promise.all([storagePut(`collaborations/${ctx.user.id}/${now}-a-${safeFileName(input.first.fileName)}`, firstBuffer, input.first.mimeType), storagePut(`collaborations/${ctx.user.id}/${now}-b-${safeFileName(input.second.fileName)}`, secondBuffer, input.second.mimeType)]);
+        const queue = await db.getProcessingQueueStatus();
+        const transform = await db.createPhotoTransform({ userId: ctx.user.id, recipe: "collaboration", aspectRatio: input.aspectRatio, style: input.style, title: "Kolaborasi dua foto", sourceKey: firstSource.key, sourceUrl: firstSource.url, secondarySourceKey: secondSource.key, secondarySourceUrl: secondSource.url, requestId: input.requestId, queuePosition: queue.position, status: "processing" });
+        transformId = transform.id; const aborter = input.requestId ? new AbortController() : null;
+        if (aborter && input.requestId) activeTransformAborters.set(activeTransformKey(ctx.user.id, input.requestId), aborter);
+        const options = { prompt: buildCollaborationPrompt(input.aspectRatio, input.style, input.customInstruction), originalImages: [{ b64Json: input.first.sourceData, mimeType: input.first.mimeType }, { b64Json: input.second.sourceData, mimeType: input.second.mimeType }], quality: "medium" as const, signal: aborter?.signal };
+        let result; try { result = await generateImage(options); } catch (firstError) { if (!isTemporaryProviderFailure(firstError)) throw firstError; await db.markPhotoTransformAutoRetry(transform.id); result = await generateImage(options); }
+        if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
+        return withPrivatePhotoMedia(await db.completePhotoTransform(transform.id, result.url));
+      } catch (error) {
+        if (usedPurchasedCredit) await db.refundPurchasedCredit(ctx.user.id);
+        const providerMessage = error instanceof Error ? error.message : "Kolaborasi foto gagal diproses."; const failure = toSafeTransformFailure(error);
+        if (transformId) await db.failPhotoTransform(transformId, failure.message);
+        console.error("[Photo collaboration] Transform failed", providerMessage);
+        throw new TRPCError({ code: failure.code === "AI_QUOTA_EXHAUSTED" ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR", message: failure.message });
+      } finally { if (input.requestId) activeTransformAborters.delete(activeTransformKey(ctx.user.id, input.requestId)); }
     }),
   }),
   promptFavorites: router({
