@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
-const mocks = vi.hoisted(() => ({ listPhotoWatermarkPresets: vi.fn(), createPhotoWatermarkPreset: vi.fn(), deletePhotoWatermarkPreset: vi.fn(), listGlobalWatermarkPresets: vi.fn(), createGlobalWatermarkPreset: vi.fn(), updateGlobalWatermarkPreset: vi.fn(), reorderGlobalWatermarkPresets: vi.fn(), listGlobalWatermarkPresetAudits: vi.fn() }));
-vi.mock("./db", () => ({ listPhotoWatermarkPresets: mocks.listPhotoWatermarkPresets, createPhotoWatermarkPreset: mocks.createPhotoWatermarkPreset, deletePhotoWatermarkPreset: mocks.deletePhotoWatermarkPreset, listGlobalWatermarkPresets: mocks.listGlobalWatermarkPresets, createGlobalWatermarkPreset: mocks.createGlobalWatermarkPreset, updateGlobalWatermarkPreset: mocks.updateGlobalWatermarkPreset, reorderGlobalWatermarkPresets: mocks.reorderGlobalWatermarkPresets, listGlobalWatermarkPresetAudits: mocks.listGlobalWatermarkPresetAudits }));
+const mocks = vi.hoisted(() => ({ listPhotoWatermarkPresets: vi.fn(), createPhotoWatermarkPreset: vi.fn(), deletePhotoWatermarkPreset: vi.fn(), listGlobalWatermarkPresets: vi.fn(), createGlobalWatermarkPreset: vi.fn(), updateGlobalWatermarkPreset: vi.fn(), reorderGlobalWatermarkPresets: vi.fn(), listGlobalWatermarkPresetAudits: vi.fn(), summarizeGlobalWatermarkPresetAudits: vi.fn() }));
+vi.mock("./db", () => ({ listPhotoWatermarkPresets: mocks.listPhotoWatermarkPresets, createPhotoWatermarkPreset: mocks.createPhotoWatermarkPreset, deletePhotoWatermarkPreset: mocks.deletePhotoWatermarkPreset, listGlobalWatermarkPresets: mocks.listGlobalWatermarkPresets, createGlobalWatermarkPreset: mocks.createGlobalWatermarkPreset, updateGlobalWatermarkPreset: mocks.updateGlobalWatermarkPreset, reorderGlobalWatermarkPresets: mocks.reorderGlobalWatermarkPresets, listGlobalWatermarkPresetAudits: mocks.listGlobalWatermarkPresetAudits, summarizeGlobalWatermarkPresetAudits: mocks.summarizeGlobalWatermarkPresetAudits }));
 import { appRouter } from "./routers";
 
 function context(userId: number): TrpcContext { return { user: { id: userId, openId: `watermark-${userId}`, name: "Pemilik", email: `pemilik${userId}@example.test`, loginMethod: "local", role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: { headers: {}, protocol: "https" } as TrpcContext["req"], res: {} as TrpcContext["res"] }; }
@@ -28,9 +28,11 @@ describe("preset watermark favorit", () => {
   });
 
   it("meneruskan filter nama administrator dan tindakan hanya dari prosedur admin", async () => {
-    mocks.listGlobalWatermarkPresetAudits.mockResolvedValue([]);
+    mocks.listGlobalWatermarkPresetAudits.mockResolvedValue([]); mocks.summarizeGlobalWatermarkPresetAudits.mockResolvedValue([]);
     await appRouter.createCaller(adminContext(1)).admin.globalWatermarkPresetAudits({ search: "Fajar", action: "updated" });
+    await appRouter.createCaller(adminContext(1)).admin.globalWatermarkPresetAuditSummary({ search: "Fajar", action: "updated" });
     await expect(appRouter.createCaller(context(68)).admin.globalWatermarkPresetAudits({ action: "updated" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(mocks.listGlobalWatermarkPresetAudits).toHaveBeenCalledWith({ search: "Fajar", action: "updated" });
+    expect(mocks.summarizeGlobalWatermarkPresetAudits).toHaveBeenCalledWith({ search: "Fajar", action: "updated" });
   });
 });

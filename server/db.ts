@@ -278,12 +278,15 @@ export async function listPhotoShareEvents(userId: number, transformId: number, 
   return db.select().from(photoShareEvents).where(and(...conditions)).orderBy(desc(photoShareEvents.createdAt)).limit(100);
 }
 
-export async function listPhotoShareEventsForTransforms(userId: number, transformIds: number[]) {
+export async function listPhotoShareEventsForTransforms(userId: number, transformIds: number[], filters: { from?: Date; to?: Date } = {}) {
   const db = await getDb();
   if (!db) return [];
   const uniqueTransformIds = Array.from(new Set(transformIds));
   if (!uniqueTransformIds.length) return [];
-  return db.select().from(photoShareEvents).where(and(eq(photoShareEvents.userId, userId), inArray(photoShareEvents.transformId, uniqueTransformIds))).orderBy(desc(photoShareEvents.createdAt), desc(photoShareEvents.id)).limit(500);
+  const conditions = [eq(photoShareEvents.userId, userId), inArray(photoShareEvents.transformId, uniqueTransformIds)];
+  if (filters.from) conditions.push(gte(photoShareEvents.createdAt, filters.from));
+  if (filters.to) conditions.push(lte(photoShareEvents.createdAt, filters.to));
+  return db.select().from(photoShareEvents).where(and(...conditions)).orderBy(desc(photoShareEvents.createdAt), desc(photoShareEvents.id)).limit(500);
 }
 
 export async function listPhotoCaptionTemplates(userId: number) {
@@ -376,16 +379,30 @@ export async function reorderGlobalWatermarkPresets(actorUserId: number, presetI
   return listGlobalWatermarkPresets(false);
 }
 
-export async function listGlobalWatermarkPresetAudits(filters: { search?: string; action?: "all" | "created" | "updated" | "reordered" } = {}) {
-  const db = await getDb();
-  if (!db) return [];
+type GlobalWatermarkAuditFilters = { search?: string; action?: "all" | "created" | "updated" | "reordered" };
+
+function globalWatermarkAuditConditions(filters: GlobalWatermarkAuditFilters) {
   const conditions = [];
   if (filters.action && filters.action !== "all") conditions.push(eq(globalWatermarkPresetAudits.action, filters.action));
   if (filters.search?.trim()) {
     const pattern = `%${filters.search.trim().toLowerCase()}%`;
     conditions.push(or(sql`LOWER(COALESCE(${users.name}, '')) LIKE ${pattern}`, sql`LOWER(COALESCE(${users.email}, '')) LIKE ${pattern}`)!);
   }
+  return conditions;
+}
+
+export async function listGlobalWatermarkPresetAudits(filters: GlobalWatermarkAuditFilters = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = globalWatermarkAuditConditions(filters);
   return db.select({ id: globalWatermarkPresetAudits.id, presetId: globalWatermarkPresetAudits.presetId, action: globalWatermarkPresetAudits.action, summary: globalWatermarkPresetAudits.summary, createdAt: globalWatermarkPresetAudits.createdAt, actorName: users.name, actorEmail: users.email }).from(globalWatermarkPresetAudits).leftJoin(users, eq(users.id, globalWatermarkPresetAudits.actorUserId)).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(globalWatermarkPresetAudits.createdAt), desc(globalWatermarkPresetAudits.id)).limit(50);
+}
+
+export async function summarizeGlobalWatermarkPresetAudits(filters: GlobalWatermarkAuditFilters = {}) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = globalWatermarkAuditConditions(filters);
+  return db.select({ actorUserId: globalWatermarkPresetAudits.actorUserId, actorName: users.name, actorEmail: users.email, actionCount: count(globalWatermarkPresetAudits.id) }).from(globalWatermarkPresetAudits).leftJoin(users, eq(users.id, globalWatermarkPresetAudits.actorUserId)).where(conditions.length ? and(...conditions) : undefined).groupBy(globalWatermarkPresetAudits.actorUserId, users.name, users.email).orderBy(desc(count(globalWatermarkPresetAudits.id))).limit(30);
 }
 
 export async function getProcessingQueueStatus() {

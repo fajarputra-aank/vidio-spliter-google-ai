@@ -309,3 +309,7 @@
 - [x] Tambahkan query dan prosedur aman untuk filter audit serta pengambilan riwayat berbagi dari beberapa transformasi milik pemanggil.
 - [x] Bangun kontrol keyboard, filter log audit, dan ekspor CSV gabungan pada antarmuka.
 - [x] Uji aksesibilitas urutan, filter audit, ekspor gabungan privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang kontrol pilih semua untuk ekspor, filter rentang waktu CSV gabungan, dan ringkasan tindakan per administrator.
+- [x] Tambahkan query owner-scoped dengan filter waktu serta agregasi audit admin-only yang aman.
+- [x] Bangun kontrol pemilihan/ekspor gabungan dan ringkasan tindakan di antarmuka.
+- [x] Uji pemilihan massal, filter waktu, ringkasan audit, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

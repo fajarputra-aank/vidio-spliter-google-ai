@@ -28,7 +28,7 @@ describe("riwayat berbagi hasil", () => {
 
   it("mengambil ekspor gabungan hanya dengan identitas pemilik dan transformasi yang dipilihnya", async () => {
     mocks.listPhotoShareEventsForTransforms.mockResolvedValue([]);
-    await appRouter.createCaller(context(73)).photo.combinedShareHistory({ transformIds: [21, 24, 29] });
-    expect(mocks.listPhotoShareEventsForTransforms).toHaveBeenCalledWith(73, [21, 24, 29]);
+    await appRouter.createCaller(context(73)).photo.combinedShareHistory({ transformIds: [21, 24, 29], from: new Date("2026-08-01T00:00:00.000Z"), to: new Date("2026-08-31T23:59:59.999Z") });
+    expect(mocks.listPhotoShareEventsForTransforms).toHaveBeenCalledWith(73, [21, 24, 29], expect.objectContaining({ transformIds: [21, 24, 29], from: expect.any(Date), to: expect.any(Date) }));
   });
 });
