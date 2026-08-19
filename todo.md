@@ -344,3 +344,7 @@
 - [x] Tambahkan skema, migrasi, prosedur admin, dan pencabutan semua tautan aktif per hasil secara aman.
 - [x] Bangun panel admin dan halaman pengaturan batas tautan Kolaborasi berbasis peran.
 - [x] Uji otorisasi, batas peran, pencabutan massal, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.
+- [x] Audit prompt dan opsi Kolaborasi dua foto untuk preservasi wajah serta identitas sumber.
+- [x] Perketat prompt server dan kualitas pemrosesan Kolaborasi tanpa melonggarkan privasi sumber.
+- [x] Perjelas panduan antarmuka tentang penggabungan dua foto dengan wajah tetap terjaga.
+- [x] Uji kontrak preservasi identitas, perbarui skill ai-photo-studio-fullstack, validasi, dan simpan checkpoint.
