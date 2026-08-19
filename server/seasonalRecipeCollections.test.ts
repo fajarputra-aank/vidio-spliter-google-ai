@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
-const mocks = vi.hoisted(() => ({ getRecipePopularity: vi.fn(), listActiveSeasonalRecipeCollections: vi.fn(), listAdminSeasonalRecipeCollections: vi.fn(), createSeasonalRecipeCollection: vi.fn(), updateSeasonalRecipeCollection: vi.fn() }));
-vi.mock("./db", () => ({ getRecipePopularity: mocks.getRecipePopularity, listActiveSeasonalRecipeCollections: mocks.listActiveSeasonalRecipeCollections, listAdminSeasonalRecipeCollections: mocks.listAdminSeasonalRecipeCollections, createSeasonalRecipeCollection: mocks.createSeasonalRecipeCollection, updateSeasonalRecipeCollection: mocks.updateSeasonalRecipeCollection }));
+const mocks = vi.hoisted(() => ({ getRecipePopularity: vi.fn(), listActiveSeasonalRecipeCollections: vi.fn(), listAdminSeasonalRecipeCollections: vi.fn(), createSeasonalRecipeCollection: vi.fn(), updateSeasonalRecipeCollection: vi.fn(), duplicateSeasonalRecipeCollection: vi.fn() }));
+vi.mock("./db", () => ({ getRecipePopularity: mocks.getRecipePopularity, listActiveSeasonalRecipeCollections: mocks.listActiveSeasonalRecipeCollections, listAdminSeasonalRecipeCollections: mocks.listAdminSeasonalRecipeCollections, createSeasonalRecipeCollection: mocks.createSeasonalRecipeCollection, updateSeasonalRecipeCollection: mocks.updateSeasonalRecipeCollection, duplicateSeasonalRecipeCollection: mocks.duplicateSeasonalRecipeCollection }));
 
 import { appRouter } from "./routers";
 
@@ -33,5 +33,12 @@ describe("koleksi resep musiman", () => {
     const admin = appRouter.createCaller(context("admin"));
     await expect(admin.admin.createSeasonalCollection({ slug: "promo-terbatas", name: "Promo Terbatas", season: "lebaran", description: "Koleksi promosi Lebaran yang hanya tampil pada rentang tertentu.", recipeIds: ["lebaran_promo"], isActive: true, startsAt: new Date("2026-04-01T09:00:00Z"), endsAt: new Date("2026-04-01T08:00:00Z") })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(mocks.createSeasonalRecipeCollection).not.toHaveBeenCalledWith(expect.objectContaining({ slug: "promo-terbatas" }));
+  });
+
+  it("membatasi duplikasi koleksi sebagai draf pada administrator", async () => {
+    mocks.duplicateSeasonalRecipeCollection.mockResolvedValue({ id: 82, slug: "promo-draf", isActive: false });
+    await appRouter.createCaller(context("admin")).admin.duplicateSeasonalCollection({ id: 8 });
+    expect(mocks.duplicateSeasonalRecipeCollection).toHaveBeenCalledWith(8);
+    await expect(appRouter.createCaller(context("user")).admin.duplicateSeasonalCollection({ id: 8 })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

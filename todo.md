@@ -273,3 +273,7 @@
 - [x] Tambahkan pratinjau interaktif di halaman admin yang merefleksikan draf koleksi sebelum disimpan atau diterbitkan.
 - [x] Tambahkan skeleton, transisi halus, dan feedback status saat rekomendasi resep dimuat pada studio.
 - [x] Uji penjadwalan, pratinjau, status pemuatan, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang aturan kalender koleksi, draf duplikasi nonaktif, dan peringatan koleksi yang berakhir dalam tujuh hari berdasarkan waktu server.
+- [x] Tambahkan prosedur administrator untuk menggandakan koleksi ke draf baru dengan slug unik dan jadwal kosong.
+- [x] Bangun kalender interaktif serta peringatan masa berakhir pada halaman admin koleksi musiman.
+- [x] Uji kalender, duplikasi, peringatan jadwal, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

@@ -757,6 +757,17 @@ export async function updateSeasonalRecipeCollection(id: number, input: Omit<Sea
   return toSeasonalCollection(records[0]);
 }
 
+export async function duplicateSeasonalRecipeCollection(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const records = await db.select().from(seasonalRecipeCollections).where(eq(seasonalRecipeCollections.id, id)).limit(1);
+  const source = records[0];
+  if (!source) throw new Error("Koleksi musiman tidak ditemukan.");
+  const suffix = `-draf-${Date.now().toString(36)}`;
+  const slug = `${source.slug.slice(0, Math.max(3, 48 - suffix.length))}${suffix}`;
+  return createSeasonalRecipeCollection({ slug, name: `[Draf] ${source.name}`.slice(0, 80), season: source.season, description: source.description, recipeIds: parseSeasonalRecipeIds(source.recipeIds), isActive: false, startsAt: null, endsAt: null });
+}
+
 export async function getRecipePopularity(userId?: number) {
   const db = await getDb();
   if (!db) return [];
