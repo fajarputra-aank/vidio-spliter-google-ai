@@ -288,6 +288,13 @@
       "when": 1787127717952,
       "tag": "0040_unknown_tigra",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "5",
+      "when": 1787131469195,
+      "tag": "0041_robust_stone_men",
+      "breakpoints": true
     }
   ]
 }

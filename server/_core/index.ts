@@ -12,6 +12,7 @@ import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripeWebhook";
 import { handleArchivedAlbumReminders } from "../scheduled/archivedAlbumReminders";
 import { handleSecuritySummaries } from "../scheduled/securitySummaries";
+import { handleCollaborationShareExpiryReminders } from "../scheduled/collaborationShareExpiryReminders";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -44,6 +45,7 @@ async function startServer() {
   registerCollaborationShareProxy(app);
   app.post("/api/scheduled/archived-album-reminders", handleArchivedAlbumReminders);
   app.post("/api/scheduled/security-summaries", handleSecuritySummaries);
+  app.post("/api/scheduled/collaboration-share-expiry-reminders", handleCollaborationShareExpiryReminders);
   // tRPC API
   app.use(
     "/api/trpc",

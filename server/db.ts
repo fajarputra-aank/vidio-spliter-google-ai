@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
+import { photoCollaborationBrandLogos, photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
 import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
@@ -315,14 +315,15 @@ export async function listPhotoCollaborationProjects(userId: number, filters: { 
   return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(...conditions)).orderBy(desc(photoTransforms.createdAt)).limit(100);
 }
 
-export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date, watermarkText: string | null) {
+export async function createPhotoCollaborationShareLink(userId: number, transformId: number, tokenHash: string, expiresAt: Date, watermarkText: string | null, watermarkLogoId: number | null) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
   const transform = await db.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.id, transformId), eq(photoTransforms.userId, userId), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
   if (!transform[0]) throw new Error("Hanya hasil Kolaborasi Foto yang selesai dapat dibagikan.");
   const active = await db.select({ total: count() }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date())));
   if (Number(active[0]?.total ?? 0) >= 3) throw new Error("Maksimal tiga tautan berbagi aktif untuk setiap hasil. Cabut atau tunggu salah satunya berakhir.");
-  const result = await db.insert(photoCollaborationShareLinks).values({ userId, transformId, tokenHash, expiresAt, watermarkText: watermarkText?.trim() || null });
+  if (watermarkLogoId) { const logo = await db.select({ id: photoCollaborationBrandLogos.id }).from(photoCollaborationBrandLogos).where(and(eq(photoCollaborationBrandLogos.id, watermarkLogoId), eq(photoCollaborationBrandLogos.userId, userId))).limit(1); if (!logo[0]) throw new Error("Logo watermark tidak ditemukan."); }
+  const result = await db.insert(photoCollaborationShareLinks).values({ userId, transformId, tokenHash, expiresAt, watermarkText: watermarkText?.trim() || null, watermarkLogoId });
   const rows = await db.select().from(photoCollaborationShareLinks).where(eq(photoCollaborationShareLinks.id, Number(result[0].insertId))).limit(1);
   return rows[0];
 }
@@ -330,7 +331,7 @@ export async function createPhotoCollaborationShareLink(userId: number, transfor
 export async function listPhotoCollaborationShareLinks(userId: number, transformId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({ id: photoCollaborationShareLinks.id, watermarkText: photoCollaborationShareLinks.watermarkText, expiresAt: photoCollaborationShareLinks.expiresAt, revokedAt: photoCollaborationShareLinks.revokedAt, createdAt: photoCollaborationShareLinks.createdAt }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId))).orderBy(desc(photoCollaborationShareLinks.createdAt)).limit(20);
+  return db.select({ id: photoCollaborationShareLinks.id, watermarkText: photoCollaborationShareLinks.watermarkText, watermarkLogoId: photoCollaborationShareLinks.watermarkLogoId, accessCount: photoCollaborationShareLinks.accessCount, lastAccessedAt: photoCollaborationShareLinks.lastAccessedAt, expiresAt: photoCollaborationShareLinks.expiresAt, revokedAt: photoCollaborationShareLinks.revokedAt, createdAt: photoCollaborationShareLinks.createdAt }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.transformId, transformId))).orderBy(desc(photoCollaborationShareLinks.createdAt)).limit(20);
 }
 
 export async function revokePhotoCollaborationShareLink(userId: number, shareLinkId: number) {
@@ -344,8 +345,44 @@ export async function revokePhotoCollaborationShareLink(userId: number, shareLin
 export async function getPhotoCollaborationShareByTokenHash(tokenHash: string) {
   const db = await getDb();
   if (!db) return null;
-  const rows = await db.select({ transformId: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, resultUrl: photoTransforms.resultUrl, watermarkText: photoCollaborationShareLinks.watermarkText, expiresAt: photoCollaborationShareLinks.expiresAt }).from(photoCollaborationShareLinks).innerJoin(photoTransforms, eq(photoTransforms.id, photoCollaborationShareLinks.transformId)).where(and(eq(photoCollaborationShareLinks.tokenHash, tokenHash), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date()), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
+  const rows = await db.select({ shareLinkId: photoCollaborationShareLinks.id, transformId: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, resultUrl: photoTransforms.resultUrl, watermarkText: photoCollaborationShareLinks.watermarkText, logoStorageKey: photoCollaborationBrandLogos.storageKey, expiresAt: photoCollaborationShareLinks.expiresAt }).from(photoCollaborationShareLinks).innerJoin(photoTransforms, eq(photoTransforms.id, photoCollaborationShareLinks.transformId)).leftJoin(photoCollaborationBrandLogos, eq(photoCollaborationBrandLogos.id, photoCollaborationShareLinks.watermarkLogoId)).where(and(eq(photoCollaborationShareLinks.tokenHash, tokenHash), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date()), eq(photoTransforms.recipe, "collaboration"), eq(photoTransforms.status, "completed"), isNotNull(photoTransforms.resultUrl))).limit(1);
   return rows[0] ?? null;
+}
+
+export async function recordPhotoCollaborationShareAccess(shareLinkId: number) {
+  const db = await getDb(); if (!db) return;
+  await db.update(photoCollaborationShareLinks).set({ accessCount: sql`${photoCollaborationShareLinks.accessCount} + 1`, lastAccessedAt: new Date() }).where(eq(photoCollaborationShareLinks.id, shareLinkId));
+}
+
+export async function listPhotoCollaborationBrandLogos(userId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select({ id: photoCollaborationBrandLogos.id, name: photoCollaborationBrandLogos.name, createdAt: photoCollaborationBrandLogos.createdAt }).from(photoCollaborationBrandLogos).where(eq(photoCollaborationBrandLogos.userId, userId)).orderBy(desc(photoCollaborationBrandLogos.createdAt)).limit(12);
+}
+
+export async function createPhotoCollaborationBrandLogo(userId: number, name: string, storageKey: string) {
+  const db = await getDb(); if (!db) throw new Error("Basis data belum tersedia.");
+  const inserted = await db.insert(photoCollaborationBrandLogos).values({ userId, name, storageKey });
+  return (await db.select().from(photoCollaborationBrandLogos).where(eq(photoCollaborationBrandLogos.id, Number(inserted[0].insertId))).limit(1))[0];
+}
+
+export async function deletePhotoCollaborationBrandLogo(userId: number, logoId: number) {
+  const db = await getDb(); if (!db) throw new Error("Basis data belum tersedia.");
+  const activeUse = await db.select({ id: photoCollaborationShareLinks.id }).from(photoCollaborationShareLinks).where(and(eq(photoCollaborationShareLinks.userId, userId), eq(photoCollaborationShareLinks.watermarkLogoId, logoId), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date()))).limit(1);
+  if (activeUse[0]) throw new Error("Logo masih digunakan oleh tautan berbagi aktif.");
+  const result = await db.delete(photoCollaborationBrandLogos).where(and(eq(photoCollaborationBrandLogos.id, logoId), eq(photoCollaborationBrandLogos.userId, userId)));
+  return { success: Number(result[0].affectedRows || 0) > 0 };
+}
+
+export async function runPhotoCollaborationShareExpiryReminderSweep(now = new Date()) {
+  const db = await getDb(); if (!db) return { notified: 0 };
+  const cutoff = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+  const due = await db.select({ id: photoCollaborationShareLinks.id, userId: photoCollaborationShareLinks.userId, expiresAt: photoCollaborationShareLinks.expiresAt }).from(photoCollaborationShareLinks).where(and(isNull(photoCollaborationShareLinks.revokedAt), isNull(photoCollaborationShareLinks.expiryNotifiedAt), gt(photoCollaborationShareLinks.expiresAt, now), lte(photoCollaborationShareLinks.expiresAt, cutoff))).limit(200);
+  let notified = 0;
+  for (const link of due) {
+    const update = await db.update(photoCollaborationShareLinks).set({ expiryNotifiedAt: now }).where(and(eq(photoCollaborationShareLinks.id, link.id), isNull(photoCollaborationShareLinks.expiryNotifiedAt)));
+    if (Number(update[0].affectedRows || 0) > 0) { await createAccountActivityNotification(link.userId, "Tautan Kolaborasi akan berakhir", `Satu tautan berbagi hasil Kolaborasi Foto akan berakhir pada ${link.expiresAt.toLocaleString("id-ID")}. Cabut atau buat tautan baru bila diperlukan.`); notified++; }
+  }
+  return { notified };
 }
 
 export async function listPhotoCollaborationLayoutPresets(userId: number) {

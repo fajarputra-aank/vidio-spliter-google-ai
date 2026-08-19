@@ -333,3 +333,7 @@
 - [x] Tambahkan query serta validasi server untuk filter, batas tautan aktif, dan metadata watermark berbagi.
 - [x] Bangun filter riwayat dan kontrol watermark otomatis di antarmuka berbagi.
 - [x] Uji filter, batas tautan, watermark berbagi, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.
+- [x] Rancang statistik akses tautan, watermark logo brand, dan notifikasi aplikasi sebelum tautan berbagi kedaluwarsa.
+- [x] Tambahkan skema, migrasi, prosedur, akses media, dan penyimpanan logo yang aman untuk statistik serta watermark.
+- [x] Bangun tampilan statistik tautan, unggah/pilih logo watermark, dan pengingat kedaluwarsa di antarmuka.
+- [x] Uji statistik, kepemilikan logo, pengingat kedaluwarsa, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint rilis.

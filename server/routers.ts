@@ -16,6 +16,7 @@ import { sdk } from "./_core/sdk";
 import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail, sendSecuritySummaryEmail } from "./accountEmails";
 import { registerActiveSession } from "./sessionMetadata";
 import { aiQuotaRetryEstimate, toSafeTransformFailure } from "./transformFailureMessages";
+import sharp from "sharp";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -30,6 +31,7 @@ const imageInput = z.object({
 });
 
 const collaborationImageInput = z.object({ fileName: z.string().min(1).max(180), mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(8_000_000) });
+const collaborationBrandLogoInput = z.object({ name: z.string().trim().min(2).max(48), mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), sourceData: z.string().min(16).max(4_000_000) });
 const collaborationTemplateIds = ["free", "couple", "product"] as const;
 const collaborationLayoutInput = z.object({ firstX: z.number().min(-80).max(80), firstY: z.number().min(-80).max(80), firstScale: z.number().min(0.6).max(1.4), secondX: z.number().min(-80).max(80), secondY: z.number().min(-80).max(80), secondScale: z.number().min(0.6).max(1.4) });
 const collaborationInput = z.object({ first: collaborationImageInput, second: collaborationImageInput, template: z.enum(collaborationTemplateIds).default("free"), aspectRatio: z.enum(aspectRatioIds), style: z.enum(styleIds), customInstruction: z.string().trim().min(3).max(360).optional(), inviteId: z.number().int().positive().optional(), layout: collaborationLayoutInput.optional(), requestId: z.string().uuid().optional() });
@@ -59,6 +61,14 @@ function safeFileName(value: string) {
 function privateMediaUrl(value: string | null) {
   if (!value?.startsWith("/manus-storage/")) return value;
   return `/api/media/private/${encodeURIComponent(value.slice("/manus-storage/".length))}`;
+}
+
+async function storeCollaborationBrandLogo(userId: number, input: z.infer<typeof collaborationBrandLogoInput>) {
+  const bytes = Buffer.from(input.sourceData, "base64");
+  if (!bytes.length || bytes.length > 2_500_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Logo watermark maksimal 2,5 MB." });
+  const normalized = await sharp(bytes, { failOn: "error" }).resize(640, 640, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+  const stored = await storagePut(`collaboration-brand-logos/${userId}/${Date.now()}-${safeFileName(input.name)}.png`, normalized, "image/png");
+  return stored.key;
 }
 
 function withPrivatePhotoMedia<T extends { sourceUrl: string; secondarySourceUrl?: string | null; resultUrl: string | null; errorMessage?: string | null }>(record: T) {
@@ -252,9 +262,12 @@ export const appRouter = router({
     collaborationInvites: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationInvites(ctx.user.id)),
     collaborationProjects: protectedProcedure.input(z.object({ template: z.enum(collaborationTemplateIds).optional(), status: z.enum(["processing", "completed", "failed", "cancelled"]).optional() }).optional()).query(async ({ ctx, input }) => (await db.listPhotoCollaborationProjects(ctx.user.id, input)).map((project) => ({ ...project, resultUrl: privateMediaUrl(project.resultUrl) }))),
     collaborationShareLinks: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(({ ctx, input }) => db.listPhotoCollaborationShareLinks(ctx.user.id, input.transformId)),
-    createCollaborationShareLink: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), expiresInHours: z.union([z.literal(1), z.literal(24), z.literal(72)]), watermarkText: z.string().trim().max(72).optional() })).mutation(async ({ ctx, input }) => { const { token, tokenHash } = createSecurityToken(); const link = await db.createPhotoCollaborationShareLink(ctx.user.id, input.transformId, tokenHash, new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000), input.watermarkText?.trim() || null); return { id: link.id, token, expiresAt: link.expiresAt }; }),
+    createCollaborationShareLink: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), expiresInHours: z.union([z.literal(1), z.literal(24), z.literal(72)]), watermarkText: z.string().trim().max(72).optional(), watermarkLogoId: z.number().int().positive().optional() })).mutation(async ({ ctx, input }) => { const { token, tokenHash } = createSecurityToken(); const link = await db.createPhotoCollaborationShareLink(ctx.user.id, input.transformId, tokenHash, new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000), input.watermarkText?.trim() || null, input.watermarkLogoId ?? null); return { id: link.id, token, expiresAt: link.expiresAt }; }),
+    collaborationBrandLogos: protectedProcedure.query(async ({ ctx }) => db.listPhotoCollaborationBrandLogos(ctx.user.id)),
+    uploadCollaborationBrandLogo: protectedProcedure.input(collaborationBrandLogoInput).mutation(async ({ ctx, input }) => db.createPhotoCollaborationBrandLogo(ctx.user.id, input.name, await storeCollaborationBrandLogo(ctx.user.id, input))),
+    deleteCollaborationBrandLogo: protectedProcedure.input(z.object({ logoId: z.number().int().positive() })).mutation(async ({ ctx, input }) => db.deletePhotoCollaborationBrandLogo(ctx.user.id, input.logoId)),
     revokeCollaborationShareLink: protectedProcedure.input(z.object({ shareLinkId: z.number().int().positive() })).mutation(({ ctx, input }) => db.revokePhotoCollaborationShareLink(ctx.user.id, input.shareLinkId)),
-    collaborationSharePreview: publicProcedure.input(z.object({ token: z.string().min(32).max(100) })).query(async ({ input }) => { const shared = await db.getPhotoCollaborationShareByTokenHash(hashSecurityToken(input.token)); if (!shared) throw new TRPCError({ code: "NOT_FOUND", message: "Tautan berbagi tidak tersedia atau telah berakhir." }); return { title: shared.title, template: shared.template, aspectRatio: shared.aspectRatio, hasWatermark: Boolean(shared.watermarkText), expiresAt: shared.expiresAt }; }),
+    collaborationSharePreview: publicProcedure.input(z.object({ token: z.string().min(32).max(100) })).query(async ({ input }) => { const shared = await db.getPhotoCollaborationShareByTokenHash(hashSecurityToken(input.token)); if (!shared) throw new TRPCError({ code: "NOT_FOUND", message: "Tautan berbagi tidak tersedia atau telah berakhir." }); return { title: shared.title, template: shared.template, aspectRatio: shared.aspectRatio, hasWatermark: Boolean(shared.watermarkText || shared.logoStorageKey), expiresAt: shared.expiresAt }; }),
     collaborationLayoutPresets: protectedProcedure.query(({ ctx }) => db.listPhotoCollaborationLayoutPresets(ctx.user.id)),
     createCollaborationLayoutPreset: protectedProcedure.input(z.object({ name: z.string().trim().min(1).max(48), layout: collaborationLayoutInput })).mutation(({ ctx, input }) => db.createPhotoCollaborationLayoutPreset(ctx.user.id, input.name, JSON.stringify(input.layout))),
     deleteCollaborationLayoutPreset: protectedProcedure.input(z.object({ presetId: z.number().int().positive() })).mutation(({ ctx, input }) => db.deletePhotoCollaborationLayoutPreset(ctx.user.id, input.presetId)),

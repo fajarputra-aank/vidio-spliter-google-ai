@@ -169,11 +169,28 @@ export const photoCollaborationShareLinks = mysqlTable(
     transformId: int("transformId").notNull(),
     tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
     watermarkText: varchar("watermarkText", { length: 72 }),
+    watermarkLogoId: int("watermarkLogoId"),
+    accessCount: int("accessCount").notNull().default(0),
+    lastAccessedAt: timestamp("lastAccessedAt"),
+    expiryNotifiedAt: timestamp("expiryNotifiedAt"),
     expiresAt: timestamp("expiresAt").notNull(),
     revokedAt: timestamp("revokedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   (table) => [index("photoCollaborationShareLinks_user_transform_created_idx").on(table.userId, table.transformId, table.createdAt), index("photoCollaborationShareLinks_token_expiry_idx").on(table.tokenHash, table.expiresAt)]
+);
+
+/** Owner-scoped image assets used only as optional overlays on shared collaboration copies. */
+export const photoCollaborationBrandLogos = mysqlTable(
+  "photoCollaborationBrandLogos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    name: varchar("name", { length: 48 }).notNull(),
+    storageKey: varchar("storageKey", { length: 520 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [index("photoCollaborationBrandLogos_user_created_idx").on(table.userId, table.createdAt)]
 );
 
 /** Reusable private layout values for the two local collaboration inputs. */
