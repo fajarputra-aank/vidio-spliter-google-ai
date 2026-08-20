@@ -394,3 +394,6 @@
 - [x] Tambahkan pengosongan Sampah owner-scoped dengan konfirmasi berlapis.
 - [x] Tambahkan pencarian judul, filter tanggal hapus, dan peringatan visual untuk masa pemulihan kurang dari tujuh hari.
 - [x] Uji operasi Sampah, pembaruan skill ai-photo-studio-fullstack, validasi rilis, dan checkpoint.
+- [x] Audit riwayat foto gagal dan jalur penghapusan owner-scoped yang tersedia.
+- [x] Tambahkan menu hapus berkonfirmasi pada hasil proses yang gagal.
+- [x] Uji penghapusan gagal, privasi pemilik, pembaruan skill ai-photo-studio-fullstack, dan rilis.
