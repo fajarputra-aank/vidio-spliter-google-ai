@@ -281,6 +281,11 @@ export const appRouter = router({
   photo: router({
     list: protectedProcedure.input(z.object({ includeHidden: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => (await db.listPhotoTransforms(ctx.user.id, input?.includeHidden ?? false)).map(withPrivatePhotoMedia)),
     setHidden: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), isHidden: z.boolean() })).mutation(({ ctx, input }) => db.setPhotoTransformHidden(ctx.user.id, input.transformId, input.isHidden)),
+    deletePhotoTransform: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      const deleted = await db.deletePhotoTransform(ctx.user.id, input.transformId);
+      if (!deleted.success) throw new TRPCError({ code: "NOT_FOUND", message: "Hasil foto tidak ditemukan atau bukan milikmu." });
+      return deleted;
+    }),
     quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user) })),
     queueStatus: protectedProcedure.query(() => db.getProcessingQueueStatus()),
     getById: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(async ({ ctx, input }) => {

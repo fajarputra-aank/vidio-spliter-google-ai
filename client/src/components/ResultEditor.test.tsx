@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/trpc", () => ({
-  trpc: { photo: { hdExport: { useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }) } } },
+  trpc: { useUtils: () => ({ photo: { list: { invalidate: vi.fn() }, collaborationProjects: { invalidate: vi.fn() }, getById: { invalidate: vi.fn() } } }), photo: { hdExport: { useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }) }, deletePhotoTransform: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) } } },
 }));
 import { ResultEditor } from "./ResultEditor";
 
@@ -19,5 +19,6 @@ describe("ResultEditor", () => {
     expect(markup).toContain("Posisi teks dan watermark");
     expect(markup).toContain("Unduh versi berlapis");
     expect(markup).toContain("Unduh HD");
+    expect(markup).toContain("Hapus foto");
   });
 });

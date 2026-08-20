@@ -381,3 +381,7 @@
 - [x] Tambahkan notifikasi otomatis saat kapasitas penyedia AI pulih dan antrean coba lagi berprioritas untuk administrator.
 - [x] Uji status kapasitas, notifikasi pemulihan, dan prioritas antrean administrator pada Kolaborasi.
 - [x] Perbarui serta validasi skill ai-photo-studio-fullstack untuk status kapasitas dan antrean pemulihan Kolaborasi.
+- [x] Audit lifecycle hasil foto privat, tautan berbagi, dan kontrol penghapusan yang ada.
+- [x] Tambahkan penghapusan hasil foto owner-scoped yang mencabut akses berbagi terkait tanpa menghapus akun pengguna.
+- [x] Tambahkan tombol Hapus foto dan dialog konfirmasi pada hasil serta riwayat foto privat.
+- [x] Uji penghapusan, privasi akses, pembaruan skill ai-photo-studio-fullstack, dan rilis.
