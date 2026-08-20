@@ -3,8 +3,12 @@ export type TransformFailure = {
   message: string;
 };
 
+export function aiQuotaRetryAt(now = new Date()) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+}
+
 export function aiQuotaRetryEstimate(now = new Date()) {
-  const nextUtcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  const nextUtcMidnight = aiQuotaRetryAt(now);
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(nextUtcMidnight).replace(".", ":");
 }
 

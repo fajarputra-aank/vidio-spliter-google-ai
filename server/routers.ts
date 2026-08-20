@@ -15,7 +15,7 @@ import { createSecurityToken, hashLoginEmail, hashPassword, hashSecurityToken, n
 import { sdk } from "./_core/sdk";
 import { issueAccountEmail, sendAccountLockedEmail, sendNewDeviceLoginEmail, sendPasswordChangedEmail, sendSecuritySummaryEmail } from "./accountEmails";
 import { registerActiveSession } from "./sessionMetadata";
-import { aiQuotaRetryEstimate, toSafeTransformFailure } from "./transformFailureMessages";
+import { aiQuotaRetryAt, aiQuotaRetryEstimate, toSafeTransformFailure } from "./transformFailureMessages";
 import { assessCollaborationFaceReadiness } from "./collaborationFaceReadiness";
 import sharp from "sharp";
 
@@ -309,6 +309,14 @@ export const appRouter = router({
     combinedShareHistory: protectedProcedure.input(z.object({ transformIds: z.array(z.number().int().positive()).min(1).max(50).superRefine((ids, context) => { if (new Set(ids).size !== ids.length) context.addIssue({ code: z.ZodIssueCode.custom, message: "Transformasi tidak boleh dipilih lebih dari sekali." }); }), from: z.coerce.date().optional(), to: z.coerce.date().optional() })).query(({ ctx, input }) => db.listPhotoShareEventsForTransforms(ctx.user.id, input.transformIds, input)),
     recordShare: protectedProcedure.input(z.object({ transformId: z.number().int().positive(), platform: z.enum(["whatsapp", "instagram", "facebook", "tiktok", "other"]), caption: z.string().trim().min(1).max(500), watermarkText: z.string().trim().max(72).optional(), outcome: z.enum(["shared", "copied", "downloaded"]) })).mutation(({ ctx, input }) => db.recordPhotoShareEvent(ctx.user.id, { ...input, watermarkText: input.watermarkText ?? null })),
     aiQuotaStatus: protectedProcedure.query(() => ({ checkedAt: new Date(), retryEstimate: aiQuotaRetryEstimate(), status: "estimate_only" as const })),
+    aiProviderCapacity: protectedProcedure.query(async () => db.getAiProviderCapacityStatus()),
+    queueCollaborationProviderRetry: protectedProcedure.input(z.object({ sourceTransformId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      const source = await db.getOwnedPhotoTransform(ctx.user.id, input.sourceTransformId);
+      if (!source || source.recipe !== "collaboration" || source.status !== "failed" || !source.secondarySourceKey) throw new TRPCError({ code: "NOT_FOUND", message: "Kolaborasi gagal yang dapat dimasukkan ke antrean tidak ditemukan." });
+      if (!/^(Kapasitas penyedia AI|Layanan AI sedang mencapai batas)/.test(source.errorMessage ?? "")) throw new TRPCError({ code: "BAD_REQUEST", message: "Antrean pemulihan hanya tersedia saat kapasitas penyedia AI sedang penuh." });
+      const queued = await db.queueCollaborationProviderRetry(ctx.user.id, source.id, ctx.user.role === "admin" ? "admin" : "standard", aiQuotaRetryAt());
+      return { id: queued.id, priority: queued.priority, nextAttemptAt: queued.nextAttemptAt, status: queued.status };
+    }),
     cancelTransform: protectedProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(async ({ ctx, input }) => {
       const result = await db.cancelPhotoTransform(ctx.user.id, input.requestId);
       if (result.cancelled) activeTransformAborters.get(activeTransformKey(ctx.user.id, input.requestId))?.abort();
@@ -404,6 +412,7 @@ export const appRouter = router({
         const options = { prompt: buildCollaborationPrompt(input.template, input.aspectRatio, input.style, resolvedBackground, input.customInstruction, input.layout), originalImages: [{ b64Json: input.first.sourceData, mimeType: input.first.mimeType }, { b64Json: input.second.sourceData, mimeType: input.second.mimeType }], quality: "high" as const, signal: aborter?.signal };
         let result; try { result = await generateImage(options); } catch (firstError) { if (!isTemporaryProviderFailure(firstError)) throw firstError; await db.markPhotoTransformAutoRetry(transform.id); result = await generateImage(options); }
         if (!result.url) throw new Error("Layanan AI tidak mengembalikan gambar hasil.");
+        await db.recordAiProviderCapacityStatus("available");
         const completed = await db.completePhotoTransform(transform.id, result.url);
         if (acceptedInvite) await db.createAccountActivityNotification(acceptedInvite.inviteeUserId, "Hasil Kolaborasi Foto selesai", "Kolaborasi Foto yang kamu setujui telah selesai diproses. Hasilnya tetap privat dan tidak dipublikasikan otomatis.");
         return withPrivatePhotoMedia(completed);
@@ -411,6 +420,7 @@ export const appRouter = router({
         if (usedPurchasedCredit) await db.refundPurchasedCredit(ctx.user.id);
         const providerMessage = error instanceof Error ? error.message : "Kolaborasi foto gagal diproses."; const failure = toSafeTransformFailure(error);
         if (transformId) await db.failPhotoTransform(transformId, failure.message);
+        if (failure.code === "AI_QUOTA_EXHAUSTED") await db.recordAiProviderCapacityStatus("unavailable", aiQuotaRetryAt());
         console.error("[Photo collaboration] Transform failed", providerMessage);
         throw new TRPCError({ code: failure.code === "AI_QUOTA_EXHAUSTED" ? "TOO_MANY_REQUESTS" : "INTERNAL_SERVER_ERROR", message: failure.message });
       } finally { if (input.requestId) activeTransformAborters.delete(activeTransformKey(ctx.user.id, input.requestId)); }

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
-const mocks = vi.hoisted(() => ({ getDailyPhotoQuota: vi.fn(), consumePurchasedCredit: vi.fn(), refundPurchasedCredit: vi.fn(), getProcessingQueueStatus: vi.fn(), createPhotoTransform: vi.fn(), completePhotoTransform: vi.fn(), failPhotoTransform: vi.fn(), markPhotoTransformAutoRetry: vi.fn(), storagePut: vi.fn(), generateImage: vi.fn() }));
-vi.mock("./db", () => ({ getDailyPhotoQuota: mocks.getDailyPhotoQuota, consumePurchasedCredit: mocks.consumePurchasedCredit, refundPurchasedCredit: mocks.refundPurchasedCredit, getProcessingQueueStatus: mocks.getProcessingQueueStatus, createPhotoTransform: mocks.createPhotoTransform, completePhotoTransform: mocks.completePhotoTransform, failPhotoTransform: mocks.failPhotoTransform, markPhotoTransformAutoRetry: mocks.markPhotoTransformAutoRetry }));
+const mocks = vi.hoisted(() => ({ getDailyPhotoQuota: vi.fn(), consumePurchasedCredit: vi.fn(), refundPurchasedCredit: vi.fn(), getProcessingQueueStatus: vi.fn(), createPhotoTransform: vi.fn(), completePhotoTransform: vi.fn(), failPhotoTransform: vi.fn(), markPhotoTransformAutoRetry: vi.fn(), recordAiProviderCapacityStatus: vi.fn(), getOwnedPhotoTransform: vi.fn(), queueCollaborationProviderRetry: vi.fn(), storagePut: vi.fn(), generateImage: vi.fn() }));
+vi.mock("./db", () => ({ getDailyPhotoQuota: mocks.getDailyPhotoQuota, consumePurchasedCredit: mocks.consumePurchasedCredit, refundPurchasedCredit: mocks.refundPurchasedCredit, getProcessingQueueStatus: mocks.getProcessingQueueStatus, createPhotoTransform: mocks.createPhotoTransform, completePhotoTransform: mocks.completePhotoTransform, failPhotoTransform: mocks.failPhotoTransform, markPhotoTransformAutoRetry: mocks.markPhotoTransformAutoRetry, recordAiProviderCapacityStatus: mocks.recordAiProviderCapacityStatus, getOwnedPhotoTransform: mocks.getOwnedPhotoTransform, queueCollaborationProviderRetry: mocks.queueCollaborationProviderRetry }));
 vi.mock("./storage", () => ({ storagePut: mocks.storagePut }));
 vi.mock("./_core/imageGeneration", () => ({ generateImage: mocks.generateImage }));
 import { appRouter } from "./routers";
@@ -41,5 +41,13 @@ describe("Kolaborasi Foto", () => {
     await expect(appRouter.createCaller(context(8, "admin")).photo.collaborate({ first: { fileName: "a.jpg", mimeType: "image/jpeg", sourceData: image }, second: { fileName: "b.jpg", mimeType: "image/jpeg", sourceData: image }, aspectRatio: "1:1", style: "editorial" })).resolves.toMatchObject({ id: 45, status: "completed" });
     expect(mocks.consumePurchasedCredit).not.toHaveBeenCalled();
     expect(mocks.generateImage).toHaveBeenCalledOnce();
+  });
+
+  it("mendaftarkan Kolaborasi gagal milik administrator ke antrean prioritas tanpa menerima ID milik pengguna lain", async () => {
+    mocks.getOwnedPhotoTransform.mockResolvedValue({ id: 51, userId: 8, recipe: "collaboration", status: "failed", secondarySourceKey: "collaborations/8/b.jpg", errorMessage: "Kapasitas penyedia AI sedang penuh hari ini." });
+    mocks.queueCollaborationProviderRetry.mockResolvedValue({ id: 9, priority: "admin", status: "queued", nextAttemptAt: new Date("2026-08-21T00:00:00.000Z") });
+    await expect(appRouter.createCaller(context(8, "admin")).photo.queueCollaborationProviderRetry({ sourceTransformId: 51 })).resolves.toMatchObject({ id: 9, priority: "admin", status: "queued" });
+    expect(mocks.getOwnedPhotoTransform).toHaveBeenCalledWith(8, 51);
+    expect(mocks.queueCollaborationProviderRetry).toHaveBeenCalledWith(8, 51, "admin", expect.any(Date));
   });
 });

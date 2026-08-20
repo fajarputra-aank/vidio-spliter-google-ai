@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { collaborationShareRoleLimits, photoCollaborationBrandLogos, photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, collaborationBrandBackgroundPresets, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoCollaborationResultReports, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, trpcNonJsonMetricBuckets, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, aiProviderCapacityStatus, authEmailTokens, authLoginAttempts, brandSettings, collaborationBrandBackgroundPresets, collaborationProviderRetryQueues, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoCollaborationResultReports, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, trpcNonJsonMetricBuckets, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -313,6 +313,62 @@ export async function listPhotoCollaborationProjects(userId: number, filters: { 
   if (filters.template) conditions.push(eq(photoTransforms.collaborationTemplate, filters.template));
   if (filters.status) conditions.push(eq(photoTransforms.status, filters.status));
   return db.select({ id: photoTransforms.id, title: photoTransforms.title, template: photoTransforms.collaborationTemplate, aspectRatio: photoTransforms.aspectRatio, style: photoTransforms.style, status: photoTransforms.status, resultUrl: photoTransforms.resultUrl, errorMessage: photoTransforms.errorMessage, retryOfTransformId: photoTransforms.retryOfTransformId, createdAt: photoTransforms.createdAt, completedAt: photoTransforms.completedAt }).from(photoTransforms).where(and(...conditions)).orderBy(desc(photoTransforms.createdAt)).limit(100);
+}
+
+export type AiProviderCapacityState = "unknown" | "available" | "unavailable";
+
+export async function getAiProviderCapacityStatus() {
+  const db = await getDb();
+  if (!db) return { status: "unknown" as const, observedAt: null, retryAt: null };
+  const row = (await db.select().from(aiProviderCapacityStatus).where(eq(aiProviderCapacityStatus.id, 1)).limit(1))[0];
+  return row ? { status: row.status, observedAt: row.observedAt, retryAt: row.retryAt } : { status: "unknown" as const, observedAt: null, retryAt: null };
+}
+
+export async function recordAiProviderCapacityStatus(status: Exclude<AiProviderCapacityState, "unknown">, retryAt: Date | null = null) {
+  const db = await getDb();
+  if (!db) return;
+  const now = new Date();
+  await db.insert(aiProviderCapacityStatus).values({ id: 1, status, observedAt: now, retryAt }).onDuplicateKeyUpdate({ set: { status, observedAt: now, retryAt } });
+}
+
+export async function queueCollaborationProviderRetry(userId: number, sourceTransformId: number, priority: "admin" | "standard", nextAttemptAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const existing = (await db.select().from(collaborationProviderRetryQueues).where(and(eq(collaborationProviderRetryQueues.userId, userId), eq(collaborationProviderRetryQueues.sourceTransformId, sourceTransformId))).limit(1))[0];
+  if (existing) return existing;
+  await db.insert(collaborationProviderRetryQueues).values({ userId, sourceTransformId, priority, status: "queued", nextAttemptAt });
+  return (await db.select().from(collaborationProviderRetryQueues).where(and(eq(collaborationProviderRetryQueues.userId, userId), eq(collaborationProviderRetryQueues.sourceTransformId, sourceTransformId))).limit(1))[0];
+}
+
+export async function getOwnedCollaborationProviderRetry(userId: number, sourceTransformId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  return (await db.select().from(collaborationProviderRetryQueues).where(and(eq(collaborationProviderRetryQueues.userId, userId), eq(collaborationProviderRetryQueues.sourceTransformId, sourceTransformId))).limit(1))[0] ?? null;
+}
+
+export async function listDueCollaborationProviderRetries(now = new Date(), limit = 6) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(collaborationProviderRetryQueues).where(and(eq(collaborationProviderRetryQueues.status, "queued"), lte(collaborationProviderRetryQueues.nextAttemptAt, now))).orderBy(sql`case when ${collaborationProviderRetryQueues.priority} = 'admin' then 0 else 1 end`, collaborationProviderRetryQueues.createdAt).limit(limit);
+}
+
+export async function claimCollaborationProviderRetry(queueId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const updated = await db.update(collaborationProviderRetryQueues).set({ status: "processing" }).where(and(eq(collaborationProviderRetryQueues.id, queueId), eq(collaborationProviderRetryQueues.status, "queued")));
+  return Number(updated[0].affectedRows ?? 0) === 1;
+}
+
+export async function finishCollaborationProviderRetry(queueId: number, retryTransformId: number | null, notified = false) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(collaborationProviderRetryQueues).set({ status: "completed", retryTransformId, notifiedAt: notified ? new Date() : null }).where(eq(collaborationProviderRetryQueues.id, queueId));
+}
+
+export async function deferCollaborationProviderRetry(queueId: number, nextAttemptAt: Date) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(collaborationProviderRetryQueues).set({ status: "queued", nextAttemptAt }).where(and(eq(collaborationProviderRetryQueues.id, queueId), eq(collaborationProviderRetryQueues.status, "processing")));
 }
 
 export async function getPhotoCollaborationComparison(userId: number, transformId: number) {

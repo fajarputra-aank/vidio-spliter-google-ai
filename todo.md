@@ -376,3 +376,8 @@
 - [x] Pastikan fajar.spco@gmail.com serta fajar.putra86@gmail.com memperoleh akses Kolaborasi tanpa batas pada level aplikasi.
 - [x] Perjelas pesan kapasitas penyedia AI tanpa menjanjikan bypass kuota eksternal, lalu tambah pengujian akses administrator.
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk batas Kolaborasi administrator dan kapasitas penyedia AI.
+- [x] Audit sumber status kapasitas penyedia, notifikasi pengguna, dan jalur coba lagi Kolaborasi.
+- [x] Tambahkan indikator visual status kapasitas penyedia AI sebelum pengguna memulai Kolaborasi.
+- [ ] Tambahkan notifikasi otomatis saat kapasitas penyedia AI pulih dan antrean coba lagi berprioritas untuk administrator.
+- [x] Uji status kapasitas, notifikasi pemulihan, dan prioritas antrean administrator pada Kolaborasi.
+- [x] Perbarui serta validasi skill ai-photo-studio-fullstack untuk status kapasitas dan antrean pemulihan Kolaborasi.

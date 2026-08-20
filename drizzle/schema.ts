@@ -155,6 +155,37 @@ export const photoTransforms = mysqlTable(
   (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt), index("photoTransforms_user_retry_idx").on(table.userId, table.retryOfTransformId, table.createdAt), index("photoTransforms_user_request_idx").on(table.userId, table.requestId)]
 );
 
+/** Last known provider capacity state. This contains no user, media, request, or provider diagnostic data. */
+export const aiProviderCapacityStatus = mysqlTable("aiProviderCapacityStatus", {
+  id: int("id").primaryKey(),
+  status: mysqlEnum("status", ["unknown", "available", "unavailable"]).notNull().default("unknown"),
+  observedAt: timestamp("observedAt").defaultNow().notNull(),
+  retryAt: timestamp("retryAt"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Owner-scoped request to retry a failed collaboration after the provider becomes available. */
+export const collaborationProviderRetryQueues = mysqlTable(
+  "collaborationProviderRetryQueues",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    sourceTransformId: int("sourceTransformId").notNull(),
+    priority: mysqlEnum("priority", ["admin", "standard"]).notNull(),
+    status: mysqlEnum("status", ["queued", "processing", "completed", "cancelled"]).notNull().default("queued"),
+    nextAttemptAt: timestamp("nextAttemptAt").notNull(),
+    retryTransformId: int("retryTransformId"),
+    notifiedAt: timestamp("notifiedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("collabProviderRetryQueue_source_unique").on(table.sourceTransformId),
+    index("collabProviderRetryQueue_due_priority_idx").on(table.status, table.nextAttemptAt, table.priority, table.createdAt),
+    index("collabProviderRetryQueue_user_created_idx").on(table.userId, table.createdAt),
+  ]
+);
+
 /** Explicit, time-limited consent to join a private two-photo collaboration. No image data is stored here. */
 export const photoCollaborationInvites = mysqlTable(
   "photoCollaborationInvites",
