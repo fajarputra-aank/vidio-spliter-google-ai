@@ -390,3 +390,7 @@
 - [x] Tambahkan pemilihan banyak dan hapus massal aman pada riwayat foto privat.
 - [x] Tambahkan antarmuka Sampah untuk memulihkan atau menghapus foto secara permanen.
 - [x] Uji privasi, pemulihan, hapus massal, pembaruan skill ai-photo-studio-fullstack, dan rilis.
+- [x] Audit operasi Sampah, kontrak penghapusan permanen, dan data filter yang tersedia.
+- [x] Tambahkan pengosongan Sampah owner-scoped dengan konfirmasi berlapis.
+- [x] Tambahkan pencarian judul, filter tanggal hapus, dan peringatan visual untuk masa pemulihan kurang dari tujuh hari.
+- [x] Uji operasi Sampah, pembaruan skill ai-photo-studio-fullstack, validasi rilis, dan checkpoint.

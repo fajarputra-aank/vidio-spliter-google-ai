@@ -297,6 +297,7 @@ export const appRouter = router({
       if (!restored.success) throw new TRPCError({ code: "NOT_FOUND", message: "Foto tidak ditemukan di Sampah atau masa pemulihannya telah berakhir." });
       return restored;
     }),
+    emptyTrash: protectedProcedure.mutation(({ ctx }) => db.emptyPhotoTrash(ctx.user.id)),
     quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user) })),
     queueStatus: protectedProcedure.query(() => db.getProcessingQueueStatus()),
     getById: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(async ({ ctx, input }) => {

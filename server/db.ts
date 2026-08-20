@@ -834,6 +834,29 @@ export async function restoreTrashedPhotoTransform(userId: number, transformId: 
   return { success: Number(result[0].affectedRows ?? 0) > 0 };
 }
 
+export async function emptyPhotoTrash(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  return db.transaction(async (tx) => {
+    const transforms = await tx.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.userId, userId), isNotNull(photoTransforms.trashedAt)));
+    const ids = transforms.map((transform) => transform.id);
+    if (!ids.length) return { deletedCount: 0 };
+    const posts = await tx.select({ id: communityPosts.id }).from(communityPosts).where(and(eq(communityPosts.userId, userId), inArray(communityPosts.transformId, ids)));
+    const postIds = posts.map((post) => post.id);
+    if (postIds.length) {
+      await tx.delete(communityLikes).where(inArray(communityLikes.postId, postIds));
+      await tx.delete(communityReports).where(inArray(communityReports.postId, postIds));
+      await tx.delete(communityPosts).where(inArray(communityPosts.id, postIds));
+    }
+    await tx.delete(photoCollaborationShareLinks).where(inArray(photoCollaborationShareLinks.transformId, ids));
+    await tx.delete(photoAlbumItems).where(inArray(photoAlbumItems.transformId, ids));
+    await tx.delete(photoShareEvents).where(inArray(photoShareEvents.transformId, ids));
+    await tx.delete(collaborationProviderRetryQueues).where(inArray(collaborationProviderRetryQueues.sourceTransformId, ids));
+    await tx.delete(photoTransforms).where(and(eq(photoTransforms.userId, userId), inArray(photoTransforms.id, ids), isNotNull(photoTransforms.trashedAt)));
+    return { deletedCount: ids.length };
+  });
+}
+
 export async function setPhotoTransformHidden(userId: number, transformId: number, isHidden: boolean) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");

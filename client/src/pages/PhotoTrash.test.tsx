@@ -11,6 +11,7 @@ vi.mock("@/lib/trpc", () => ({ trpc: {
     trash: { useQuery: () => ({ isLoading: false, data: [{ id: 8, title: "Foto terhapus", status: "completed", resultUrl: "/api/media/private/b", sourceUrl: "/api/media/private/source-b", style: "realistic", aspectRatio: "16:9", trashExpiresAt: new Date("2026-09-19T00:00:00.000Z") }] }) },
     moveToTrash: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
     restoreFromTrash: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+    emptyTrash: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
     deletePhotoTransform: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
   },
 } }));
@@ -23,5 +24,6 @@ describe("PhotoTrash", () => {
     expect(markup).toContain("Pilih");
     expect(markup).toContain("Pulihkan dalam 30 hari");
     expect(markup).toContain("Hapus foto");
+    expect(markup).toContain("Kosongkan Sampah");
   });
 });
