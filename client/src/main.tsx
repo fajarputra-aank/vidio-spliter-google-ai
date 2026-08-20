@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import "./index.css";
+import { createSafeTrpcFetch } from "./lib/trpcFetch";
 
 const queryClient = new QueryClient();
 
@@ -25,12 +26,7 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
-      },
+      fetch: createSafeTrpcFetch(),
     }),
   ],
 });

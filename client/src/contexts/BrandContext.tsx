@@ -16,7 +16,7 @@ type BrandContextValue = { brand: Brand; applySavedBrand: (brand: Brand) => void
 const BrandContext = createContext<BrandContextValue>({ brand: fallbackBrand, applySavedBrand: () => undefined });
 
 export function BrandProvider({ children }: { children: ReactNode }) {
-  const { data } = trpc.brand.get.useQuery();
+  const { data } = trpc.brand.get.useQuery(undefined, { retry: 1, refetchOnWindowFocus: false });
   const [savedBrand, setSavedBrand] = useState<Brand | null>(null);
   const rawBrand = savedBrand ?? data ?? fallbackBrand;
   const brand = { ...rawBrand, logoUrl: publicMediaUrl(rawBrand.logoUrl), iconUrl: publicMediaUrl(rawBrand.iconUrl) };

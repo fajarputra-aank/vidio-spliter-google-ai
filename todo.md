@@ -360,3 +360,6 @@
 - [x] Perketat kontrak server untuk menyatukan dua subjek secara natural tanpa diptych, panel terpisah, atau frame berbeda.
 - [x] Perjelas pratinjau dan hasil Kolaborasi sebagai satu foto pasangan final, dengan perbandingan hanya sebagai evaluasi privat proses ulang.
 - [x] Uji prompt komposisi satu frame, perbarui skill ai-photo-studio-fullstack, validasi, dan simpan checkpoint.
+- [x] Reproduksi error JSON.parse pada halaman masuk yang mengarah ke Kolaborasi dan identifikasi prosedur tRPC terkait.
+- [x] Perbaiki respons API atau alur klien yang mengembalikan data non-JSON pada permintaan tRPC.
+- [x] Tambahkan regresi test autentikasi/redirect Kolaborasi, validasi, dan simpan checkpoint perbaikan.
