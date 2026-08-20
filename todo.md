@@ -378,6 +378,6 @@
 - [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk batas Kolaborasi administrator dan kapasitas penyedia AI.
 - [x] Audit sumber status kapasitas penyedia, notifikasi pengguna, dan jalur coba lagi Kolaborasi.
 - [x] Tambahkan indikator visual status kapasitas penyedia AI sebelum pengguna memulai Kolaborasi.
-- [ ] Tambahkan notifikasi otomatis saat kapasitas penyedia AI pulih dan antrean coba lagi berprioritas untuk administrator.
+- [x] Tambahkan notifikasi otomatis saat kapasitas penyedia AI pulih dan antrean coba lagi berprioritas untuk administrator.
 - [x] Uji status kapasitas, notifikasi pemulihan, dan prioritas antrean administrator pada Kolaborasi.
 - [x] Perbarui serta validasi skill ai-photo-studio-fullstack untuk status kapasitas dan antrean pemulihan Kolaborasi.
