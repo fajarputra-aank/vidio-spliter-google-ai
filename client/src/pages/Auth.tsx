@@ -16,7 +16,7 @@ function PasswordField({ id, value, onChange, placeholder = "Minimal 12 karakter
 
 function AuthApiRetry({ error, onRetry, pending }: { error: unknown; onRetry: () => Promise<void>; pending: boolean }) {
   if (!isTemporaryTrpcTransportError(error)) return null;
-  return <aside className="auth-api-retry" role="status"><CircleAlert size={16} /><div><strong>Koneksi sementara terganggu.</strong><p>Server sedang menyegarkan. Data akun belum diubah.</p></div><button type="button" disabled={pending} onClick={() => void onRetry()}>{pending ? "Mencoba…" : "Coba lagi"}</button></aside>;
+  return <aside className="auth-api-retry" role="status" data-testid="auth-api-retry"><CircleAlert size={16} /><div><strong>Koneksi sementara terganggu.</strong><p>Server sedang menyegarkan. Data akun belum diubah.</p></div><button type="button" data-testid="auth-api-retry-button" disabled={pending} onClick={() => void onRetry()}>{pending ? "Mencoba…" : "Coba lagi"}</button></aside>;
 }
 
 export default function Auth() {

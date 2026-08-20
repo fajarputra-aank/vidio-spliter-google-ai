@@ -367,3 +367,8 @@
 - [x] Tambahkan pencatatan metrik agregat tRPC non-JSON tanpa URL lengkap, input, cookie, atau identitas pengguna.
 - [x] Bangun tombol coba lagi yang muncul otomatis saat API sementara gagal pada halaman masuk.
 - [x] Uji pemulihan halaman masuk, metrik privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.
+- [x] Audit kontrak metrik agregat, permukaan studio, dan infrastruktur E2E untuk pemulihan tRPC.
+- [x] Tambahkan panel administrator ringkas untuk tren kategori metrik transport agregat tanpa data identitas.
+- [x] Tambahkan indikator status konektivitas ringan pada studio ketika fallback transport sementara terdeteksi.
+- [x] Tambahkan pengujian E2E tombol Coba lagi pada halaman masuk dan jalankan bersama validasi rilis.
+- [x] Perbarui serta validasi skill ai-photo-studio-fullstack untuk pemantauan metrik, status konektivitas, dan E2E pemulihan.

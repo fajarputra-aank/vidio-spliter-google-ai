@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { collaborationShareRoleLimits, photoCollaborationBrandLogos, photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
-import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, collaborationBrandBackgroundPresets, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoCollaborationResultReports, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, authEmailTokens, authLoginAttempts, brandSettings, collaborationBrandBackgroundPresets, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoCollaborationResultReports, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, trpcNonJsonMetricBuckets, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -1332,6 +1332,33 @@ export async function getAdminDashboard() {
     recentTransforms,
     recentPurchases,
     dayStart: start,
+  };
+}
+
+/** Return only anonymous, pre-aggregated tRPC transport buckets for administrators. */
+export async function getTrpcTransportMetricTrend() {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const rangeEndedAt = new Date();
+  rangeEndedAt.setUTCMinutes(0, 0, 0);
+  const rangeStartedAt = new Date(rangeEndedAt.getTime() - 23 * 60 * 60 * 1000);
+  const buckets = await db
+    .select({ hourStartedAt: trpcNonJsonMetricBuckets.hourStartedAt, operationGroup: trpcNonJsonMetricBuckets.operationGroup, responseKind: trpcNonJsonMetricBuckets.responseKind, statusClass: trpcNonJsonMetricBuckets.statusClass, occurrences: trpcNonJsonMetricBuckets.occurrences, lastObservedAt: trpcNonJsonMetricBuckets.lastObservedAt })
+    .from(trpcNonJsonMetricBuckets)
+    .where(gte(trpcNonJsonMetricBuckets.hourStartedAt, rangeStartedAt))
+    .orderBy(trpcNonJsonMetricBuckets.hourStartedAt)
+    .limit(1800);
+  const sum = (predicate: (bucket: typeof buckets[number]) => boolean) => buckets.reduce((total, bucket) => total + (predicate(bucket) ? Number(bucket.occurrences) : 0), 0);
+  const hourly = new Map<number, number>();
+  for (const bucket of buckets) hourly.set(bucket.hourStartedAt.getTime(), (hourly.get(bucket.hourStartedAt.getTime()) ?? 0) + Number(bucket.occurrences));
+  return {
+    rangeStartedAt,
+    rangeEndedAt,
+    totalOccurrences: sum(() => true),
+    lastObservedAt: buckets.reduce<Date | null>((latest, bucket) => !latest || bucket.lastObservedAt > latest ? bucket.lastObservedAt : latest, null),
+    byOperationGroup: (["auth", "brand", "other"] as const).map((operationGroup) => ({ operationGroup, occurrences: sum((bucket) => bucket.operationGroup === operationGroup) })),
+    byResponseKind: (["html", "text", "empty", "other"] as const).map((responseKind) => ({ responseKind, occurrences: sum((bucket) => bucket.responseKind === responseKind) })),
+    hourly: Array.from(hourly.entries()).map(([hourStartedAt, occurrences]) => ({ hourStartedAt: new Date(hourStartedAt), occurrences })),
   };
 }
 

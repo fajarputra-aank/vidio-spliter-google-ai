@@ -14,6 +14,7 @@ import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
 import { formatProcessDuration } from "@/lib/processDuration";
 import { filterRecipeCatalog, recommendPersonalRecipes, sortRecipeCatalog, type RecipeCollectionFilter, type RecipeSort } from "@/lib/recipeCatalog";
 import { useBrand } from "@/contexts/BrandContext";
+import { useTransportConnectivity } from "@/lib/transportConnectivity";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -24,10 +25,11 @@ import { ShareResultDialog } from "@/components/ShareResultDialog";
 import {
   Aperture, ArrowRight, BookmarkPlus, Camera, Check, ChevronRight, Clock3, Download,
   FileText, Globe2, History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
-  Heart, Palette, Ratio, RotateCcw, ScanFace, Share2, Sparkles, Trash2, Utensils, WandSparkles, X,
+  Heart, Palette, Ratio, RotateCcw, ScanFace, Share2, Sparkles, Trash2, Utensils, WandSparkles, Wifi, WifiOff, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
+import "./studioConnectivity.css";
 
 const assets = {
   hero: publicMediaUrl("/manus-storage/lensa-saku-hero-studio_9f9ec738.jpg"),
@@ -135,6 +137,7 @@ async function shareImage(url: string, title: string, options: { watermarkText?:
 
 export default function Home() {
   const { brand } = useBrand();
+  const transportConnectivity = useTransportConnectivity();
   const { user, loading: authLoading, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
   const historyQuery = trpc.photo.list.useQuery(undefined, { enabled: isAuthenticated });
@@ -479,7 +482,7 @@ export default function Home() {
         <header className="topbar">
           <div className="desktop-brand" aria-label="Lensa Saku Studio AI"><span className="desktop-brand-mark"><img src={publicMediaUrl(brand.iconUrl)} alt="Ikon Lensa Saku" /></span><span><strong>Lensa Saku</strong><small>STUDIO AI</small></span><img className="desktop-brand-lockup" src={publicMediaUrl(brand.logoUrl)} alt="Logo utama Lensa Saku" /></div>
           <div className="mobile-brand"><span className="mobile-brand-mark"><img src={publicMediaUrl(brand.iconUrl)} alt="Logo Lensa Saku" /></span><div><strong>Lensa Saku</strong><span>Studio AI</span></div></div>
-          <div className="eyebrow topbar-note"><span className="pulse-dot" /> {isAuthenticated ? "arsip visual pribadi aktif" : "masuk untuk menyimpan hasil"}</div>
+          {transportConnectivity === "stable" ? <div className="eyebrow topbar-note"><span className="pulse-dot" /> {isAuthenticated ? "arsip visual pribadi aktif" : "masuk untuk menyimpan hasil"}</div> : <div className={`studio-connectivity ${transportConnectivity === "recovered" ? "is-recovered" : ""}`} role="status" aria-live="polite">{transportConnectivity === "recovered" ? <Wifi size={14} /> : <WifiOff size={14} />}{transportConnectivity === "recovered" ? "Koneksi pulih. Studio siap digunakan." : "Koneksi sementara dipulihkan. Coba lagi sebentar bila diperlukan."}</div>}
           <div className="topbar-actions">
             {!authLoading && (isAuthenticated ? <Link href="/profil" className="text-button auth-action"><Palette size={14} /> Profilku</Link> : <button className="text-button auth-action" onClick={startLogin}><LogIn size={14} /> Masuk untuk simpan</button>)}
             <Link href="/kredit" className="text-button">Tambah kredit <ChevronRight size={15} /></Link>

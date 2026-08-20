@@ -1,0 +1,73 @@
+.transport-metric-desk {
+  background: linear-gradient(135deg, #fffaf0 0%, #f3eee4 100%);
+}
+
+.transport-metric-content {
+  display: grid;
+  gap: 12px;
+}
+
+.transport-metric-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.transport-metric-summary article {
+  padding: 10px;
+  border: 1px solid #d6c7b3;
+  background: rgba(255, 253, 248, .72);
+}
+
+.transport-metric-summary span,
+.transport-metric-summary small,
+.transport-metric-foot {
+  display: block;
+  color: #756757;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.transport-metric-summary strong {
+  display: block;
+  margin: 4px 0 1px;
+  color: #1b1b18;
+  font-family: "DM Serif Display", Georgia, serif;
+  font-size: 25px;
+  font-weight: 400;
+}
+
+.transport-metric-bars {
+  height: 76px;
+  display: flex;
+  align-items: end;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #d6c7b3;
+  background: #1b1b18;
+}
+
+.transport-metric-bars span {
+  flex: 1;
+  min-width: 3px;
+  background: linear-gradient(180deg, #f5ae5d 0%, #e78227 100%);
+  transition: opacity 160ms ease-out;
+}
+
+.transport-metric-bars span:hover {
+  opacity: .72;
+}
+
+.transport-metric-foot {
+  color: #695d50;
+}
+
+@media (max-width: 640px) {
+  .transport-metric-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .transport-metric-bars {
+    gap: 2px;
+  }
+}

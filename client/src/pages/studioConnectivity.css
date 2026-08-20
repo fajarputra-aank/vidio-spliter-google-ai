@@ -1,0 +1,27 @@
+.studio-connectivity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 300px;
+  padding: 6px 9px;
+  color: #5c422d;
+  border: 1px solid #d9b17e;
+  background: #fff2dc;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  line-height: 1.25;
+}
+
+.studio-connectivity.is-recovered {
+  color: #315447;
+  border-color: #9dbba9;
+  background: #e9f3eb;
+}
+
+@media (max-width: 760px) {
+  .studio-connectivity {
+    max-width: 190px;
+    font-size: 8px;
+  }
+}

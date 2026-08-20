@@ -6,6 +6,7 @@ import superjson from "superjson";
 import App from "./App";
 import "./index.css";
 import { createSafeTrpcFetch } from "./lib/trpcFetch";
+import { reportTemporaryTransportFallback, reportTransportRecovered } from "./lib/transportConnectivity";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +27,7 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch: createSafeTrpcFetch(),
+      fetch: createSafeTrpcFetch(globalThis.fetch, undefined, { onFallback: reportTemporaryTransportFallback, onRecovered: reportTransportRecovered }),
     }),
   ],
 });

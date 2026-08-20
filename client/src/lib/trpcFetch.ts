@@ -1,5 +1,6 @@
 const JSON_CONTENT_TYPE = "application/json";
 type TrpcTransportMetric = { operationGroup: "auth" | "brand" | "other"; responseKind: "html" | "text" | "empty" | "other"; statusClass: number };
+type TransportFallbackCallbacks = { onFallback?: () => void; onRecovered?: () => void };
 
 function isJsonResponse(response: Response) { return response.headers.get("content-type")?.toLowerCase().includes(JSON_CONTENT_TYPE) ?? false; }
 
@@ -20,15 +21,19 @@ function reportTrpcTransportMetric(metric: TrpcTransportMetric) {
 }
 
 /** Preserve session cookies, retry temporary non-JSON responses, and report only aggregate transport categories. */
-export function createSafeTrpcFetch(baseFetch: typeof fetch = globalThis.fetch, reportMetric: (metric: TrpcTransportMetric) => void = reportTrpcTransportMetric): typeof fetch {
+export function createSafeTrpcFetch(baseFetch: typeof fetch = globalThis.fetch, reportMetric: (metric: TrpcTransportMetric) => void = reportTrpcTransportMetric, callbacks: TransportFallbackCallbacks = {}): typeof fetch {
   return async (input, init) => {
     const requestInit: RequestInit = { ...(init ?? {}), credentials: "include" };
     let response = await baseFetch(input, requestInit);
     if (isJsonResponse(response)) return response;
     reportMetric(metricFor(input, response));
+    callbacks.onFallback?.();
     await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 120));
     response = await baseFetch(input, requestInit);
-    if (isJsonResponse(response)) return response;
+    if (isJsonResponse(response)) {
+      callbacks.onRecovered?.();
+      return response;
+    }
     return transportErrorResponse(response.status >= 400 ? response.status : 503);
   };
 }

@@ -523,6 +523,7 @@ export const appRouter = router({
   }),
   admin: router({
     dashboard: adminProcedure.query(() => db.getAdminDashboard()),
+    trpcTransportTrend: adminProcedure.query(() => db.getTrpcTransportMetricTrend()),
     collaborationShareRoleLimits: adminProcedure.query(() => db.getCollaborationShareRoleLimits()),
     updateCollaborationShareRoleLimit: adminProcedure.input(z.object({ role: z.enum(["user", "admin"]), maxActiveLinks: z.number().int().min(0).max(100).nullable() })).mutation(({ input }) => db.updateCollaborationShareRoleLimit(input.role, input.maxActiveLinks)),
     activeCollaborationShareLinks: adminProcedure.query(() => db.listAdminActivePhotoCollaborationShareLinks()),
