@@ -148,11 +148,13 @@ export const photoTransforms = mysqlTable(
     autoRetryAt: timestamp("autoRetryAt"),
     status: mysqlEnum("status", ["processing", "completed", "failed", "cancelled"]).default("processing").notNull(),
     isHidden: boolean("isHidden").notNull().default(false),
+    trashedAt: timestamp("trashedAt"),
+    trashExpiresAt: timestamp("trashExpiresAt"),
     errorMessage: varchar("errorMessage", { length: 500 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     completedAt: timestamp("completedAt"),
   },
-  (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt), index("photoTransforms_user_retry_idx").on(table.userId, table.retryOfTransformId, table.createdAt), index("photoTransforms_user_request_idx").on(table.userId, table.requestId)]
+  (table) => [index("photoTransforms_user_created_idx").on(table.userId, table.createdAt), index("photoTransforms_user_hidden_created_idx").on(table.userId, table.isHidden, table.createdAt), index("photoTransforms_user_trash_expiry_idx").on(table.userId, table.trashedAt, table.trashExpiresAt), index("photoTransforms_user_retry_idx").on(table.userId, table.retryOfTransformId, table.createdAt), index("photoTransforms_user_request_idx").on(table.userId, table.requestId)]
 );
 
 /** Last known provider capacity state. This contains no user, media, request, or provider diagnostic data. */

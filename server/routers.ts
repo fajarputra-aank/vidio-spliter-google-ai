@@ -286,6 +286,17 @@ export const appRouter = router({
       if (!deleted.success) throw new TRPCError({ code: "NOT_FOUND", message: "Hasil foto tidak ditemukan atau bukan milikmu." });
       return deleted;
     }),
+    trash: protectedProcedure.query(async ({ ctx }) => (await db.listTrashedPhotoTransforms(ctx.user.id)).map(withPrivatePhotoMedia)),
+    moveToTrash: protectedProcedure.input(z.object({ transformIds: z.array(z.number().int().positive()).min(1).max(50).superRefine((ids, issue) => { if (new Set(ids).size !== ids.length) issue.addIssue({ code: z.ZodIssueCode.custom, message: "Foto tidak boleh dipilih lebih dari sekali." }); }) })).mutation(async ({ ctx, input }) => {
+      const moved = await db.movePhotoTransformsToTrash(ctx.user.id, input.transformIds);
+      if (!moved.trashedCount) throw new TRPCError({ code: "NOT_FOUND", message: "Tidak ada foto aktif milikmu yang dapat dipindahkan ke Sampah." });
+      return moved;
+    }),
+    restoreFromTrash: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      const restored = await db.restoreTrashedPhotoTransform(ctx.user.id, input.transformId);
+      if (!restored.success) throw new TRPCError({ code: "NOT_FOUND", message: "Foto tidak ditemukan di Sampah atau masa pemulihannya telah berakhir." });
+      return restored;
+    }),
     quota: protectedProcedure.query(async ({ ctx }) => ({ ...(await db.getDailyPhotoQuota(ctx.user.id)), isUnlimited: hasUnlimitedTransforms(ctx.user) })),
     queueStatus: protectedProcedure.query(() => db.getProcessingQueueStatus()),
     getById: protectedProcedure.input(z.object({ transformId: z.number().int().positive() })).query(async ({ ctx, input }) => {

@@ -10,7 +10,7 @@ export function DeletePhotoResultControl({ transformId, onDeleted, className = "
   const utils = trpc.useUtils();
   const remove = trpc.photo.deletePhotoTransform.useMutation({
     onSuccess: async (result) => {
-      await Promise.all([utils.photo.list.invalidate(), utils.photo.collaborationProjects.invalidate(), utils.photo.getById.invalidate()]);
+      await Promise.all([utils.photo.list.invalidate(), utils.photo.trash.invalidate(), utils.photo.collaborationProjects.invalidate(), utils.photo.getById.invalidate()]);
       setOpen(false); onDeleted?.();
       toast.success(result.revokedShareLinks ? `Foto dihapus dan ${result.revokedShareLinks} tautan berbagi dicabut.` : "Foto dihapus dari riwayat privat.");
     },

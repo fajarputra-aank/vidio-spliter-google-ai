@@ -25,6 +25,7 @@ import Collaboration from "./pages/Collaboration";
 import CollaborationHistory from "./pages/CollaborationHistory";
 import CollaborationShare from "./pages/CollaborationShare";
 import AdminCollaborationShares from "./pages/AdminCollaborationShares";
+import PhotoTrash from "./pages/PhotoTrash";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/reset-kata-sandi" component={ResetPassword} />
       <Route path="/verifikasi-email" component={EmailVerification} />
       <Route path="/profil" component={Profile} />
+      <Route path="/profil/sampah" component={PhotoTrash} />
       <Route path="/kolaborasi" component={Collaboration} />
       <Route path="/kolaborasi/riwayat" component={CollaborationHistory} />
       <Route path="/bagikan/:token" component={CollaborationShare} />

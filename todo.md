@@ -385,3 +385,8 @@
 - [x] Tambahkan penghapusan hasil foto owner-scoped yang mencabut akses berbagi terkait tanpa menghapus akun pengguna.
 - [x] Tambahkan tombol Hapus foto dan dialog konfirmasi pada hasil serta riwayat foto privat.
 - [x] Uji penghapusan, privasi akses, pembaruan skill ai-photo-studio-fullstack, dan rilis.
+- [x] Audit lifecycle penghapusan saat ini, riwayat foto, dan relasi akses turunan.
+- [x] Tambahkan Sampah 30 hari serta pemulihan foto owner-scoped tanpa memulihkan akses publik lama.
+- [x] Tambahkan pemilihan banyak dan hapus massal aman pada riwayat foto privat.
+- [x] Tambahkan antarmuka Sampah untuk memulihkan atau menghapus foto secara permanen.
+- [x] Uji privasi, pemulihan, hapus massal, pembaruan skill ai-photo-studio-fullstack, dan rilis.
