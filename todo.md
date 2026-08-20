@@ -372,3 +372,7 @@
 - [x] Tambahkan indikator status konektivitas ringan pada studio ketika fallback transport sementara terdeteksi.
 - [x] Tambahkan pengujian E2E tombol Coba lagi pada halaman masuk dan jalankan bersama validasi rilis.
 - [x] Perbarui serta validasi skill ai-photo-studio-fullstack untuk pemantauan metrik, status konektivitas, dan E2E pemulihan.
+- [x] Audit batas Kolaborasi pada aplikasi dan sumber pesan kapasitas penyedia AI untuk akun administrator.
+- [x] Pastikan fajar.spco@gmail.com serta fajar.putra86@gmail.com memperoleh akses Kolaborasi tanpa batas pada level aplikasi.
+- [x] Perjelas pesan kapasitas penyedia AI tanpa menjanjikan bypass kuota eksternal, lalu tambah pengujian akses administrator.
+- [x] Perbarui dan validasi skill ai-photo-studio-fullstack untuk batas Kolaborasi administrator dan kapasitas penyedia AI.

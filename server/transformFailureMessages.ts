@@ -13,7 +13,7 @@ export function toSafeTransformFailure(error: unknown, now = new Date()): Transf
   if (/usage exhausted|failed_precondition|rate limit|quota/i.test(source)) {
     return {
       code: "AI_QUOTA_EXHAUSTED",
-      message: `Layanan AI sedang mencapai batas penggunaan hari ini. Foto sumbermu sudah tersimpan aman. Perkiraan dapat dicoba kembali sekitar ${aiQuotaRetryEstimate(now)} WIB; waktu pembaruan penyedia dapat berubah.`,
+      message: `Kapasitas penyedia AI sedang penuh hari ini. Akses Kolaborasi tanpa batas di Lensa Saku tetap aktif; kapasitas eksternal ini tidak dapat dilewati dari aplikasi. Foto sumbermu sudah tersimpan aman. Perkiraan dapat dicoba kembali sekitar ${aiQuotaRetryEstimate(now)} WIB; waktu pembaruan penyedia dapat berubah.`,
     };
   }
   return {
