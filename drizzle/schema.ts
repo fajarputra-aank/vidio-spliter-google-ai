@@ -107,6 +107,21 @@ export const adminAccessAudits = mysqlTable(
   (table) => [index("adminAccessAudits_created_idx").on(table.createdAt), index("adminAccessAudits_target_created_idx").on(table.targetUserId, table.createdAt)]
 );
 
+/** Anonymous hourly counters for transient tRPC transport responses that were not JSON. */
+export const trpcNonJsonMetricBuckets = mysqlTable(
+  "trpcNonJsonMetricBuckets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    hourStartedAt: timestamp("hourStartedAt").notNull(),
+    operationGroup: mysqlEnum("operationGroup", ["auth", "brand", "other"]).notNull(),
+    responseKind: mysqlEnum("responseKind", ["html", "text", "empty", "other"]).notNull(),
+    statusClass: int("statusClass").notNull(),
+    occurrences: int("occurrences").notNull().default(0),
+    lastObservedAt: timestamp("lastObservedAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("trpcNonJsonMetricBuckets_bucket_unique").on(table.hourStartedAt, table.operationGroup, table.responseKind, table.statusClass), index("trpcNonJsonMetricBuckets_hour_idx").on(table.hourStartedAt)]
+);
+
 /** A private record of one source image and its AI-produced result. */
 export const photoTransforms = mysqlTable(
   "photoTransforms",

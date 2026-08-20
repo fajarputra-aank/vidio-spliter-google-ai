@@ -13,6 +13,7 @@ import { registerStripeWebhook } from "../stripeWebhook";
 import { handleArchivedAlbumReminders } from "../scheduled/archivedAlbumReminders";
 import { handleSecuritySummaries } from "../scheduled/securitySummaries";
 import { handleCollaborationShareExpiryReminders } from "../scheduled/collaborationShareExpiryReminders";
+import { handleTrpcNonJsonMetric } from "./trpcTransportMetrics";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -46,6 +47,7 @@ async function startServer() {
   app.post("/api/scheduled/archived-album-reminders", handleArchivedAlbumReminders);
   app.post("/api/scheduled/security-summaries", handleSecuritySummaries);
   app.post("/api/scheduled/collaboration-share-expiry-reminders", handleCollaborationShareExpiryReminders);
+  app.post("/api/client-metrics/trpc-non-json", handleTrpcNonJsonMetric);
   // tRPC API
   app.use(
     "/api/trpc",

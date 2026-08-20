@@ -363,3 +363,7 @@
 - [x] Reproduksi error JSON.parse pada halaman masuk yang mengarah ke Kolaborasi dan identifikasi prosedur tRPC terkait.
 - [x] Perbaiki respons API atau alur klien yang mengembalikan data non-JSON pada permintaan tRPC.
 - [x] Tambahkan regresi test autentikasi/redirect Kolaborasi, validasi, dan simpan checkpoint perbaikan.
+- [x] Audit state error halaman masuk dan rancangan metrik privat untuk respons tRPC non-JSON.
+- [x] Tambahkan pencatatan metrik agregat tRPC non-JSON tanpa URL lengkap, input, cookie, atau identitas pengguna.
+- [x] Bangun tombol coba lagi yang muncul otomatis saat API sementara gagal pada halaman masuk.
+- [x] Uji pemulihan halaman masuk, metrik privat, pembaruan skill ai-photo-studio-fullstack, dan simpan checkpoint.
