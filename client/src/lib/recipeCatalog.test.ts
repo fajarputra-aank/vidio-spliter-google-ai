@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterRecipeCatalog, recommendPersonalRecipes, sortRecipeCatalog } from "./recipeCatalog";
+import { filterRecipeCatalog, filterRecipeGoal, recipeGoals, recipePresets, recommendPersonalRecipes, sortRecipeCatalog } from "./recipeCatalog";
 
 const recipes = [
   { id: "product", name: "Produk katalog", category: "Produk", label: "Jualan", description: "Produk bersih untuk etalase." },
@@ -26,5 +26,13 @@ describe("filter katalog resep", () => {
     const result = recommendPersonalRecipes(recipes, new Set(["ramadan_iftar"]), [], [{ recipeId: "lebaran_promo", uses: 9 }]);
     expect(result[0]?.recipe.id).toBe("lebaran_promo");
     expect(result[0]?.reason).toContain("musiman");
+  });
+
+  it("memisahkan katalog berdasarkan tujuan kreatif dan menyediakan preset yang tervalidasi", () => {
+    expect(filterRecipeGoal(recipes, "Jualan & produk").map((item) => item.id)).toEqual(["product", "ramadan_iftar", "lebaran_promo"]);
+    expect(filterRecipeGoal(recipes, "Profil & orang")).toEqual([]);
+    expect(recipeGoals).toContain("Konten & sosial");
+    expect(recipePresets.reels_cover).toEqual({ style: "vibrant", aspect: "9:16", label: "cover vertikal" });
+    expect(recipePresets.document?.style).toBe("clean");
   });
 });

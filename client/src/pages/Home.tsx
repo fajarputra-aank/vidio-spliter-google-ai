@@ -12,7 +12,7 @@ import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
 import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
 import { formatProcessDuration } from "@/lib/processDuration";
-import { filterRecipeCatalog, recommendPersonalRecipes, sortRecipeCatalog, type RecipeCollectionFilter, type RecipeSort } from "@/lib/recipeCatalog";
+import { filterRecipeCatalog, filterRecipeGoal, recipeGoals, recipePresets, recommendPersonalRecipes, sortRecipeCatalog, type RecipeCollectionFilter, type RecipeGoal, type RecipePresetStyle, type RecipeSort } from "@/lib/recipeCatalog";
 import { useBrand } from "@/contexts/BrandContext";
 import { useTransportConnectivity } from "@/lib/transportConnectivity";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { Link } from "wouter";
 import "./studioConnectivity.css";
 import "./failedPhotoManagement.css";
+import "./recipeCatalogAdvanced.css";
 
 const assets = {
   hero: publicMediaUrl("/manus-storage/lensa-saku-hero-studio_9f9ec738.jpg"),
@@ -40,10 +41,10 @@ const assets = {
   food: publicMediaUrl("/manus-storage/lensa-saku-food_26a6ef7f.jpg"),
 };
 
-type Recipe = { id: "headshot" | "beauty" | "portrait_window" | "family" | "graduation" | "background" | "product" | "marketplace" | "flatlay" | "cosmetic" | "jewelry" | "food" | "beverage" | "bakery" | "food_moody" | "social" | "reels_cover" | "creator_frame" | "fashion" | "lookbook" | "accessory" | "interior" | "light" | "listing" | "workspace" | "restore" | "detail" | "old_color" | "scan_clean" | "document" | "travel" | "night" | "sketch" | "film_analog" | "duotone" | "ramadan_iftar" | "ramadan_hampers" | "lebaran_family" | "lebaran_promo" | "lebaran_product"; name: string; category: string; label: string; description: string; image: string; prompt: string; season?: "ramadan" | "lebaran" };
+type Recipe = { id: "headshot" | "beauty" | "portrait_window" | "family" | "graduation" | "personal_brand" | "couple_portrait" | "team_portrait" | "background" | "product" | "product_white" | "marketplace" | "flatlay" | "cosmetic" | "jewelry" | "handmade" | "apparel_product" | "furniture_product" | "automotive" | "food" | "beverage" | "bakery" | "food_moody" | "dessert" | "coffee" | "street_food" | "social" | "reels_cover" | "creator_frame" | "thumbnail_clean" | "personal_story" | "fashion" | "lookbook" | "accessory" | "shoe_detail" | "interior" | "light" | "listing" | "workspace" | "hotel_room" | "storefront" | "exterior" | "restore" | "detail" | "old_color" | "scan_clean" | "portrait_restore" | "low_light_recover" | "document" | "receipt_clean" | "menu_clean" | "travel" | "night" | "sketch" | "film_analog" | "duotone" | "color_pop" | "comic_ink" | "ramadan_iftar" | "ramadan_hampers" | "lebaran_family" | "lebaran_promo" | "lebaran_product"; name: string; category: string; label: string; description: string; image: string; prompt: string; season?: "ramadan" | "lebaran" };
 type UploadPayload = { base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; fileName: string };
 type OutputAspect = "1:1" | "16:9" | "9:16";
-type AiStyle = "editorial" | "realistic" | "anime" | "cinematic" | "vintage" | "pastel" | "minimal" | "monochrome" | "neon" | "watercolor";
+type AiStyle = RecipePresetStyle;
 type PhotoRecommendation = { recipe: Recipe["id"]; confidence: "high" | "medium" | "low"; reason: string };
 
 const recipes: Recipe[] = [
@@ -52,31 +53,52 @@ const recipes: Recipe[] = [
   { id: "portrait_window", name: "Potret cahaya jendela", category: "Potret", label: "Hangat", description: "Arah potret lembut dengan cahaya alami yang terasa dekat.", image: assets.headshot, prompt: "cahaya jendela lembut" },
   { id: "family", name: "Potret keluarga", category: "Potret", label: "Kenangan", description: "Satukan suasana hangat tanpa mengubah wajah atau hubungan antarorang.", image: assets.headshot, prompt: "potret keluarga natural" },
   { id: "graduation", name: "Wisuda berkelas", category: "Potret", label: "Perayaan", description: "Rapikan cahaya dan warna untuk momen kelulusan yang berwibawa.", image: assets.headshot, prompt: "potret wisuda editorial" },
+  { id: "personal_brand", name: "Profil personal brand", category: "Potret", label: "Profesional", description: "Potret hangat dan meyakinkan untuk profil usaha, pembicara, atau kreator.", image: assets.headshot, prompt: "personal brand editorial" },
+  { id: "couple_portrait", name: "Potret pasangan elegan", category: "Potret", label: "Berpasangan", description: "Rapikan momen dua orang tanpa mengubah wajah, pose, atau konteks hubungan.", image: assets.headshot, prompt: "potret dua orang natural" },
+  { id: "team_portrait", name: "Potret tim profesional", category: "Potret", label: "Tim", description: "Cahaya seimbang untuk foto kelompok, tim kerja, atau komunitas.", image: assets.headshot, prompt: "potret grup profesional" },
   { id: "background", name: "Latar studio bersih", category: "Produk", label: "Praktis", description: "Ganti gangguan di belakang dengan latar studio yang rapi.", image: assets.product, prompt: "latar studio netral" },
   { id: "product", name: "Produk katalog", category: "Produk", label: "Untuk jualan", description: "Rapi, terang, dan berfokus pada detail produk.", image: assets.product, prompt: "latar katalog hangat" },
+  { id: "product_white", name: "Produk latar putih", category: "Produk", label: "E-commerce", description: "Latar putih bersih untuk etalase digital tanpa mengubah kemasan atau label.", image: assets.product, prompt: "produk latar putih" },
   { id: "marketplace", name: "Marketplace cerah", category: "Produk", label: "Jualan", description: "Produk tampak jelas, terang, dan siap untuk etalase digital.", image: assets.product, prompt: "produk marketplace terang" },
   { id: "flatlay", name: "Flat lay terarah", category: "Produk", label: "Komposisi", description: "Susun tampilan atas yang rapi sambil menjaga isi frame tetap sama.", image: assets.product, prompt: "flat lay editorial" },
   { id: "cosmetic", name: "Kosmetik bersih", category: "Produk", label: "Kecantikan", description: "Tekankan tekstur kemasan dan warna produk tanpa mengganti label.", image: assets.product, prompt: "kosmetik premium bersih" },
   { id: "jewelry", name: "Detail perhiasan", category: "Produk", label: "Berkilau", description: "Tampilkan kilau, bahan, dan detail kecil secara realistis.", image: assets.product, prompt: "perhiasan detail editorial" },
+  { id: "handmade", name: "Produk buatan tangan", category: "Produk", label: "Artisan", description: "Tekstur dan pengerjaan produk kerajinan tampil lebih terasa tanpa rekayasa detail.", image: assets.product, prompt: "produk kerajinan taktil" },
+  { id: "apparel_product", name: "Pakaian untuk katalog", category: "Fashion", label: "Produk", description: "Perlihatkan potongan, bahan, warna, dan detail pakaian tetap setia pada sumber.", image: assets.product, prompt: "pakaian katalog bersih" },
+  { id: "furniture_product", name: "Furnitur terarah", category: "Produk", label: "Interior", description: "Furnitur terlihat rapi dengan perspektif dan tekstur yang jujur.", image: assets.product, prompt: "furnitur editorial" },
+  { id: "automotive", name: "Otomotif detail", category: "Produk", label: "Otomotif", description: "Tonjolkan material, bentuk, dan pantulan kendaraan secara realistis.", image: assets.product, prompt: "otomotif detail premium" },
   { id: "food", name: "Menu menggoda", category: "Makanan", label: "Baru", description: "Warna makanan diperkuat tanpa mengubah rasa alami.", image: assets.food, prompt: "nuansa menu editorial" },
   { id: "beverage", name: "Minuman segar", category: "Makanan", label: "Minuman", description: "Buat cairan, es, dan gelas terasa segar namun tetap masuk akal.", image: assets.food, prompt: "minuman segar komersial" },
   { id: "bakery", name: "Roti & pastry", category: "Makanan", label: "Tekstur", description: "Tonjolkan tekstur panggangan dan warna hangat tanpa menambah sajian.", image: assets.food, prompt: "pastry hangat editorial" },
   { id: "food_moody", name: "Menu moody", category: "Makanan", label: "Atmosfer", description: "Arah cahaya gelap yang elegan untuk menu yang sudah ada di foto.", image: assets.food, prompt: "makanan moody elegan" },
+  { id: "dessert", name: "Dessert & manis", category: "Makanan", label: "Manis", description: "Tonjolkan lapisan, topping, dan tekstur dessert tanpa menambah bahan baru.", image: assets.food, prompt: "dessert premium" },
+  { id: "coffee", name: "Kopi & kafe", category: "Makanan", label: "Kafe", description: "Cahaya tenang untuk kopi, minuman, dan suasana meja kafe yang asli.", image: assets.food, prompt: "kopi kafe editorial" },
+  { id: "street_food", name: "Jajanan lokal", category: "Makanan", label: "Lokal", description: "Buat jajanan dan suasana asli terasa hidup tanpa mengarang hidangan atau orang.", image: assets.food, prompt: "jajanan lokal natural" },
   { id: "social", name: "Konten sosial", category: "Sosial", label: "Cepat pakai", description: "Kontras ringan untuk feed yang terasa lebih hidup.", image: assets.headshot, prompt: "warna editorial hangat" },
   { id: "reels_cover", name: "Cover video vertikal", category: "Sosial", label: "9:16", description: "Beri ruang aman untuk cover vertikal tanpa menambahkan judul otomatis.", image: assets.headshot, prompt: "cover vertikal bersih" },
   { id: "creator_frame", name: "Frame kreator", category: "Sosial", label: "Personal", description: "Jadikan subjek dan properti asli terasa lebih fokus untuk konten kreator.", image: assets.headshot, prompt: "konten kreator natural" },
+  { id: "thumbnail_clean", name: "Cover konten bersih", category: "Sosial", label: "Mobile", description: "Fokus yang kuat dan ruang kosong aman agar kamu dapat menambah teks sendiri nanti.", image: assets.headshot, prompt: "cover konten mobile" },
+  { id: "personal_story", name: "Cerita personal", category: "Sosial", label: "Lifestyle", description: "Tampilkan momen sehari-hari dengan cahaya dan warna yang terasa lebih jujur.", image: assets.headshot, prompt: "cerita visual personal" },
   { id: "fashion", name: "Kampanye fashion", category: "Fashion", label: "Editorial", description: "Rasa kampanye yang menonjolkan detail pakaian.", image: assets.headshot, prompt: "arah fashion campaign" },
   { id: "lookbook", name: "Lookbook bersih", category: "Fashion", label: "Koleksi", description: "Arah katalog busana dengan proporsi, warna, dan bahan yang setia.", image: assets.headshot, prompt: "lookbook busana bersih" },
   { id: "accessory", name: "Aksesori terfokus", category: "Fashion", label: "Detail", description: "Tekankan tas, sepatu, atau aksesori tanpa mengubah desain aslinya.", image: assets.headshot, prompt: "aksesori fashion detail" },
+  { id: "shoe_detail", name: "Sepatu & detail", category: "Fashion", label: "Alas kaki", description: "Tekankan bahan, sol, jahitan, dan detail alas kaki secara akurat.", image: assets.headshot, prompt: "sepatu detail editorial" },
   { id: "interior", name: "Ruang & properti", category: "Ruang", label: "Lebih terang", description: "Perspektif dan tekstur ruang terasa lebih rapi.", image: assets.product, prompt: "arsitektur editorial" },
   { id: "light", name: "Cahaya seimbang", category: "Ruang", label: "Perbaikan", description: "Seimbangkan eksposur, bayangan, dan warna tanpa mengubah isi foto.", image: assets.product, prompt: "cahaya natural seimbang" },
   { id: "listing", name: "Listing properti", category: "Ruang", label: "Properti", description: "Tampilkan ruang lebih terang dan lurus tanpa menambah furnitur atau ruangan.", image: assets.product, prompt: "listing properti terang" },
   { id: "workspace", name: "Meja kerja rapi", category: "Ruang", label: "Usaha", description: "Perjelas area kerja, tekstur, dan cahaya sambil menjaga seluruh objek asli.", image: assets.product, prompt: "ruang kerja editorial" },
+  { id: "hotel_room", name: "Kamar hotel terang", category: "Ruang", label: "Hospitalitas", description: "Tampilan akomodasi yang terang dan rapi tanpa menambah furnitur atau fasilitas.", image: assets.product, prompt: "ruang hotel editorial" },
+  { id: "storefront", name: "Etalase toko rapi", category: "Ruang", label: "Usaha", description: "Rapikan tampilan toko dan etalase sambil menjaga produk, label, dan suasana asli.", image: assets.product, prompt: "etalase toko terang" },
+  { id: "exterior", name: "Eksterior arsitektur", category: "Ruang", label: "Bangunan", description: "Luruskan perspektif dan cahaya fasad tanpa mengubah bangunan atau lingkungan.", image: assets.product, prompt: "eksterior arsitektur" },
   { id: "restore", name: "Pulihkan foto", category: "Restorasi", label: "Perbaikan", description: "Bersihkan kabut dan gores tanpa mengubah cerita.", image: assets.food, prompt: "restorasi natural" },
   { id: "detail", name: "Detail lebih tajam", category: "Restorasi", label: "Jernih", description: "Kurangi noise dan lembutnya foto dengan detail yang tetap masuk akal.", image: assets.food, prompt: "detail natural" },
   { id: "old_color", name: "Pulih warna lama", category: "Restorasi", label: "Arsip", description: "Seimbangkan warna foto lama sambil mempertahankan karakter historisnya.", image: assets.food, prompt: "warna arsip seimbang" },
   { id: "scan_clean", name: "Hasil pindai bersih", category: "Restorasi", label: "Dokumentasi", description: "Kurangi debu dan bayangan hasil pindai tanpa mengarang detail baru.", image: assets.product, prompt: "hasil pindai bersih" },
+  { id: "portrait_restore", name: "Potret lama dipulihkan", category: "Restorasi", label: "Kenangan", description: "Kurangi pudar dan gores halus sambil menjaga wajah serta karakter foto lama.", image: assets.headshot, prompt: "restorasi potret lama" },
+  { id: "low_light_recover", name: "Pulihkan foto gelap", category: "Restorasi", label: "Cahaya", description: "Angkat detail pada foto gelap tanpa mengubah suasana atau waktu yang terekam.", image: assets.product, prompt: "pemulihan low light" },
   { id: "document", name: "Dokumen terbaca", category: "Dokumen", label: "Presisi", description: "Rapikan kontras dan perspektif sambil menjaga setiap teks tetap persis sama.", image: assets.product, prompt: "dokumen jelas presisi" },
+  { id: "receipt_clean", name: "Struk & kuitansi jelas", category: "Dokumen", label: "Transaksi", description: "Tingkatkan keterbacaan bukti transaksi tanpa mengubah satu pun angka atau teks.", image: assets.product, prompt: "struk bersih presisi" },
+  { id: "menu_clean", name: "Menu & daftar rapi", category: "Dokumen", label: "Daftar", description: "Perjelas menu atau daftar tercetak sambil menjaga harga dan isi secara persis.", image: assets.product, prompt: "menu dokumen jelas" },
   { id: "ramadan_iftar", name: "Menu berbuka hangat", category: "Musiman", label: "Ramadan", description: "Buat menu berbuka terasa hangat dan menggoda tanpa mengubah hidangan asli.", image: assets.food, prompt: "menu berbuka hangat" , season: "ramadan" },
   { id: "ramadan_hampers", name: "Hampers Ramadan", category: "Musiman", label: "Ramadan", description: "Perjelas kemasan hampers, produk, dan dekorasi yang sudah ada untuk promosi toko.", image: assets.product, prompt: "hampers ramadan premium", season: "ramadan" },
   { id: "lebaran_family", name: "Momen Lebaran keluarga", category: "Musiman", label: "Lebaran", description: "Rapikan cahaya momen silaturahmi tanpa mengubah wajah, busana, atau jumlah orang.", image: assets.headshot, prompt: "potret keluarga lebaran", season: "lebaran" },
@@ -87,6 +109,8 @@ const recipes: Recipe[] = [
   { id: "sketch", name: "Sketsa editorial", category: "Kreatif", label: "Ilustrasi", description: "Ubah momen menjadi sketsa orisinal yang tetap setia pada subjek.", image: assets.headshot, prompt: "sketsa kontemporer" },
   { id: "film_analog", name: "Film analog hangat", category: "Kreatif", label: "Analog", description: "Tekstur cetak film yang lembut tanpa merusak isi dan warna penting.", image: assets.headshot, prompt: "cetak film analog hangat" },
   { id: "duotone", name: "Grafis dua warna", category: "Kreatif", label: "Grafis", description: "Arah grafis sederhana yang mempertahankan bentuk utama tanpa teks baru.", image: assets.headshot, prompt: "grafis dua warna kontemporer" },
+  { id: "color_pop", name: "Warna pop modern", category: "Kreatif", label: "Berwarna", description: "Warna lebih hidup dan modern tanpa mengubah subjek, objek, atau informasi penting.", image: assets.headshot, prompt: "warna pop modern" },
+  { id: "comic_ink", name: "Ilustrasi tinta modern", category: "Kreatif", label: "Ilustrasi", description: "Garis tinta dan warna terbatas dalam bahasa visual orisinal, bukan tiruan seniman.", image: assets.headshot, prompt: "ilustrasi tinta kontemporer" },
 ];
 
 const categories = [{ name: "Semua", icon: Layers3 }, { name: "Potret", icon: ScanFace }, { name: "Produk", icon: Package }, { name: "Makanan", icon: Utensils }, { name: "Sosial", icon: Sparkles }, { name: "Fashion", icon: Palette }, { name: "Ruang", icon: Camera }, { name: "Restorasi", icon: WandSparkles }, { name: "Dokumen", icon: FileText }, { name: "Musiman", icon: Sparkles }, { name: "Kreatif", icon: Aperture }];
@@ -108,6 +132,11 @@ const styleOptions: Array<{ value: AiStyle; title: string; note: string }> = [
   { value: "monochrome", title: "Monokrom", note: "kontras hitam-putih" },
   { value: "neon", title: "Neon", note: "cahaya malam modern" },
   { value: "watercolor", title: "Cat air", note: "ilustrasi transparan" },
+  { value: "clean", title: "Clean komersial", note: "netral & presisi" },
+  { value: "luxury", title: "Luxury", note: "kilau & material" },
+  { value: "soft_light", title: "Soft light", note: "cahaya difus" },
+  { value: "vibrant", title: "Vibrant", note: "warna hidup" },
+  { value: "matte", title: "Matte", note: "cetak lembut" },
 ];
 
 function downloadImage(url: string, recipe: string) {
@@ -166,6 +195,7 @@ export default function Home() {
   const deleteCaptionTemplateMutation = trpc.captionTemplates.delete.useMutation({ onSuccess: () => void utils.captionTemplates.list.invalidate(), onError: (error) => toast.error(error.message) });
   const seasonalCollectionsQuery = trpc.recipeCatalog.seasonalCollections.useQuery();
   const [selectedCategory, setSelectedCategory] = useState("Semua");
+  const [selectedRecipeGoal, setSelectedRecipeGoal] = useState<RecipeGoal>("Semua tujuan");
   const [selectedRecipeCollection, setSelectedRecipeCollection] = useState<RecipeCollectionFilter>("all");
   const [recipeSearch, setRecipeSearch] = useState("");
   const [recipeSort, setRecipeSort] = useState<RecipeSort>("curated");
@@ -199,7 +229,7 @@ export default function Home() {
   const collectionRecipeIds = useMemo(() => new Map((seasonalCollectionsQuery.data ?? []).map((collection) => [`collection:${collection.slug}`, new Set(collection.recipeIds)])), [seasonalCollectionsQuery.data]);
   const recipeCollections = useMemo(() => [...defaultRecipeCollections, ...(seasonalCollectionsQuery.data ?? []).map((collection) => ({ id: `collection:${collection.slug}` as RecipeCollectionFilter, label: collection.name }))], [seasonalCollectionsQuery.data]);
   const visibleRecipeUsage = recipeSort === "frequent" ? personalRecipeUsageQuery.data ?? [] : recipePopularityQuery.data ?? [];
-  const shownRecipes = useMemo(() => sortRecipeCatalog(filterRecipeCatalog(recipes, { query: recipeSearch, category: selectedCategory, collection: selectedRecipeCollection, favoriteIds: favoriteRecipeIds, collectionRecipeIds }), recipeSort, visibleRecipeUsage), [collectionRecipeIds, favoriteRecipeIds, recipeSearch, recipeSort, selectedCategory, selectedRecipeCollection, visibleRecipeUsage]);
+  const shownRecipes = useMemo(() => sortRecipeCatalog(filterRecipeGoal(filterRecipeCatalog(recipes, { query: recipeSearch, category: selectedCategory, collection: selectedRecipeCollection, favoriteIds: favoriteRecipeIds, collectionRecipeIds }), selectedRecipeGoal), recipeSort, visibleRecipeUsage), [collectionRecipeIds, favoriteRecipeIds, recipeSearch, recipeSort, selectedCategory, selectedRecipeCollection, selectedRecipeGoal, visibleRecipeUsage]);
   const personalRecipeRecommendations = useMemo(() => recommendPersonalRecipes(recipes, favoriteRecipeIds, personalRecipeUsageQuery.data ?? [], recipePopularityQuery.data ?? []), [favoriteRecipeIds, personalRecipeUsageQuery.data, recipePopularityQuery.data]);
   const previewImage = resultImage ?? uploadedImage ?? selectedRecipe.image;
   const allHistoryItems = historyQuery.data ?? [];
@@ -217,6 +247,7 @@ export default function Home() {
     return grouped;
   }, [historyItems]);
   const progressStage = progress < 25 ? 0 : progress < 48 ? 1 : progress < 78 ? 2 : 3;
+  const selectedRecipePreset = recipePresets[selectedRecipe.id];
 
   useEffect(() => {
     if (!isProcessing) return;
@@ -390,6 +421,15 @@ export default function Home() {
     setProgress(0);
   }
 
+  function applyRecipePreset() {
+    if (!selectedRecipePreset) return;
+    setSelectedStyle(selectedRecipePreset.style);
+    setSelectedAspect(selectedRecipePreset.aspect);
+    setResultImage(null);
+    setProgress(0);
+    toast.message(`Preset ${selectedRecipePreset.label} diterapkan. Kamu masih dapat mengubah gaya dan rasio.`);
+  }
+
   function toggleRecipeFavorite(recipe: Recipe) {
     if (!isAuthenticated) {
       toast.message("Masuk dulu untuk menyimpan resep ke favorit privat.");
@@ -519,6 +559,7 @@ export default function Home() {
             <section className="recipe-column">
               <div className="column-label"><span>PILIH RESEP</span><span>{shownRecipes.length} tersedia</span></div>
               <div className="category-tabs" aria-label="Kategori resep">{categories.map((category) => { const Icon = category.icon; return <button key={category.name} className={selectedCategory === category.name ? "is-selected" : ""} onClick={() => setSelectedCategory(category.name)}><Icon size={15} />{category.name}</button>; })}</div>
+              <div className="recipe-goals" role="group" aria-label="Tujuan edit foto"><span>TUJUAN</span>{recipeGoals.map((goal) => <button key={goal} type="button" className={selectedRecipeGoal === goal ? "is-selected" : ""} onClick={() => setSelectedRecipeGoal(goal)}>{goal}</button>)}</div>
               <div className="recipe-search"><label htmlFor="recipe-search">CARI RESEP</label><input id="recipe-search" type="search" value={recipeSearch} onChange={(event) => setRecipeSearch(event.target.value)} placeholder="Contoh: hampers, menu, properti…" /></div>
               <div className="recipe-collections" aria-label="Koleksi resep">{recipeCollections.map((collection) => <button type="button" key={collection.id} className={selectedRecipeCollection === collection.id ? "is-selected" : ""} onClick={() => setSelectedRecipeCollection(collection.id)}>{collection.id === "favorites" && <Heart size={12} fill={selectedRecipeCollection === "favorites" ? "currentColor" : "none"} />}{collection.label}</button>)}</div>
               <div className="recipe-sort" aria-label="Urutkan resep"><span>URUTKAN</span><button type="button" className={recipeSort === "curated" ? "is-selected" : ""} onClick={() => setRecipeSort("curated")}>Kurasi</button><button type="button" className={recipeSort === "frequent" ? "is-selected" : ""} onClick={() => { if (!isAuthenticated) { toast.message("Masuk untuk melihat resep yang paling sering kamu gunakan."); startLogin(); return; } setRecipeSort("frequent"); }}>Paling sering</button><button type="button" className={recipeSort === "popular" ? "is-selected" : ""} onClick={() => setRecipeSort("popular")}>Paling populer</button></div>
@@ -529,10 +570,11 @@ export default function Home() {
               {recommendationStatus === "error" && <div className="recipe-recommendation is-loading"><X size={15} /><span>Analisis foto belum tersedia. Kamu tetap dapat memilih resep secara manual.</span></div>}
               {recommendations.length > 0 && !recommendationMutation.isPending && <div className="recipe-recommendation-list" aria-label="Tiga rekomendasi resep AI">{recommendations.map((recommendation, index) => <button className="recipe-recommendation" key={recommendation.recipe} onClick={() => { const recipe = recipes.find((item) => item.id === recommendation.recipe); if (recipe) { chooseRecipe(recipe); setSelectedCategory(recipe.category); toast.message(`${recipe.name} dipilih. Foto sumber tetap sama.`); } }}><Sparkles size={15} /><span><small>REKOMENDASI AI {String(index + 1).padStart(2, "0")} · {recommendation.confidence === "high" ? "TINGGI" : recommendation.confidence === "medium" ? "SEDANG" : "EKSPLORASI"}</small><strong>Coba {recipes.find((item) => item.id === recommendation.recipe)?.name ?? "Konten sosial"}</strong><em>{recommendation.reason}</em></span><ArrowRight size={15} /></button>)}</div>}
               <div className="recipe-list">{shownRecipes.map((recipe, index) => { const isFavorite = favoriteRecipeIds.has(recipe.id); return <article key={recipe.id} className={`recipe-card ${selectedRecipe.id === recipe.id ? "is-selected" : ""}`}><button type="button" className="recipe-select" onClick={() => chooseRecipe(recipe)}><span className="recipe-image"><MediaImage src={recipe.image} alt="" fallbackLabel="Pratinjau resep" /><i>R-{String(index + 1).padStart(2, "0")}</i></span><span><span className="recipe-label">{recipe.label}{recipe.season ? ` · ${recipe.season === "ramadan" ? "RAMADAN" : "LEBARAN"}` : ""}</span><strong>{recipe.name}</strong><p>{recipe.description}</p></span><span className="recipe-check">{selectedRecipe.id === recipe.id && <Check size={15} />}</span></button><button type="button" className={`recipe-favorite ${isFavorite ? "is-saved" : ""}`} aria-label={isFavorite ? `Hapus ${recipe.name} dari favorit` : `Simpan ${recipe.name} ke favorit`} aria-pressed={isFavorite} onClick={() => toggleRecipeFavorite(recipe)} disabled={createRecipeFavoriteMutation.isPending || deleteRecipeFavoriteMutation.isPending}><Heart size={14} fill={isFavorite ? "currentColor" : "none"} /></button></article>; })}</div>
-              {!shownRecipes.length && <div className="recipe-empty"><strong>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Masuk untuk melihat favoritmu." : "Resep belum ditemukan."}</strong><p>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Favorit resep tersimpan privat di akunmu." : "Coba kata kunci lain atau longgarkan kategori/koleksi yang dipilih."}</p>{(recipeSearch || selectedCategory !== "Semua" || selectedRecipeCollection !== "all") && <button type="button" onClick={() => { setRecipeSearch(""); setSelectedCategory("Semua"); setSelectedRecipeCollection("all"); }}>Atur ulang filter</button>}</div>}
+              {!shownRecipes.length && <div className="recipe-empty"><strong>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Masuk untuk melihat favoritmu." : "Resep belum ditemukan."}</strong><p>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Favorit resep tersimpan privat di akunmu." : "Coba kata kunci lain atau longgarkan kategori, tujuan, dan koleksi yang dipilih."}</p>{(recipeSearch || selectedCategory !== "Semua" || selectedRecipeGoal !== "Semua tujuan" || selectedRecipeCollection !== "all") && <button type="button" onClick={() => { setRecipeSearch(""); setSelectedCategory("Semua"); setSelectedRecipeGoal("Semua tujuan"); setSelectedRecipeCollection("all"); }}>Atur ulang filter</button>}</div>}
               <div className="style-picker"><div><span className="eyebrow"><Palette size={13} /> GAYA AI</span><p>Pilih bahasa visual untuk hasilmu.</p></div><div className="style-options">{styleOptions.map((style) => <button key={style.value} className={selectedStyle === style.value ? "is-selected" : ""} onClick={() => chooseStyle(style.value)}><strong>{style.title}</strong><small>{style.note}</small></button>)}</div></div>
               <div className="aspect-picker"><div><span className="eyebrow"><Ratio size={13} /> RASIO KELUARAN</span><p>AI menata komposisi sesuai frame pilihanmu.</p></div><Select value={selectedAspect} onValueChange={(value) => chooseAspect(value as OutputAspect)}><SelectTrigger size="sm" className="aspect-select"><SelectValue /></SelectTrigger><SelectContent>{aspectOptions.map((aspect) => <SelectItem key={aspect.value} value={aspect.value}>{aspect.title} · {aspect.note}</SelectItem>)}</SelectContent></Select></div>
               <div className="selected-recipe-note"><WandSparkles size={16} /><span>Resep dipilih: <strong>{selectedRecipe.name}</strong> · {selectedRecipe.prompt}</span></div>
+              {selectedRecipePreset && <div className="recipe-preset"><div><span>PRESET CEPAT</span><strong>{selectedRecipePreset.label}</strong><small>{styleOptions.find((style) => style.value === selectedRecipePreset.style)?.title} · {selectedRecipePreset.aspect}</small></div><button type="button" onClick={applyRecipePreset}>Pakai preset</button></div>}
               <div className="instruction-field"><label htmlFor="custom-instruction"><span>{retryOfTransformId ? "CATATAN UNTUK PERCOBAAN ULANG" : "ARAH TAMBAHAN OPSIONAL"}</span><small>{customInstruction.length}/360</small></label>{retryOfTransformId && <div className="retry-instruction-note"><RotateCcw size={14} /><span>Catatan ini dicatat privat pada percobaan ulang foto sebelumnya.</span></div>}<Textarea id="custom-instruction" value={customInstruction} onChange={(event) => setCustomInstruction(event.target.value.slice(0, 360))} placeholder={retryOfTransformId ? "Contoh: pertahankan produk, cerahkan latar, jangan ubah label." : "Contoh: pertahankan suasana hangat, buat latar lebih tenang."} /><p>Instruksi dipakai hanya bila tidak bertentangan dengan perlindungan subjek, label, dan komposisi foto sumber.</p><div className="instruction-favorites"><div className="favorite-heading"><span>FAVORIT PRIBADI</span><button type="button" onClick={saveInstructionFavorite} disabled={createPromptFavoriteMutation.isPending || customInstruction.trim().length < 3}><BookmarkPlus size={14} /> Simpan arahan</button></div>{!isAuthenticated ? <button type="button" className="favorite-login" onClick={startLogin}>Masuk untuk menyimpan arahan favorit privat.</button> : promptFavoritesQuery.isLoading ? <small>Memuat arahan favorit…</small> : promptFavoritesQuery.isError ? <div className="favorite-error"><small>Favorit privat belum dapat dimuat.</small><button type="button" onClick={() => void promptFavoritesQuery.refetch()}>Muat ulang</button></div> : promptFavoritesQuery.data?.length ? <div className="favorite-list">{promptFavoritesQuery.data.map((favorite) => <div className="favorite-chip" key={favorite.id}><button type="button" onClick={() => { setCustomInstruction(favorite.instruction); toast.message("Arahan favorit dipakai kembali."); }}>{favorite.instruction}</button><button type="button" aria-label="Hapus arahan favorit" onClick={() => deletePromptFavoriteMutation.mutate({ favoriteId: favorite.id })} disabled={deletePromptFavoriteMutation.isPending}><Trash2 size={13} /></button></div>)}</div> : <small>Belum ada arahan favorit. Simpan arah yang ingin dipakai lagi di sini.</small>}</div></div>
             </section>
 

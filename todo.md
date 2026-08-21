@@ -401,3 +401,7 @@
 - [x] Tambahkan hapus massal dan arsip owner-scoped untuk proses foto gagal.
 - [x] Tambahkan filter jenis kegagalan, tanggal proses, dan kontrol pilih banyak pada riwayat gagal.
 - [x] Uji privasi pengelolaan gagal, pembaruan skill ai-photo-studio-fullstack, validasi, dan rilis.
+- [x] Audit katalog resep, kontrol pemilihan, dan pola rekomendasi Studio yang tersedia.
+- [x] Tambahkan koleksi resep baru dan metadata pemilihan yang lebih kaya untuk transformasi foto.
+- [x] Tingkatkan pencarian, filter, serta rekomendasi resep di Studio.
+- [x] Uji katalog dan kontrol resep, perbarui skill ai-photo-studio-fullstack, validasi, dan rilis.

@@ -21,8 +21,8 @@ describe("photo transform prompts", () => {
     expect(buildTransformPrompt("travel")).toContain("destination editorial");
   });
 
-  it("covers the expanded 35-recipe catalog with specialized and safe directions", () => {
-    expect(recipeIds).toHaveLength(40);
+  it("covers the expanded 64-recipe catalog with specialized and safe directions", () => {
+    expect(recipeIds).toHaveLength(63);
     expect(buildTransformPrompt("portrait_window")).toContain("window-light editorial");
     expect(buildTransformPrompt("marketplace")).toContain("marketplace-ready");
     expect(buildTransformPrompt("beverage")).toContain("drinks campaign");
@@ -30,6 +30,12 @@ describe("photo transform prompts", () => {
     expect(buildTransformPrompt("document")).toContain("exactly as captured");
     expect(buildTransformPrompt("document")).toContain("Do not add text, remove text, change text");
     expect(buildTransformPrompt("duotone")).toContain("two-tone graphic");
+    expect(buildTransformPrompt("personal_brand")).toContain("personal-brand editorial");
+    expect(buildTransformPrompt("product_white")).toContain("clean-background commerce");
+    expect(buildTransformPrompt("coffee")).toContain("cafe editorial");
+    expect(buildTransformPrompt("hotel_room")).toContain("hospitality editorial");
+    expect(buildTransformPrompt("receipt_clean")).toContain("currency symbol");
+    expect(buildTransformPrompt("comic_ink")).toContain("ink-and-color illustration");
   });
 
   it("membatasi arah Ramadan dan Lebaran pada perayaan yang setia pada sumber", () => {
