@@ -397,3 +397,7 @@
 - [x] Audit riwayat foto gagal dan jalur penghapusan owner-scoped yang tersedia.
 - [x] Tambahkan menu hapus berkonfirmasi pada hasil proses yang gagal.
 - [x] Uji penghapusan gagal, privasi pemilik, pembaruan skill ai-photo-studio-fullstack, dan rilis.
+- [x] Audit status proses gagal, pemilihan massal, filter, dan lifecycle arsip yang tersedia.
+- [x] Tambahkan hapus massal dan arsip owner-scoped untuk proses foto gagal.
+- [x] Tambahkan filter jenis kegagalan, tanggal proses, dan kontrol pilih banyak pada riwayat gagal.
+- [x] Uji privasi pengelolaan gagal, pembaruan skill ai-photo-studio-fullstack, validasi, dan rilis.

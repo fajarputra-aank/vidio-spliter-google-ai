@@ -888,6 +888,33 @@ export async function deletePhotoTransform(userId: number, transformId: number) 
   });
 }
 
+/** Permanently remove only a bounded selection of owner-owned failed transforms. */
+export async function deleteFailedPhotoTransforms(userId: number, transformIds: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const uniqueIds = Array.from(new Set(transformIds));
+  if (!uniqueIds.length) return { deletedCount: 0, revokedShareLinks: 0 };
+  return db.transaction(async (tx) => {
+    const transforms = await tx.select({ id: photoTransforms.id }).from(photoTransforms).where(and(eq(photoTransforms.userId, userId), inArray(photoTransforms.id, uniqueIds), eq(photoTransforms.status, "failed")));
+    const ids = transforms.map((transform) => transform.id);
+    if (!ids.length) return { deletedCount: 0, revokedShareLinks: 0 };
+    const posts = await tx.select({ id: communityPosts.id }).from(communityPosts).where(and(eq(communityPosts.userId, userId), inArray(communityPosts.transformId, ids)));
+    const postIds = posts.map((post) => post.id);
+    if (postIds.length) {
+      await tx.delete(communityLikes).where(inArray(communityLikes.postId, postIds));
+      await tx.delete(communityReports).where(inArray(communityReports.postId, postIds));
+      await tx.delete(communityPosts).where(inArray(communityPosts.id, postIds));
+    }
+    const activeLinks = await tx.select({ id: photoCollaborationShareLinks.id }).from(photoCollaborationShareLinks).where(and(inArray(photoCollaborationShareLinks.transformId, ids), isNull(photoCollaborationShareLinks.revokedAt), gt(photoCollaborationShareLinks.expiresAt, new Date())));
+    await tx.delete(photoCollaborationShareLinks).where(inArray(photoCollaborationShareLinks.transformId, ids));
+    await tx.delete(photoAlbumItems).where(inArray(photoAlbumItems.transformId, ids));
+    await tx.delete(photoShareEvents).where(inArray(photoShareEvents.transformId, ids));
+    await tx.delete(collaborationProviderRetryQueues).where(inArray(collaborationProviderRetryQueues.sourceTransformId, ids));
+    await tx.delete(photoTransforms).where(and(eq(photoTransforms.userId, userId), inArray(photoTransforms.id, ids), eq(photoTransforms.status, "failed")));
+    return { deletedCount: ids.length, revokedShareLinks: activeLinks.length };
+  });
+}
+
 export async function getDailyPhotoQuota(userId: number, now = new Date()) {
   const db = await getDb();
   if (!db) throw new Error("Basis data belum tersedia.");
