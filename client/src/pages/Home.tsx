@@ -12,6 +12,7 @@ import { readRemixPreset } from "@/lib/remix";
 import { selectAlternativeRecipe } from "@/lib/studioExperiment";
 import { privateMediaUrl, publicMediaUrl } from "@/lib/mediaUrl";
 import { formatProcessDuration } from "@/lib/processDuration";
+import { recipePreviewAlt, recipePreviewDisclaimer, recipePreviewMeta } from "@/lib/recipePreview";
 import { filterRecipeCatalog, filterRecipeGoal, recipeGoals, recipePresets, recommendPersonalRecipes, sortRecipeCatalog, type RecipeCollectionFilter, type RecipeGoal, type RecipePresetStyle, type RecipeSort } from "@/lib/recipeCatalog";
 import { useBrand } from "@/contexts/BrandContext";
 import { useTransportConnectivity } from "@/lib/transportConnectivity";
@@ -25,7 +26,7 @@ import { ShareResultDialog } from "@/components/ShareResultDialog";
 import { FailedPhotoDeletePanel } from "@/components/FailedPhotoDeletePanel";
 import {
   Aperture, ArrowRight, BookmarkPlus, Camera, Check, ChevronRight, Clock3, Download,
-  FileText, Globe2, History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
+  Eye, FileText, Globe2, History, ImagePlus, Layers3, LoaderCircle, LogIn, Menu, Package,
   Heart, Palette, Ratio, RotateCcw, ScanFace, Share2, Sparkles, Trash2, Utensils, WandSparkles, Wifi, WifiOff, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -200,6 +201,7 @@ export default function Home() {
   const [recipeSearch, setRecipeSearch] = useState("");
   const [recipeSort, setRecipeSort] = useState<RecipeSort>("curated");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe>(recipes[0]);
+  const [previewRecipe, setPreviewRecipe] = useState<Recipe | null>(null);
   const [selectedAspect, setSelectedAspect] = useState<OutputAspect>("1:1");
   const [selectedStyle, setSelectedStyle] = useState<AiStyle>("editorial");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -569,7 +571,27 @@ export default function Home() {
               {recommendationStatus === "login" && <button className="recipe-recommendation is-login" onClick={startLogin}><LogIn size={15} /><span><small>REKOMENDASI AI</small><strong>Masuk untuk analisis otomatis</strong><em>Analisis jenis foto berjalan privat setelah kamu masuk ke studio.</em></span><ArrowRight size={15} /></button>}
               {recommendationStatus === "error" && <div className="recipe-recommendation is-loading"><X size={15} /><span>Analisis foto belum tersedia. Kamu tetap dapat memilih resep secara manual.</span></div>}
               {recommendations.length > 0 && !recommendationMutation.isPending && <div className="recipe-recommendation-list" aria-label="Tiga rekomendasi resep AI">{recommendations.map((recommendation, index) => <button className="recipe-recommendation" key={recommendation.recipe} onClick={() => { const recipe = recipes.find((item) => item.id === recommendation.recipe); if (recipe) { chooseRecipe(recipe); setSelectedCategory(recipe.category); toast.message(`${recipe.name} dipilih. Foto sumber tetap sama.`); } }}><Sparkles size={15} /><span><small>REKOMENDASI AI {String(index + 1).padStart(2, "0")} · {recommendation.confidence === "high" ? "TINGGI" : recommendation.confidence === "medium" ? "SEDANG" : "EKSPLORASI"}</small><strong>Coba {recipes.find((item) => item.id === recommendation.recipe)?.name ?? "Konten sosial"}</strong><em>{recommendation.reason}</em></span><ArrowRight size={15} /></button>)}</div>}
-              <div className="recipe-list">{shownRecipes.map((recipe, index) => { const isFavorite = favoriteRecipeIds.has(recipe.id); return <article key={recipe.id} className={`recipe-card ${selectedRecipe.id === recipe.id ? "is-selected" : ""}`}><button type="button" className="recipe-select" onClick={() => chooseRecipe(recipe)}><span className="recipe-image"><MediaImage src={recipe.image} alt="" fallbackLabel="Pratinjau resep" /><i>R-{String(index + 1).padStart(2, "0")}</i></span><span><span className="recipe-label">{recipe.label}{recipe.season ? ` · ${recipe.season === "ramadan" ? "RAMADAN" : "LEBARAN"}` : ""}</span><strong>{recipe.name}</strong><p>{recipe.description}</p></span><span className="recipe-check">{selectedRecipe.id === recipe.id && <Check size={15} />}</span></button><button type="button" className={`recipe-favorite ${isFavorite ? "is-saved" : ""}`} aria-label={isFavorite ? `Hapus ${recipe.name} dari favorit` : `Simpan ${recipe.name} ke favorit`} aria-pressed={isFavorite} onClick={() => toggleRecipeFavorite(recipe)} disabled={createRecipeFavoriteMutation.isPending || deleteRecipeFavoriteMutation.isPending}><Heart size={14} fill={isFavorite ? "currentColor" : "none"} /></button></article>; })}</div>
+              <div className="recipe-list">{shownRecipes.map((recipe, index) => { const isFavorite = favoriteRecipeIds.has(recipe.id); return <article key={recipe.id} className={`recipe-card ${selectedRecipe.id === recipe.id ? "is-selected" : ""}`}><button type="button" className="recipe-select" onClick={() => chooseRecipe(recipe)}><span className="recipe-image"><MediaImage src={recipe.image} alt="" fallbackLabel="Pratinjau resep" /><i>R-{String(index + 1).padStart(2, "0")}</i></span><span><span className="recipe-label">{recipe.label}{recipe.season ? ` · ${recipe.season === "ramadan" ? "RAMADAN" : "LEBARAN"}` : ""}</span><strong>{recipe.name}</strong><p>{recipe.description}</p></span><span className="recipe-check">{selectedRecipe.id === recipe.id && <Check size={15} />}</span></button><button type="button" className="recipe-preview" onClick={() => setPreviewRecipe(recipe)} aria-label={`Lihat contoh ${recipe.name}`}><Eye size={13} /><span>Contoh</span></button><button type="button" className={`recipe-favorite ${isFavorite ? "is-saved" : ""}`} aria-label={isFavorite ? `Hapus ${recipe.name} dari favorit` : `Simpan ${recipe.name} ke favorit`} aria-pressed={isFavorite} onClick={() => toggleRecipeFavorite(recipe)} disabled={createRecipeFavoriteMutation.isPending || deleteRecipeFavoriteMutation.isPending}><Heart size={14} fill={isFavorite ? "currentColor" : "none"} /></button></article>; })}</div>
+              <Dialog open={Boolean(previewRecipe)} onOpenChange={(open) => { if (!open) setPreviewRecipe(null); }}>
+                <DialogContent className="recipe-preview-dialog">
+                  {previewRecipe && <>
+                    <DialogHeader>
+                      <span className="recipe-preview-kicker"><Eye size={13} /> CONTOH ARAH VISUAL</span>
+                      <DialogTitle>{previewRecipe.name}</DialogTitle>
+                      <DialogDescription>{previewRecipe.description}</DialogDescription>
+                    </DialogHeader>
+                    <div className="recipe-preview-visual">
+                      <MediaImage src={previewRecipe.image} alt={recipePreviewAlt(previewRecipe)} fallbackLabel="Contoh resep tidak tersedia" />
+                      <span>{recipePreviewMeta(previewRecipe)}</span>
+                    </div>
+                    <div className="recipe-preview-copy">
+                      <p>{recipePreviewDisclaimer()}</p>
+                      <small>Prompt utama: {previewRecipe.prompt}</small>
+                    </div>
+                    <button type="button" className="recipe-preview-choose" onClick={() => { chooseRecipe(previewRecipe); setPreviewRecipe(null); }}>Pilih resep ini <ArrowRight size={15} /></button>
+                  </>}
+                </DialogContent>
+              </Dialog>
               {!shownRecipes.length && <div className="recipe-empty"><strong>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Masuk untuk melihat favoritmu." : "Resep belum ditemukan."}</strong><p>{selectedRecipeCollection === "favorites" && !isAuthenticated ? "Favorit resep tersimpan privat di akunmu." : "Coba kata kunci lain atau longgarkan kategori, tujuan, dan koleksi yang dipilih."}</p>{(recipeSearch || selectedCategory !== "Semua" || selectedRecipeGoal !== "Semua tujuan" || selectedRecipeCollection !== "all") && <button type="button" onClick={() => { setRecipeSearch(""); setSelectedCategory("Semua"); setSelectedRecipeGoal("Semua tujuan"); setSelectedRecipeCollection("all"); }}>Atur ulang filter</button>}</div>}
               <div className="style-picker"><div><span className="eyebrow"><Palette size={13} /> GAYA AI</span><p>Pilih bahasa visual untuk hasilmu.</p></div><div className="style-options">{styleOptions.map((style) => <button key={style.value} className={selectedStyle === style.value ? "is-selected" : ""} onClick={() => chooseStyle(style.value)}><strong>{style.title}</strong><small>{style.note}</small></button>)}</div></div>
               <div className="aspect-picker"><div><span className="eyebrow"><Ratio size={13} /> RASIO KELUARAN</span><p>AI menata komposisi sesuai frame pilihanmu.</p></div><Select value={selectedAspect} onValueChange={(value) => chooseAspect(value as OutputAspect)}><SelectTrigger size="sm" className="aspect-select"><SelectValue /></SelectTrigger><SelectContent>{aspectOptions.map((aspect) => <SelectItem key={aspect.value} value={aspect.value}>{aspect.title} · {aspect.note}</SelectItem>)}</SelectContent></Select></div>
