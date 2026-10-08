@@ -15,6 +15,7 @@ import { handleSecuritySummaries } from "../scheduled/securitySummaries";
 import { handleCollaborationShareExpiryReminders } from "../scheduled/collaborationShareExpiryReminders";
 import { handleCollaborationProviderRecovery } from "../scheduled/collaborationProviderRecovery";
 import { handleTrpcNonJsonMetric } from "./trpcTransportMetrics";
+import { assertIndependentBackendConfig, ENV } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,6 +37,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  if (ENV.independentBackend) assertIndependentBackendConfig();
   const app = express();
   const server = createServer(app);
   registerStripeWebhook(app);
@@ -50,6 +52,7 @@ async function startServer() {
   app.post("/api/scheduled/collaboration-share-expiry-reminders", handleCollaborationShareExpiryReminders);
   app.post("/api/scheduled/collaboration-provider-recovery", handleCollaborationProviderRecovery);
   app.post("/api/client-metrics/trpc-non-json", handleTrpcNonJsonMetric);
+  app.get("/api/health", (_req, res) => res.json({ ok: true, mode: ENV.independentBackend ? "independent" : "manus-compatible", aiProvider: ENV.aiProvider, storageProvider: ENV.storageProvider }));
   // tRPC API
   app.use(
     "/api/trpc",
