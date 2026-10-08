@@ -53,6 +53,35 @@ Object tetap disimpan dengan key internal dan dikembalikan sebagai `/manus-stora
 6. Jalankan `NODE_ENV=production INDEPENDENT_BACKEND=true node dist/index.js`.
 7. Verifikasi `GET /api/health` sebelum menghubungkan APK atau EXE.
 
+## Menjalankan dengan Docker Compose
+
+Salin contoh environment terlebih dahulu, lalu isi minimal `OPENAI_API_KEY`:
+
+```bash
+cp .env.independent.example .env.independent
+docker compose -f docker-compose.independent.yml up --build
+```
+
+Compose menyediakan backend pada `http://localhost:3000`, MySQL lokal, dan MinIO lokal. Bucket privat dibuat oleh service `minio-init`. Data MySQL dan MinIO disimpan pada named volumes Docker.
+
+Untuk menghentikan service tanpa menghapus data:
+
+```bash
+docker compose -f docker-compose.independent.yml down
+```
+
+Untuk menghapus data lokal juga:
+
+```bash
+docker compose -f docker-compose.independent.yml down -v
+```
+
+## Deploy ke Railway
+
+Repository sudah menyertakan `Dockerfile` dan `railway.json`. Hubungkan repository GitHub ke Railway, lalu isi environment variables production pada service backend. Railway akan menggunakan Dockerfile, menjalankan `pnpm exec drizzle-kit migrate` sebelum deploy, menunggu `/api/health`, lalu menjalankan `node dist/index.js`.
+
+Setidaknya isi `INDEPENDENT_BACKEND`, `JWT_SECRET`, `DATABASE_URL`, `AI_PROVIDER`, `OPENAI_API_KEY`, `STORAGE_PROVIDER`, dan semua kredensial S3. Gunakan MySQL yang dikelola Railway atau provider database eksternal; jangan memakai hostname `mysql` dari Compose pada Railway.
+
 ## Tahap berikutnya
 
 - Ganti `manus-storage` menjadi nama path netral setelah migrasi data selesai.
