@@ -18,6 +18,8 @@ import { registerActiveSession } from "./sessionMetadata";
 import { aiQuotaRetryAt, aiQuotaRetryEstimate, toSafeTransformFailure } from "./transformFailureMessages";
 import { assessCollaborationFaceReadiness } from "./collaborationFaceReadiness";
 import sharp from "sharp";
+import type { Request } from "express";
+import type { User } from "../drizzle/schema";
 
 const imageInput = z.object({
   recipe: z.enum(recipeIds),
@@ -147,6 +149,18 @@ function isTemporaryProviderFailure(error: unknown) {
   return /network|fetch|timeout|timed out|temporar|service unavailable|\b502\b|\b503\b|\b504\b/i.test(message);
 }
 
+const MOBILE_ACCESS_TOKEN_MS = 15 * 60 * 1000;
+const MOBILE_REFRESH_TOKEN_MS = 30 * 24 * 60 * 60 * 1000;
+
+async function issueMobileTokens(user: User, req: Request) {
+  const sessionVersion = await db.getUserSessionVersion(user.id);
+  const session = await registerActiveSession(user.id, sessionVersion, req);
+  const accessToken = await sdk.createSessionToken(user.id, { expiresInMs: MOBILE_ACCESS_TOKEN_MS, sessionVersion, sessionId: session.id });
+  const refresh = createSecurityToken();
+  await db.createMobileRefreshToken({ userId: user.id, sessionId: session.id, tokenHash: refresh.tokenHash, expiresAt: new Date(Date.now() + MOBILE_REFRESH_TOKEN_MS) });
+  return { accessToken, refreshToken: refresh.token, accessTokenExpiresAt: new Date(Date.now() + MOBILE_ACCESS_TOKEN_MS).toISOString(), refreshTokenExpiresAt: new Date(Date.now() + MOBILE_REFRESH_TOKEN_MS).toISOString(), sessionId: session.id };
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -195,6 +209,43 @@ export const appRouter = router({
       }
       return { user };
     }),
+    mobileRegister: publicProcedure.input(z.object({ name: z.string().trim().min(2).max(80), email: z.string().trim().min(3).max(320), password: z.string().min(12).max(128) })).mutation(async ({ ctx, input }) => {
+      let details: { name: string; email: string };
+      try { details = validateRegistrationInput(input.name, input.email, input.password); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Data pendaftaran belum valid." }); }
+      const user = await db.createLocalUser({ ...details, passwordHash: await hashPassword(input.password) });
+      if (!user) throw new TRPCError({ code: "CONFLICT", message: "Email ini sudah terdaftar. Silakan masuk." });
+      const tokens = await issueMobileTokens(user, ctx.req);
+      try { await issueAccountEmail(user, "email_verification"); } catch (error) { console.error("[Auth] Failed to send mobile verification email", error); }
+      return { user, ...tokens };
+    }),
+    mobileLogin: publicProcedure.input(z.object({ email: z.string().trim().min(3).max(320), password: z.string().min(1).max(128) })).mutation(async ({ ctx, input }) => {
+      const email = normalizeEmail(input.email);
+      const emailHash = hashLoginEmail(email);
+      const lockedUntil = await db.getLoginLock(emailHash);
+      if (lockedUntil) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Terlalu banyak percobaan masuk. Coba lagi setelah 15 menit." });
+      const user = await db.getUserByEmail(email);
+      if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
+        const newLock = await db.recordFailedLogin(emailHash);
+        if (newLock) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Terlalu banyak percobaan masuk. Coba lagi setelah 15 menit." });
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Email atau kata sandi tidak sesuai." });
+      }
+      await db.clearFailedLogins(emailHash);
+      await db.touchLocalSignIn(user.id);
+      const tokens = await issueMobileTokens(user, ctx.req);
+      try { await db.recordUserSecurityEvent(user.id, "login"); } catch (error) { console.error("[Auth] Failed to record mobile login event", error); }
+      return { user, ...tokens };
+    }),
+    mobileRefresh: publicProcedure.input(z.object({ refreshToken: z.string().trim().min(40).max(200) })).mutation(async ({ ctx, input }) => {
+      const consumed = await db.consumeMobileRefreshToken(hashSecurityToken(input.refreshToken));
+      if (!consumed) throw new TRPCError({ code: "UNAUTHORIZED", message: "Sesi mobile sudah berakhir. Silakan masuk kembali." });
+      const sessionVersion = await db.getUserSessionVersion(consumed.user.id);
+      if (!(await db.isUserActiveSession(consumed.user.id, consumed.token.sessionId, sessionVersion))) throw new TRPCError({ code: "UNAUTHORIZED", message: "Sesi mobile sudah dicabut. Silakan masuk kembali." });
+      const accessToken = await sdk.createSessionToken(consumed.user.id, { expiresInMs: MOBILE_ACCESS_TOKEN_MS, sessionVersion, sessionId: consumed.token.sessionId });
+      const refresh = createSecurityToken();
+      await db.createMobileRefreshToken({ userId: consumed.user.id, sessionId: consumed.token.sessionId, tokenHash: refresh.tokenHash, expiresAt: new Date(Date.now() + MOBILE_REFRESH_TOKEN_MS) });
+      return { user: consumed.user, accessToken, refreshToken: refresh.token, accessTokenExpiresAt: new Date(Date.now() + MOBILE_ACCESS_TOKEN_MS).toISOString(), refreshTokenExpiresAt: new Date(Date.now() + MOBILE_REFRESH_TOKEN_MS).toISOString(), sessionId: consumed.token.sessionId };
+    }),
+    mobileLogout: publicProcedure.input(z.object({ refreshToken: z.string().trim().min(40).max(200) })).mutation(async ({ input }) => ({ success: await db.revokeMobileRefreshToken(hashSecurityToken(input.refreshToken)) })),
     requestPasswordReset: publicProcedure.input(z.object({ email: z.string().trim().min(3).max(320) })).mutation(async ({ input }) => {
       const user = await db.getUserByEmail(normalizeEmail(input.email));
       if (user?.passwordHash) {
@@ -209,6 +260,7 @@ export const appRouter = router({
       const updated = await db.updateLocalPassword(user.id, await hashPassword(input.password), false);
       if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
       await db.invalidateUserSessions(updated.id);
+      await db.revokeUserMobileRefreshTokens(updated.id);
       try { await db.recordUserSecurityEvent(updated.id, "password_reset"); } catch (error) { console.error("[Auth] Failed to record password reset event", error); }
       let emailNoticeSent = false;
       try { emailNoticeSent = await sendPasswordChangedEmail(updated); } catch (error) { console.error("[Auth] Failed to send password-change email", error); }
@@ -231,6 +283,7 @@ export const appRouter = router({
       const user = await db.updateLocalPassword(ctx.user.id, await hashPassword(input.nextPassword), false);
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "Akun tidak ditemukan." });
       const sessionVersion = await db.invalidateUserSessions(user.id);
+      await db.revokeUserMobileRefreshTokens(user.id);
       const session = await registerActiveSession(user.id, sessionVersion, ctx.req);
       const refreshedSession = await sdk.createSessionToken(user.id, { sessionVersion, sessionId: session.id });
       ctx.res.cookie(COOKIE_NAME, refreshedSession, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 24 * 30 });
@@ -264,6 +317,7 @@ export const appRouter = router({
     }),
     signOutAllSessions: signedInProcedure.mutation(async ({ ctx }) => {
       await db.invalidateUserSessions(ctx.user.id);
+      await db.revokeUserMobileRefreshTokens(ctx.user.id);
       try { await db.recordUserSecurityEvent(ctx.user.id, "all_sessions_signed_out"); } catch (error) { console.error("[Auth] Failed to record session sign-out event", error); }
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

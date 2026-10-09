@@ -82,10 +82,10 @@ Repository sudah menyertakan `Dockerfile` dan `railway.json`. Hubungkan reposito
 
 Setidaknya isi `INDEPENDENT_BACKEND`, `JWT_SECRET`, `DATABASE_URL`, `AI_PROVIDER`, `OPENAI_API_KEY`, `STORAGE_PROVIDER`, dan semua kredensial S3. Gunakan MySQL yang dikelola Railway atau provider database eksternal; jangan memakai hostname `mysql` dari Compose pada Railway.
 
-## Tahap berikutnya
+## Client native
 
+- Refresh token native sudah tersedia melalui tabel `mobileRefreshTokens` dan prosedur `auth.mobileLogin`, `auth.mobileRefresh`, serta `auth.mobileLogout`.
+- Shell Android Capacitor dan perintah build APK tersedia di `docs/mobile-android.md`.
 - Ganti `manus-storage` menjadi nama path netral setelah migrasi data selesai.
-- Tambahkan refresh-token/revocation policy untuk client native.
 - Pindahkan scheduled handlers ke cron provider independen.
 - Tambahkan adapter email provider independen untuk verifikasi dan reset password.
-- Setelah backend stabil, buat client Expo Android dan Tauri Windows menggunakan base URL backend ini.

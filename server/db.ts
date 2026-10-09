@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { collaborationShareRoleLimits, photoCollaborationBrandLogos, photoCollaborationInvites, photoCollaborationLayoutPresets, photoCollaborationShareLinks } from "../drizzle/schema";
-import { adminAccessAudits, aiProviderCapacityStatus, authEmailTokens, authLoginAttempts, brandSettings, collaborationBrandBackgroundPresets, collaborationProviderRetryQueues, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoCollaborationResultReports, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, trpcNonJsonMetricBuckets, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
+import { adminAccessAudits, aiProviderCapacityStatus, authEmailTokens, authLoginAttempts, brandSettings, collaborationBrandBackgroundPresets, collaborationProviderRetryQueues, communityLikes, communityPosts, communityReports, creditLedger, creditPurchases, globalWatermarkPresetAudits, globalWatermarkPresets, InsertPhotoTransform, InsertUser, manualCreditOrders, mobileRefreshTokens, photoAlbumItems, photoAlbums, photoCaptionTemplates, photoCollaborationResultReports, photoPromptFavorites, photoRecipeFavorites, photoShareEvents, photoTransforms, photoWatermarkPresets, scheduledJobs, seasonalRecipeCollections, trpcNonJsonMetricBuckets, userActiveSessions, userNotificationPreferences, userNotifications, userSecurityEvents, userSecuritySummaryPreferences, userSessionVersions, users } from "../drizzle/schema";
 import type { CreditPackId } from "./creditProducts";
 import { ENV } from "./_core/env";
 import { dailyQuota, utcDayBounds } from "./photoQuota";
@@ -212,6 +212,37 @@ export async function touchUserActiveSession(sessionId: string) {
   const db = await getDb();
   if (!db) return;
   await db.update(userActiveSessions).set({ lastSeenAt: new Date() }).where(and(eq(userActiveSessions.id, sessionId), isNull(userActiveSessions.revokedAt)));
+}
+
+export async function createMobileRefreshToken(input: { userId: number; sessionId: string; tokenHash: string; expiresAt: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  await db.insert(mobileRefreshTokens).values(input);
+}
+
+export async function consumeMobileRefreshToken(tokenHash: string, now = new Date()) {
+  const db = await getDb();
+  if (!db) throw new Error("Basis data belum tersedia.");
+  const rows = await db.select().from(mobileRefreshTokens).where(and(eq(mobileRefreshTokens.tokenHash, tokenHash), isNull(mobileRefreshTokens.revokedAt), gt(mobileRefreshTokens.expiresAt, now))).limit(1);
+  const token = rows[0];
+  if (!token) return undefined;
+  const result = await db.update(mobileRefreshTokens).set({ revokedAt: now, lastUsedAt: now }).where(and(eq(mobileRefreshTokens.id, token.id), isNull(mobileRefreshTokens.revokedAt)));
+  if (Number(result[0].affectedRows ?? 0) !== 1) return undefined;
+  const user = await getUserById(token.userId);
+  return user ? { token, user } : undefined;
+}
+
+export async function revokeMobileRefreshToken(tokenHash: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.update(mobileRefreshTokens).set({ revokedAt: new Date() }).where(and(eq(mobileRefreshTokens.tokenHash, tokenHash), isNull(mobileRefreshTokens.revokedAt)));
+  return Number(result[0].affectedRows ?? 0) === 1;
+}
+
+export async function revokeUserMobileRefreshTokens(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(mobileRefreshTokens).set({ revokedAt: new Date() }).where(and(eq(mobileRefreshTokens.userId, userId), isNull(mobileRefreshTokens.revokedAt)));
 }
 
 export async function listUserActiveSessions(userId: number) {

@@ -11,11 +11,20 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "mobile:sync": "pnpm build && pnpm exec cap sync android",
+    "mobile:open": "pnpm mobile:sync && pnpm exec cap open android",
+    "mobile:apk": "pnpm mobile:sync && cd android && ./gradlew assembleDebug",
+    "mobile:apk:release": "pnpm mobile:sync && cd android && ./gradlew assembleRelease",
+    "mobile:aab:release": "pnpm mobile:sync && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
     "@aws-sdk/s3-request-presigner": "^3.693.0",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/preferences": "^8.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

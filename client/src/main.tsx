@@ -7,6 +7,7 @@ import App from "./App";
 import "./index.css";
 import { createSafeTrpcFetch } from "./lib/trpcFetch";
 import { reportTemporaryTransportFallback, reportTransportRecovered } from "./lib/transportConnectivity";
+import { getApiBaseUrl, isNativeMobile, mobileTrpcFetch } from "./lib/mobileAuth";
 
 const queryClient = new QueryClient();
 
@@ -25,9 +26,9 @@ queryClient.getMutationCache().subscribe(event => {
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      url: `${getApiBaseUrl()}/api/trpc`,
       transformer: superjson,
-      fetch: createSafeTrpcFetch(globalThis.fetch, undefined, { onFallback: reportTemporaryTransportFallback, onRecovered: reportTransportRecovered }),
+      fetch: createSafeTrpcFetch(isNativeMobile() ? mobileTrpcFetch : globalThis.fetch, undefined, { onFallback: reportTemporaryTransportFallback, onRecovered: reportTransportRecovered }),
     }),
   ],
 });

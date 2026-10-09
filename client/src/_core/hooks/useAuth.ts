@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
+import { clearMobileTokens, getMobileTokens, isNativeMobile } from "@/lib/mobileAuth";
 import { useCallback, useEffect, useMemo } from "react";
 
 type UseAuthOptions = {
@@ -25,10 +26,17 @@ export function useAuth(options?: UseAuthOptions) {
       utils.auth.me.setData(undefined, null);
     },
   });
+  const mobileLogoutMutation = trpc.auth.mobileLogout.useMutation();
 
   const logout = useCallback(async () => {
     try {
-      await logoutMutation.mutateAsync();
+      if (isNativeMobile()) {
+        const tokens = await getMobileTokens();
+        if (tokens) await mobileLogoutMutation.mutateAsync({ refreshToken: tokens.refreshToken });
+        await clearMobileTokens();
+      } else {
+        await logoutMutation.mutateAsync();
+      }
     } catch (error: unknown) {
       if (
         error instanceof TRPCClientError &&
@@ -41,13 +49,13 @@ export function useAuth(options?: UseAuthOptions) {
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }
-  }, [logoutMutation, utils]);
+  }, [logoutMutation, mobileLogoutMutation, utils]);
 
   const state = useMemo(() => {
     return {
       user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
-      error: meQuery.error ?? logoutMutation.error ?? null,
+      loading: meQuery.isLoading || logoutMutation.isPending || mobileLogoutMutation.isPending,
+      error: meQuery.error ?? logoutMutation.error ?? mobileLogoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data),
     };
   }, [
@@ -56,6 +64,8 @@ export function useAuth(options?: UseAuthOptions) {
     meQuery.isLoading,
     logoutMutation.error,
     logoutMutation.isPending,
+    mobileLogoutMutation.error,
+    mobileLogoutMutation.isPending,
   ]);
 
   useEffect(() => {

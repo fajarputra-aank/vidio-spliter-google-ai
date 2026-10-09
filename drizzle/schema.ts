@@ -81,6 +81,22 @@ export const userActiveSessions = mysqlTable(
   (table) => [index("userActiveSessions_user_active_idx").on(table.userId, table.revokedAt, table.lastSeenAt)]
 );
 
+/** Rotating mobile refresh tokens; plaintext tokens are never persisted. */
+export const mobileRefreshTokens = mysqlTable(
+  "mobileRefreshTokens",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    sessionId: varchar("sessionId", { length: 48 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    lastUsedAt: timestamp("lastUsedAt"),
+    revokedAt: timestamp("revokedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("mobileRefreshTokens_hash_unique").on(table.tokenHash), index("mobileRefreshTokens_user_active_idx").on(table.userId, table.revokedAt, table.expiresAt), index("mobileRefreshTokens_session_idx").on(table.sessionId)]
+);
+
 /** Singleton brand identity. File bytes stay in object storage; this table only holds safe delivery URLs. */
 export const brandSettings = mysqlTable("brandSettings", {
   id: int("id").primaryKey(),

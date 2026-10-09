@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   registerActiveSession: vi.fn(),
   getUserSecuritySummaryPreference: vi.fn(),
   updateUserSecuritySummaryPreference: vi.fn(),
+  revokeUserMobileRefreshTokens: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
@@ -43,6 +44,7 @@ vi.mock("./db", () => ({
   listRecentUserSecurityEvents: mocks.listRecentUserSecurityEvents,
   getUserSecuritySummaryPreference: mocks.getUserSecuritySummaryPreference,
   updateUserSecuritySummaryPreference: mocks.updateUserSecuritySummaryPreference,
+  revokeUserMobileRefreshTokens: mocks.revokeUserMobileRefreshTokens,
 }));
 
 vi.mock("./accountEmails", () => ({
